@@ -1,0 +1,211 @@
+<?php
+if( function_exists('acf_add_local_field_group') ):
+
+acf_add_local_field_group(array(
+    'key' => 'group_actualites_liees',
+    'title' => 'Configuration actualités liées',
+    'instruction' => "Affichage des actualités liées en selectionnant des articles",
+    'fields' => array(
+        array(
+            'key' => 'field_al_actualites_liees',
+            'label' => 'Actualités liées',
+            'name' => 'actualites_liees',
+            'type' => 'post_object',
+            'instructions' => 'Sélectionnez les actualités à lier',
+            'required' => 1,
+            'post_type' => array('post'),
+            'allow_null' => 0,
+            'multiple' => 1,
+            'return_format' => 'id',
+            'ui' => 1,
+        ),
+        array(
+            'key' => 'field_al_afficher_titre_parent',
+            'label' => 'Afficher le titre Actualités liées',
+            'name' => 'afficher_titre_parent',
+            'type' => 'true_false',
+            'instructions' => '',
+            'default_value' => 1,
+            'ui' => 1,
+        ),
+        array(
+            'key' => 'field_al_nombre_colonnes',
+            'label' => 'Nombre de colonnes',
+            'name' => 'nombre_colonnes',
+            'type' => 'select',
+            'instructions' => 'Choisissez le nombre de colonnes pour l\'affichage',
+            'choices' => array(
+                '1' => '1 colonne',
+                '2' => '2 colonnes',
+                '3' => '3 colonnes',
+                '4' => '4 colonnes',
+            ),
+            'default_value' => '1',
+            'return_format' => 'value',
+        ),
+        array(
+            'key' => 'field_al_ordre_tri',
+            'label' => 'Ordre de tri',
+            'name' => 'ordre_tri',
+            'type' => 'select',
+            'instructions' => 'Choisissez comment trier les actualités liées',
+            'choices' => array(
+                'menu_order' => 'Ordre des actualités',
+                'title' => 'Titre',
+                'date' => 'Date de création',
+                'modified' => 'Date de modification',
+            ),
+            'default_value' => 'menu_order',
+            'return_format' => 'value',
+        ),
+        array(
+            'key' => 'field_al_sens_tri',
+            'label' => 'Sens du tri',
+            'name' => 'sens_tri',
+            'type' => 'select',
+            'instructions' => 'Ordre croissant ou décroissant',
+            'choices' => array(
+                'ASC' => 'Croissant (A à Z, 1 à 9)',
+                'DESC' => 'Décroissant (Z à A, 9 à 1)',
+            ),
+            'default_value' => 'ASC',
+            'return_format' => 'value',
+        ),
+        array(
+            'key' => 'field_al_style_grille',
+            'label' => 'Style de la grille',
+            'name' => 'style_grille',
+            'type' => 'select',
+            'instructions' => 'Choisissez l\'apparence de la grille',
+            'choices' => array(
+                'standard' => 'Standard',
+                'compact' => 'Compact',
+                'large' => 'Large avec image',
+            ),
+            'default_value' => 'compact',
+            'return_format' => 'value',
+        ),
+        array(
+            'key' => 'field_al_limite_pages',
+            'label' => 'Nombre d\'actualité à afficher',
+            'name' => 'limite_pages',
+            'type' => 'number',
+            'instructions' => 'Laissez vide pour toutes les afficher',
+            'min' => 1,
+            'max' => 99,
+        ),
+        array(
+            'key' => 'field_al_couleur_fond',
+            'label' => 'Couleur de fond des cartes',
+            'name' => 'couleur_fond',
+            'type' => 'radio',
+            'instructions' => 'Choisissez la couleur de fond des cartes',
+            'choices' => array(
+                
+            ),
+            'default_value' => 'couleur-blanche',
+            'return_format' => 'value',
+            'allow_null' => 0,
+            'layout' => 'vertical',
+        ),
+        array(
+            'key' => 'field_al_couleur_texte',
+            'label' => 'Couleur du texte',
+            'name' => 'couleur_texte',
+            'type' => 'radio',
+            'instructions' => 'Choisissez la couleur du texte',
+            'choices' => array(
+               
+            ),
+            'default_value' => 'couleur-texte',
+            'return_format' => 'value',
+            'allow_null' => 0,
+            'layout' => 'vertical',
+        ),
+        array(
+            'key' => 'field_al_couleur_titre_block',
+            'label' => 'Couleur des titres du bloc (H2)',
+            'name' => 'couleur_titre_block',
+            'type' => 'radio',
+            'instructions' => 'Couleur du titre principal du bloc',
+            'choices' => array(
+                
+            ),
+            'default_value' => 'couleur-titrage',
+            'return_format' => 'value',
+            'allow_null' => 0,
+            'layout' => 'vertical',
+        ),
+        array(
+            'key' => 'field_al_couleur_titre',
+            'label' => 'Couleur des titres (H3)',
+            'name' => 'couleur_titre',
+            'type' => 'radio',
+            'instructions' => 'Couleur des titres des cartes (H3)',
+            'choices' => array(
+                
+            ),
+            'default_value' => 'couleur-titrage',
+            'return_format' => 'value',
+            'allow_null' => 0,
+            'layout' => 'vertical',
+        ),
+        array(
+            'key' => 'field_al_couleur_liens',
+            'label' => 'Couleur des liens',
+            'name' => 'couleur_liens',
+            'type' => 'radio',
+            'instructions' => 'Couleur des liens/boutons',
+            'choices' => array(
+                
+            ),
+            'default_value' => 'couleur-lien',
+            'return_format' => 'value',
+            'allow_null' => 0,
+            'layout' => 'vertical',
+        ),
+        array(
+            'key' => 'field_al_couleur_fond_lien',
+            'label' => 'Couleur de fond du lien',
+            'name' => 'couleur_fond_lien',
+            'type' => 'radio',
+            'instructions' => 'Couleur de fond du wrapper du lien "En savoir plus"',
+            'choices' => array(
+                
+            ),
+            'default_value' => 'couleur-blanche',
+            'return_format' => 'value',
+            'allow_null' => 0,
+            'layout' => 'vertical',
+        ),
+        array(
+            'key' => 'field_al_texte_lien',
+            'label' => 'Texte du lien "En savoir plus"',
+            'name' => 'texte_lien',
+            'type' => 'text',
+            'instructions' => 'Personnalisez le texte du lien',
+            'default_value' => 'en savoir +',
+        ),
+    ),
+    'location' => array(
+        array(
+            array(
+                'param' => 'block',
+                'operator' => '==',
+                'value' => 'acf/actualite-liees',
+            ),
+        ),
+    ),
+    'menu_order' => 0,
+        'position' => 'normal',
+        'style' => 'default',
+        'label_placement' => 'top',
+        'instruction_placement' => 'label',
+    'hide_on_screen' => array('style'),
+        'active' => true,
+        'description' => '',
+        'show_in_rest' => 0,
+        'modified' => 1736777148,
+));
+
+endif;

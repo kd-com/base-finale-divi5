@@ -1,0 +1,231 @@
+/* 
+ Theme Name:     KD-COM
+ Author:         KD-COM
+ Author URI:     https://www.kd-com.fr
+ Template:       Divi
+ Version:        1.0.3
+ Description:   Theme enfant par KD-COM
+*/ 
+
+/* ----------- PUT YOUR CUSTOM CSS BELOW THIS LINE -- DO NOT EDIT ABOVE THIS LINE --------------------------- */ 
+//import des variables de couleurs
+@use '_theme-colors' as *;
+//import des titres
+@use 'core/_headings' as *;
+//import des composants
+@use 'components/_link-arrowed';
+@use 'components/menu';
+@use 'components/kd-blog-actu';
+@use 'components/buttons_animations';
+@use 'components/forminator';
+@use 'components/tarte_au_citron';
+//import des modules
+@use 'modules/modules' as *;
+// signature site
+.kd-signature {
+    font-size: 16px !important;
+    color: $couleur-lien;
+}
+
+// correction module header couleur divi
+h4.et_pb_module_header  {
+    background-color: transparent !important;
+}
+
+sup {font-size: 60%}
+.has-couleur-titrage-color {color:$couleur-titrage}
+.has-couleur-texte-color {color:$couleur-texte}
+.has-couleur-lien-color {color:$couleur-lien}
+.has-couleur-fond-color {color:$couleur-fond}
+.has-couleur-fond2-color {color:$couleur-fond2}
+.has-couleur-blanche-color {color:$couleur-blanche}
+.has-couleur-noire-color {color:$couleur-noire}
+.has-shadow {
+  box-shadow: 0px 0px 12px 1px rgba(0,0,0,0.3);
+}
+
+
+.has-background {margin: 1.25em 0 1.25em !important; padding:1.25em 2.25em !important;}
+.has-couleur-titrage-background-color {background-color:$couleur-titrage}
+.has-couleur-texte-background-color {background-color:$couleur-texte}
+.has-couleur-lien-background-color {background-color:$couleur-lien}
+.has-couleur-fond-background-color {background-color:$couleur-fond}
+.has-couleur-fond2-background-color {background-color:$couleur-fond2}
+.has-couleur-blanche-background-color {background-color:$couleur-blanche}
+.has-couleur-noire-background-color {background-color:$couleur-noire}
+
+
+#wp-admin-bar-appearance {display: none;}
+.hide-if-no-customize {display: none !important;}
+
+
+body, #main-content {
+    
+    color:$couleur-texte !important;
+}
+
+.endinfinite {
+  display:none !important;
+}
+
+.wp-block-heading {
+  margin: 10px 0;
+}
+
+
+// ordre des colonnes sur mobile
+@media all and (max-width: 980px) {
+/*** wrap row in a flex box ***/
+.custom_row {
+  display: -webkit-box;
+  display: -moz-box;
+  display: -ms-flexbox;
+  display: -webkit-flex;
+  display: flex;
+-webkit-flex-wrap: wrap;
+flex-wrap: wrap;
+}
+ 
+/*** custom classes that will designate the order of columns in the flex box row ***/
+.first-on-mobile {
+-webkit-order: 1;
+order: 1;
+}
+ 
+.second-on-mobile {
+-webkit-order: 2;
+order: 2;
+}
+ 
+.third-on-mobile {
+-webkit-order: 3;
+order: 3;
+}
+ 
+.fourth-on-mobile {
+-webkit-order: 4;
+order: 4;
+}
+/*** add margin to last column ***/
+.custom_row:last-child .et_pb_column:last-child {
+margin-bottom: 30px;
+}
+ 
+}
+
+#main-header {padding:1em 0;}
+
+.hometitle {
+  margin-bottom:3em;
+  &.gutenberg {
+    margin-left:0;
+    margin-top:5em;
+  }
+  &:after {
+    display: block;
+    content: "";
+    width: 100%;
+    height: 1px;
+    position: absolute;
+    background: $couleur-titrage;
+    /* top: 15px; */
+    
+  }
+  &.title_chiffre {
+    h2 {
+      color:$couleur-titrage;
+    }
+    &:after {
+      width:calc(100% - 76%);
+    }
+  }
+  }
+@media (max-width:769px) {
+  .hometitle {
+    margin-left:1em;
+    &:after {
+      width:100%;
+    }
+  }
+  
+}
+@media (max-width:480px) {
+  .hometitle{
+    margin-top:3em;
+    margin-bottom:0;
+  }
+}
+
+figure {
+  border-radius:0 50px;
+}
+
+@media (max-width: 768px) {
+  .wp-block-media-text.is-stacked-on-mobile {
+    grid-template-columns: 100% !important;
+  }
+  .wp-block-media-text.is-stacked-on-mobile>.wp-block-media-text__media {
+    grid-column: 1;
+    grid-row: 1;
+  }
+  .wp-block-media-text.is-stacked-on-mobile>.wp-block-media-text__content  {
+    grid-column: 1;
+    grid-row: 2;
+  }
+  #page-container {
+    padding-top:215px !important;
+  }
+  .home {
+    #page-container {
+      padding-top:0px !important;
+    }
+  }
+}
+
+/*replace Twitter icon with X in Divi Social Follow module*/
+.et_social_twitter {
+  //background-color: $couleur-lien !important;
+  a {
+    i {
+      &.et_social_icon {
+        &:before {
+          content: "\e61b";
+	        font-family: "Font Awesome 6 Brands" !important;
+        }
+        &:after {
+          content: "\e61b";
+	        font-family: "Font Awesome 6 Brands" !important;
+        }
+      }
+    }
+  }
+}
+
+.wp-block-file {
+  a {
+    &:first-child {
+      font-weight: 600;
+    }
+  }
+}
+
+
+footer {
+  p {
+    font-weight: 400 !important;
+  }
+}
+
+/*Traduction du "Share This" de Monarch par "Partager" */
+.et_social_heading {
+	font-size: 0!important;
+  &:before {
+    content: "Partager";
+    font-size: 15px !important;
+  }
+}
+
+// jusitification du texte avec ajout de la classe dans l'admin partie avancé du bloc paragraphe
+.justification_texte {
+  text-align: justify;
+}

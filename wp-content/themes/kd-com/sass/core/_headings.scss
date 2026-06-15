@@ -1,0 +1,239 @@
+@use '../_theme-colors' as *;
+
+/* ================================================
+   Styles globaux pour les titres h1-h6
+   Basés sur le style des cards du carousel
+   ================================================ */
+
+h1, h2, h3, h4, h5, h6 {
+  font-weight: 800;
+  line-height: 1.25;
+  letter-spacing: -0.02em;
+  margin: 0 0 16px;
+  color: $couleur-titrage !important;
+}
+
+h1 a, h2 a, h3 a, h4 a, h5 a, h6 a {
+  color: inherit !important;
+  text-decoration: none;
+  transition: all 0.3s ease;
+  
+}
+.heading-gradient {
+  background: linear-gradient(90deg, $couleur-titrage, $couleur-lien);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  color: transparent;
+
+  a {
+    background: inherit;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    color: transparent;
+  }
+}
+
+h1 a:hover, h2 a:hover, h3 a:hover, h4 a:hover, h5 a:hover, h6 a:hover {
+  background-position: 100% 0 !important;
+  transform: translateX(2px) !important;
+  display: inline-block !important;
+}
+
+h1 {
+  font-size: 2.5rem; // ~40px
+  margin-bottom: 24px;
+  
+  @media (max-width: 768px) {
+    font-size: 2rem; // ~32px
+  }
+  
+  @media (max-width: 480px) {
+    font-size: 1.75rem; // ~28px
+  }
+}
+h1 {
+  &.entry-title {
+    font-size: 2.5rem !important; // ~40px
+    margin-bottom: 24px !important;
+  
+    @media (max-width: 768px) {
+      font-size: 2rem !important; // ~32px
+    }
+  
+    @media (max-width: 480px) {
+      font-size: 1.75rem !important; // ~28px
+    }
+  }
+}
+
+h2 {
+  font-size: 2rem; // ~32px
+  margin-bottom: 20px;
+  
+  @media (max-width: 768px) {
+    font-size: 1.75rem; // ~28px
+  }
+  
+  @media (max-width: 480px) {
+    font-size: 1.5rem; // ~24px
+  }
+}
+
+h3 {
+  font-size: 1.65rem; // ~26px (style des cards)
+  margin-bottom: 16px;
+  
+  @media (max-width: 768px) {
+    font-size: 1.45rem; // ~23px
+  }
+  
+  @media (max-width: 480px) {
+    font-size: 1.3rem; // ~21px
+  }
+}
+
+h4 {
+  font-size: 1.4rem; // ~22px
+  margin-bottom: 14px;
+  
+  @media (max-width: 768px) {
+    font-size: 1.25rem; // ~20px
+  }
+  
+  @media (max-width: 480px) {
+    font-size: 1.15rem; // ~18px
+  }
+}
+
+h5 {
+  font-size: 1.2rem; // ~19px
+  margin-bottom: 12px;
+  
+  @media (max-width: 768px) {
+    font-size: 1.1rem; // ~17px
+  }
+  
+  @media (max-width: 480px) {
+    font-size: 1rem; // ~16px
+  }
+}
+
+h6 {
+  font-size: 1rem; // ~16px
+  margin-bottom: 10px;
+  font-weight: 700; // Légèrement moins bold
+  
+  @media (max-width: 768px) {
+    font-size: 0.95rem; // ~15px
+  }
+  
+  @media (max-width: 480px) {
+    font-size: 0.9rem; // ~14px
+  }
+}
+
+// Titre avec effet gradient uniquement (sans lien)
+.gradient-title {
+  background: linear-gradient(135deg, $couleur-titrage 0%, $couleur-texte 100%);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-size: 200% 200%;
+  display: inline-block;
+}
+
+/* -----------------------------------------------
+   Override dégradé si une couleur est choisie
+   - Quand l'éditeur choisit une couleur de texte (palette ou custom)
+   - Ou quand une couleur de lien est appliquée via Gutenberg
+   ----------------------------------------------- */
+
+// Titres avec une couleur de texte choisie
+h1.has-text-color,
+h2.has-text-color,
+h3.has-text-color,
+h4.has-text-color,
+h5.has-text-color,
+h6.has-text-color,
+h1[style*="color"],
+h2[style*="color"],
+h3[style*="color"],
+h4[style*="color"],
+h5[style*="color"],
+h6[style*="color"],
+h1[class*="has-"][class*="-color"],
+h2[class*="has-"][class*="-color"],
+h3[class*="has-"][class*="-color"],
+h4[class*="has-"][class*="-color"],
+h5[class*="has-"][class*="-color"],
+h6[class*="has-"][class*="-color"] {
+  background: none !important;
+  background-clip: initial !important;
+  -webkit-background-clip: initial !important;
+  -webkit-text-fill-color: currentColor !important; // utiliser la couleur du texte
+}
+
+// Liens à l'intérieur des titres quand une couleur de texte est choisie
+h1.has-text-color a,
+h2.has-text-color a,
+h3.has-text-color a,
+h4.has-text-color a,
+h5.has-text-color a,
+h6.has-text-color a,
+h1 a.has-text-color,
+h2 a.has-text-color,
+h3 a.has-text-color,
+h4 a.has-text-color,
+h5 a.has-text-color,
+h6 a.has-text-color,
+h1 a[style*="color"],
+h2 a[style*="color"],
+h3 a[style*="color"],
+h4 a[style*="color"],
+h5 a[style*="color"],
+h6 a[style*="color"] {
+  background: none !important;
+  background-clip: initial !important;
+  -webkit-background-clip: initial !important;
+  -webkit-text-fill-color: currentColor !important;
+}
+
+// Liens colorés via variable Gutenberg (link color)
+h1[style*="--wp--style--color--link"] a,
+h2[style*="--wp--style--color--link"] a,
+h3[style*="--wp--style--color--link"] a,
+h4[style*="--wp--style--color--link"] a,
+h5[style*="--wp--style--color--link"] a,
+h6[style*="--wp--style--color--link"] a {
+  background: none !important;
+  background-clip: initial !important;
+  -webkit-background-clip: initial !important;
+  -webkit-text-fill-color: currentColor !important;
+}
+
+// Ancêtre définit une couleur de texte pour le bloc (héritage)
+[style*="--wp--style--color--text"] h1,
+[style*="--wp--style--color--text"] h2,
+[style*="--wp--style--color--text"] h3,
+[style*="--wp--style--color--text"] h4,
+[style*="--wp--style--color--text"] h5,
+[style*="--wp--style--color--text"] h6 {
+  background: none !important;
+  background-clip: initial !important;
+  -webkit-background-clip: initial !important;
+  -webkit-text-fill-color: currentColor !important;
+}
+
+[style*="--wp--style--color--link"] h1 a,
+[style*="--wp--style--color--link"] h2 a,
+[style*="--wp--style--color--link"] h3 a,
+[style*="--wp--style--color--link"] h4 a,
+[style*="--wp--style--color--link"] h5 a,
+[style*="--wp--style--color--link"] h6 a {
+  background: none !important;
+  background-clip: initial !important;
+  -webkit-background-clip: initial !important;
+  -webkit-text-fill-color: currentColor !important;
+}

@@ -1,0 +1,30 @@
+name: Synchroniser la Base de Données
+
+on:
+  workflow_dispatch:
+    inputs:
+      direction:
+        description: 'Direction de la synchronisation (pull|push)'
+        required: true
+        default: 'pull'
+      environment:
+        description: 'Environnement (preprod|prod)'
+        required: true
+        default: 'preprod'
+
+jobs:
+  sync-db:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout du code
+        uses: actions/checkout@v4
+
+      - name: Synchronisation de la BDD
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ inputs.environment == 'preprod' && secrets.PREPROD_HOST || secrets.PROD_HOST }}
+          username: ${{ inputs.environment == 'preprod' && secrets.PREPROD_USER || secrets.PROD_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            cd /var/www/${{ inputs.environment }}.example.com/
+            ./scripts/sync-db.sh ${{ inputs.direction }} ${{ inputs.environment }}.example.com

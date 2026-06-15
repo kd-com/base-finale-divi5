@@ -1,0 +1,484 @@
+// Animations de boutons avancées
+// Classes utilisables sur Divi, Gutenberg et blocs personnalisés
+@use '../_theme-colors' as *;
+@use '../core/_mixin' as m;
+
+
+// ========================================
+// 1. BTN-SHINE - Brillance avec inner box-shadow
+// ========================================
+.btn-shine {
+  background: linear-gradient(90deg, $couleur-titrage 0%, $couleur-lien 100%) !important;
+  color: $couleur-blanche !important;
+  border: none !important;
+  border-radius: 100px !important;
+  padding: 10px 20px !important;
+  box-shadow: inset 50px -23px 32px -20px rgba(255, 255, 255, 0.54) !important;
+  transition: box-shadow 900ms ease !important;
+  
+  &:hover {
+    box-shadow: inset -50px 30px 32px -20px rgba(255, 255, 255, 0.49) !important;
+  }
+}
+
+.wp-block-button.is-style-btn-shine {
+  .wp-block-button__link,
+  .wp-element-button {
+    background: linear-gradient(90deg, $couleur-titrage 0%, $couleur-lien 100%) !important;
+    color: $couleur-blanche !important;
+    border: none !important;
+    border-radius: 100px !important;
+    padding: 10px 20px !important;
+    box-shadow: inset 50px -23px 32px -20px rgba(255, 255, 255, 0.54) !important;
+    transition: box-shadow 900ms ease !important;
+    
+    &:hover {
+      box-shadow: inset -50px 30px 32px -20px rgba(255, 255, 255, 0.49) !important;
+    }
+  }
+}
+
+// ========================================
+// 2. BTN-SLIDE-RIGHT - Remplissage droite
+// ========================================
+.btn-slide-right {
+  background: transparent !important;
+  color: $couleur-lien !important;
+  border: 1px solid $couleur-lien !important;
+  border-radius: 0 !important;
+  padding: 12px 12px 12px 25px !important;
+  box-shadow: inset 13px 0 0 0 $couleur-lien !important;
+  transition: box-shadow 500ms ease-in, color 500ms ease-in !important;
+  
+  &:hover {
+    color: $couleur-blanche !important;
+    box-shadow: inset -126px 0 0 0 $couleur-lien !important;
+  }
+}
+
+.wp-block-button.is-style-btn-slide-right {
+  .wp-block-button__link,
+  .wp-element-button {
+    background: transparent !important;
+    color: $couleur-lien !important;
+    border: 1px solid $couleur-lien !important;
+    border-radius: 0 !important;
+    padding: 12px 12px 12px 25px !important;
+    box-shadow: inset 13px 0 0 0 $couleur-lien !important;
+    transition: box-shadow 500ms ease-in, color 500ms ease-in !important;
+    
+    &:hover {
+      color: $couleur-blanche !important;
+      box-shadow: inset -126px 0 0 0 $couleur-lien !important;
+    }
+  }
+}
+
+// ========================================
+// 3. BTN-CIRCLE-EXPAND - Cercle expansif
+// ========================================
+// BTN-CIRCLE-EXPAND
+.btn-circle-expand,
+.wp-block-button.is-style-btn-circle-expand .wp-block-button__link,
+.wp-block-button.is-style-btn-circle-expand .wp-element-button {
+  position: relative !important;
+  color: $couleur-lien !important;
+  background: transparent !important;
+  border: 0 !important;
+  padding: 15px 30px 15px 50px !important;
+  overflow: hidden !important;
+  isolation: isolate !important;
+  
+  &::before {
+    content: '' !important;
+    position: absolute !important;
+    left: 10px !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    width: 30px !important;
+    height: 30px !important;
+    background: rgba($couleur-lien, 0.3) !important;
+    border-radius: 50% !important;
+    transition: all 0.4s ease !important;
+    z-index: -1 !important;
+  }
+
+  &::after {
+    content: '●' !important;
+    position: absolute !important;
+    left: 20px !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    color: $couleur-lien !important;
+    font-size: 12px !important;
+    z-index: 1 !important;
+    transition: color 0.4s ease !important;
+  }
+
+  &:hover {
+    color: $couleur-blanche !important;
+    
+    &::before {
+      background: $couleur-lien !important;
+      width: 500% !important;
+      height: 500% !important;
+      border-radius: 0 !important;
+    }
+
+    &::after {
+      color: $couleur-blanche !important;
+    }
+  }
+}
+// ========================================
+// 4. BTN-SLIDE-UP - Remplissage bas
+// ========================================
+.btn-slide-up {
+  position: relative !important;
+  background: $couleur-lien !important;
+  color: $couleur-blanche !important;
+  border: 1px solid $couleur-lien !important;
+  border-radius: 0 !important;
+  padding: 12px 12px 12px 40px !important;
+  box-shadow: inset 0 0 0 0 $couleur-blanche !important;
+  transition: box-shadow 200ms ease-out, color 200ms ease-out !important;
+  
+  &::before {
+    content: '➜' !important;
+    position: absolute !important;
+    left: 15px !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    color: $couleur-blanche !important;
+    font-size: 16px !important;
+    transition: color 200ms ease-out !important;
+  }
+  
+  &:hover {
+    color: $couleur-lien !important;
+    box-shadow: inset 0 -50px 0 0 $couleur-blanche !important;
+    
+    &::before {
+      color: $couleur-lien !important;
+    }
+  }
+}
+
+.wp-block-button.is-style-btn-slide-up {
+  .wp-block-button__link,
+  .wp-element-button {
+    position: relative !important;
+    background: $couleur-lien !important;
+    color: $couleur-blanche !important;
+    border: 1px solid $couleur-lien !important;
+    border-radius: 0 !important;
+    padding: 12px 12px 12px 40px !important;
+    box-shadow: inset 0 0 0 0 $couleur-blanche !important;
+    transition: box-shadow 200ms ease-out, color 200ms ease !important;
+    
+    &::before {
+      content: '➜' !important;
+      position: absolute !important;
+      left: 15px !important;
+      top: 50% !important;
+      transform: translateY(-50%) !important;
+      color: $couleur-blanche !important;
+      font-size: 16px !important;
+      transition: color 200ms ease-out !important;
+    }
+    
+    &:hover {
+      color: $couleur-lien !important;
+      box-shadow: inset 0 -50px 0 0 $couleur-blanche !important;
+      
+      &::before {
+        color: $couleur-lien !important;
+      }
+    }
+  }
+}
+
+// ========================================
+// 5. BTN-ARROW-TAB - Onglet flèche
+// ========================================
+.btn-arrow-tab {
+  position: relative !important;
+  background: $couleur-texte !important;
+  color: $couleur-blanche !important;
+  border: none !important;
+  border-radius: 0 !important;
+  padding: 12px 20px 12px 50px !important;
+  box-shadow: inset 32px 0 0 0 $couleur-lien !important;
+  transition: box-shadow 300ms ease-in-out !important;
+  
+  &::before {
+    content: '' !important;
+    position: absolute !important;
+    left: 32px !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    width: 0 !important;
+    height: 0 !important;
+    border-top: 8px solid transparent !important;
+    border-bottom: 8px solid transparent !important;
+    border-left: 10px solid $couleur-titrage !important;
+    transition: left 300ms ease-in-out !important;
+  }
+  
+  &:hover {
+    box-shadow: inset 22px 0 0 0 $couleur-titrage !important;
+    
+    &::before {
+      left: 22px !important;
+    }
+  }
+}
+
+.wp-block-button.is-style-btn-arrow-tab {
+  .wp-block-button__link,
+  .wp-element-button {
+    position: relative !important;
+    background: $couleur-texte !important;
+    color: $couleur-blanche !important;
+    border: none !important;
+    border-radius: 0 !important;
+    padding: 12px 20px 12px 50px !important;
+    box-shadow: inset 32px 0 0 0 $couleur-titrage !important;
+    transition: box-shadow 300ms ease-in-out !important;
+    
+    &::before {
+      content: '' !important;
+      position: absolute !important;
+      left: 32px !important;
+      top: 50% !important;
+      transform: translateY(-50%) !important;
+      width: 0 !important;
+      height: 0 !important;
+      border-top: 8px solid transparent !important;
+      border-bottom: 8px solid transparent !important;
+      border-left: 10px solid $couleur-titrage !important;
+      transition: left 300ms ease-in-out !important;
+    }
+    
+    &:hover {
+      box-shadow: inset 22px 0 0 0 $couleur-titrage !important;
+      
+      &::before {
+        left: 22px !important;
+      }
+    }
+  }
+}
+
+// ========================================
+// 6. BTN-SHADOW-LIFT - Élévation ombre
+// ========================================
+.btn-shadow-lift {
+  background: $couleur-fond !important;
+  color: $couleur-blanche !important;
+  border: none !important;
+  border-radius: 0 !important;
+  padding: 12px 24px !important;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1) !important;
+  transition: transform 300ms ease, box-shadow 300ms ease !important;
+  
+  &:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2) !important;
+  }
+}
+
+.wp-block-button.is-style-btn-shadow-lift {
+  .wp-block-button__link,
+  .wp-element-button {
+    background: $couleur-fond !important;
+    color: $couleur-blanche !important;
+    border: none !important;
+    border-radius: 0 !important;
+    padding: 12px 24px !important;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1) !important;
+    transition: transform 300ms ease, box-shadow 300ms ease !important;
+    
+    &:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2) !important;
+    }
+  }
+}
+
+// ========================================
+// 7. BTN-BORDER-GROW - Bordures croissantes
+// ========================================
+.btn-border-grow {
+  background: transparent !important;
+  color: $couleur-fond !important;
+  border: none !important;
+  border-radius: 0 !important;
+  padding: 12px 24px !important;
+  box-shadow: 
+    inset 0 2px 0 0 $couleur-fond,
+    inset 0 -2px 0 0 $couleur-fond !important;
+  transition: box-shadow 400ms ease, color 400ms ease !important;
+  
+  &:hover {
+    color: $couleur-blanche !important;
+    box-shadow: 
+      inset 200px 2px 0 0 $couleur-fond,
+      inset -200px -2px 0 0 $couleur-fond !important;
+  }
+}
+
+.wp-block-button.is-style-btn-border-grow {
+  .wp-block-button__link,
+  .wp-element-button {
+    background: transparent !important;
+    color: $couleur-fond !important;
+    border: none !important;
+    border-radius: 0 !important;
+    padding: 12px 24px !important;
+    box-shadow: 
+      inset 0 2px 0 0 $couleur-fond,
+      inset 0 -2px 0 0 $couleur-fond !important;
+    transition: box-shadow 400ms ease, color 400ms ease !important;
+    
+    &:hover {
+      color: $couleur-blanche !important;
+      box-shadow: 
+        inset 200px 2px 0 0 $couleur-fond,
+        inset -200px -2px 0 0 $couleur-fond !important;
+    }
+  }
+}
+
+// ========================================
+// 8. BTN-FILL-CENTER - Remplissage central
+// ========================================
+.btn-fill-center {
+  background: transparent !important;
+  color: $couleur-fond !important;
+  border: 2px solid $couleur-fond !important;
+  border-radius: 0 !important;
+  padding: 12px 24px !important;
+  box-shadow: inset 0 0 0 0 $couleur-fond !important;
+  transition: box-shadow 400ms ease, color 400ms ease !important;
+  
+  &:hover {
+    color: $couleur-blanche !important;
+    box-shadow: inset 0 0 0 50px $couleur-fond !important;
+  }
+}
+
+.wp-block-button.is-style-btn-fill-center {
+  .wp-block-button__link,
+  .wp-element-button {
+    background: transparent !important;
+    color: $couleur-fond !important;
+    border: 2px solid $couleur-fond !important;
+    border-radius: 0 !important;
+    padding: 12px 24px !important;
+    box-shadow: inset 0 0 0 0 $couleur-fond !important;
+    transition: box-shadow 400ms ease, color 400ms ease !important;
+    
+    &:hover {
+      color: $couleur-blanche !important;
+      box-shadow: inset 0 0 0 50px $couleur-fond !important;
+    }
+  }
+}
+
+// Désactive la personnalisation des couleurs sur le bloc core/button
+.wp-block-button__link,
+.wp-element-button {
+  // Bouton solid par défaut
+  &:not(.is-style-outline) {
+    background: $couleur-lien !important;
+    color: $couleur-blanche !important;
+    border: none !important;
+  }
+  // Bouton contour par défaut
+  &.is-style-outline {
+    background: transparent !important;
+    color: $couleur-lien !important;
+    border: 2px solid $couleur-lien !important;
+  }
+  // Neutralise les classes de couleur Gutenberg
+  &[class*="-background-color"] {
+    background-color: $couleur-lien !important;
+  }
+  &[class*="-color"] {
+    color: $couleur-blanche !important;
+  }
+}
+
+// Style Gutenberg : bouton avec flèche
+.wp-block-button.is-style-u-link-arrow {
+  .wp-block-button__link,
+  .wp-element-button {
+    border: none !important;
+    background: transparent !important;
+    &:hover {
+      background: transparent !important;
+    }
+    // ...autres styles u-link-arrow si besoin...
+  }
+}
+
+// Style Gutenberg : bouton avec flèche et SVG
+.wp-block-button.is-style-u-link-arrow {
+  .wp-block-button__link,
+  .wp-element-button {
+    border: none !important;
+    background: transparent !important;
+    position: relative;
+    transition: all .3s ease;
+    text-decoration: none;
+    cursor: pointer;
+    // Couleur du fond personnalisable
+    &[class*="-background-color"] {
+      background-color: inherit !important;
+    }
+    // Couleur du texte personnalisable
+    &[class*="-color"] {
+      color: inherit !important;
+    }
+    &:hover {
+      background: transparent !important;
+    }
+    .arrow-icon {
+      position: relative;
+      top: 0;
+      width: 22px;
+      height: 22px;
+      margin-left: 5px;
+      transition: transform .3s ease;
+      vertical-align: middle;
+      display: inline-block;
+      flex-shrink: 0;
+      svg {
+        width: 100%;
+        height: 100%;
+        display: block;
+        color: inherit;
+      }
+      g, circle, path {
+        stroke: currentColor !important;
+      }
+    }
+    .arrow-icon--circle {
+      transition: stroke-dashoffset .3s ease;
+      stroke-dasharray: 95;
+      stroke-dashoffset: 95;
+    }
+    &:hover {
+      .arrow-icon {
+        transform: translate3d(5px, 0, 0);
+        g, circle, path {
+          stroke: currentColor !important;
+        }
+      }
+      .arrow-icon--circle {
+        stroke-dashoffset: 0;
+      }
+    }
+  }
+}

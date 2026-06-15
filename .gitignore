@@ -1,0 +1,41 @@
+# Ignorer le cœur WordPress
+/wp-admin/
+/wp-includes/
+wp-*.php
+!wp-config.local.php
+# Ignorer les fichiers générés
+wp-content/uploads/
+wp-content/et-cache/
+wp-content/upgrade/
+
+# Garder uniquement les thèmes DIVI et kd-com
+wp-content/themes/*
+!wp-content/themes/Divi/
+!wp-content/themes/kd-com/
+
+# Ignorer tous les plugins
+wp-content/plugins/*
+!wp-content/plugins/advanced-custom-fields-pro/
+
+# Ignorer tous les fichiers de langages
+wp-content/languages/
+
+# Fichiers sensibles et configs
+.env
+wp-config/*.php
+docker-compose.override.yml
+db_data/
+*.sql
+*.log
+node_modules/
+vendor/
+.DS_Store
+
+# Autres fichiers temporaires
+*.swp
+*.bak
+*.tmp
+
+# Ignorer les archives de transfert locales
+wp-archive-*
+*_??????_??????

@@ -1,0 +1,81 @@
+    .chiffre_cle_gut {
+        width: 28vmin;
+        height: fit-content;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-around;
+        padding: 1em;
+        position: relative;
+        font-size: 16px;
+        margin: 0 auto !important;
+
+        .flex-pourcent {
+            display:flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        i {
+            font-size: 3.5em;
+            text-align: center;
+            line-height:1.5em;
+          }
+        .ico-img {
+          max-height: 56px;
+          width:auto;
+          margin-right:auto;
+          margin-left:auto;
+        }
+          span {
+            &.num {
+                display: grid;
+                place-items: center;
+                font-weight: 600;
+                font-size: 3.5em;
+                line-height:1.5em
+              }
+            &.text {
+                font-size: 1em;
+                text-align: center;
+                padding: 0.7em 0;
+                font-weight: 400;
+                line-height: 1.3em;
+              }
+            &.pourcent {
+                font-size : 1.7em;
+                margin-left:5px;
+            }
+
+          }
+    }
+
+  @media screen and (max-width: 1024px) {
+    .row_chiffre {
+      width: 85vw;
+    }
+    .chiffre_cle_gut {
+
+      width: 26vmin;
+      font-size: 12px;
+    }
+  }
+  @media screen and (max-width: 768px) {
+    .row_chiffre {
+      width: 90vw;
+      flex-wrap: wrap;
+      gap: 30px;
+    }
+    .chiffre_cle_gut {
+      width: 100%;
+      font-size: 14px;
+    }
+  }
+  @media screen and (max-width: 480px) {
+    .row_chiffre {
+      gap: 15px;
+    }
+    .chiffre_cle_gut {
+      width: 100%;
+      font-size: 8px;
+    }
+  }

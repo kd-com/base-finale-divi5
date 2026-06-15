@@ -1,0 +1,637 @@
+@use '../../_theme-colors' as *;
+// Styles pour le bloc "Sous-pages"
+// Utilise des CSS custom properties exposées depuis le template PHP
+
+// Breakpoints (build-time)
+$gap: 1.5rem;
+$break-md: 768px;
+$break-sm: 480px;
+
+.sous-pages-block {
+  width: 100%;
+
+  .sous-pages-parent-title {
+    color: var(--sous-pages-block-heading);
+    margin-bottom: 1rem;
+  }
+
+  // Titres H3
+  .sous-page-title {
+    
+    margin: 0.5rem 1rem 0.25rem 1rem;
+    font-size: 1.125rem;
+   
+    
+    a {
+      color: inherit !important;
+      background: none !important;
+      background-clip: initial !important;
+      -webkit-background-clip: initial !important;
+      -webkit-text-fill-color: currentColor !important;
+      text-decoration: none;
+      
+      &:hover {
+        opacity: 0.8;
+      }
+    }
+  }
+
+  // Grille responsive
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(1, 1fr);
+    gap: $gap;
+
+    &.grid-cols-1 { grid-template-columns: 1fr; }
+    &.md\:grid-cols-2 {
+      @media (min-width: $break-md) {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+    &.lg\:grid-cols-3 {
+      @media (min-width: $break-md) {
+        grid-template-columns: repeat(3, 1fr);
+      }
+    }
+    &.lg\:grid-cols-4 {
+      @media (min-width: $break-md) {
+        grid-template-columns: repeat(4, 1fr);
+      }
+    }
+
+    @media (min-width: $break-md) {
+      grid-template-columns: repeat(3, 1fr);
+    }
+    @media (max-width: $break-md) and (min-width: $break-sm) {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+
+  .sous-page-card {
+    background: var(--sous-pages-bg, #ffffff);
+    color: var(--sous-pages-text);
+    border-radius: 0;
+    overflow: hidden;
+    box-shadow: none;
+    border: 1px solid rgba(0, 0, 0, 0.04);
+    display: flex;
+    flex-direction: column;
+    transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+
+    // Effet glassmorphism subtil
+    &::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, 
+        transparent 0%, 
+        rgba(255,255,255,0.8) 50%, 
+        transparent 100%
+      );
+      opacity: 0;
+      transition: opacity 0.5s ease;
+    }
+
+    &:hover {
+      transform: translateY(-10px);
+      border-color: rgba(0, 0, 0, 0.08);
+      box-shadow: none;
+
+      &::before {
+        opacity: 1;
+      }
+
+      .sous-page-image {
+        img {
+          transform: scale(1.15) rotate(2deg);
+        }
+      }
+    }
+
+    .sous-page-image {
+      position: relative;
+      width: 100%;
+      height: 280px;
+      overflow: hidden;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+
+      a {
+        display: block;
+        width: 100%;
+        height: 100%;
+        position: relative;
+        z-index: 2;
+      }
+
+      img {
+        display: block;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        object-position: center;
+        transition: transform 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+    }
+
+    .sous-page-content {
+      padding: 32px 28px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .sous-page-title {
+      font-size: 1.65rem;
+      font-weight: 800;
+      line-height: 1.25;
+      margin: 0 0 16px;
+      letter-spacing: -0.02em;
+      display: inline-block;
+
+      a {
+        color: inherit;
+        text-decoration: none;
+        transition: all 0.3s ease;
+
+        &:hover {
+          background-position: 100% 0;
+          transform: translateX(2px);
+          display: inline-block;
+        }
+      }
+    }
+
+    .sous-page-excerpt {
+      font-size: 1rem;
+      line-height: 1.75;
+      color: var(--sous-pages-text, #555);
+      margin-bottom: 24px;
+      flex: 1;
+      font-weight: 400;
+
+      p {
+        margin-bottom: 12px;
+
+        &:last-child {
+          margin-bottom: 0;
+        }
+      }
+    }
+
+    .sous-page-link-wrapper {
+      margin-top: auto;
+    }
+
+    .btn-sous-page {
+      display: inline-block;
+      color: $couleur-texte;
+      cursor: pointer;
+      font-weight: 500;
+      text-decoration: none;
+      text-transform: capitalize;
+      font-size: 14px;
+      transition: all .3s ease;
+      padding: 0.4rem 0.6rem;
+
+      &:hover {
+        color: $couleur-lien;
+      }
+
+      .arrow-icon {
+        position: relative;
+        top: 0;
+        width: 22px;
+        height: 22px;
+        margin-left: 5px;
+        -webkit-transition: -webkit-transform 0.3s ease;
+        transition: -webkit-transform 0.3s ease;
+        transition: transform 0.3s ease;
+        transition: transform 0.3s ease, -webkit-transform 0.3s ease;
+        vertical-align: middle;
+      }
+
+      .arrow-icon--circle {
+        transition: stroke-dashoffset .3s ease;
+        stroke-dasharray: 95;
+        stroke-dashoffset: 95;
+      }
+
+      g {
+        stroke: currentColor;
+      }
+
+      &:hover {
+        .arrow-icon {
+          transform: translate3d(5px, 0, 0);
+        }
+
+        .arrow-icon--circle {
+          stroke-dashoffset: 0;
+        }
+      }
+    }
+  }
+
+  // =====================================================
+  // Overrides conditionnels pour titres
+  // =====================================================
+  // Si une couleur spécifique de titre est définie via --sous-pages-heading
+  // Applique à la fois au H2 (parent) et H3 (cartes)
+  &[class*="--sous-pages-heading"] {
+    .sous-pages-parent-title,
+    .sous-page-card .sous-page-title,
+    .sous-page-card .sous-page-title a {
+      background: none !important;
+      background-clip: initial !important;
+      -webkit-background-clip: initial !important;
+      -webkit-text-fill-color: var(--sous-pages-heading) !important;
+      color: var(--sous-pages-heading) !important;
+    }
+  }
+  
+  // Si une couleur de bloc est définie via --sous-pages-block-heading
+  // Applique au H2 uniquement
+  &[class*="--sous-pages-block-heading"] .sous-pages-parent-title {
+    background: none !important;
+    background-clip: initial !important;
+    -webkit-background-clip: initial !important;
+    -webkit-text-fill-color: var(--sous-pages-block-heading) !important;
+    color: var(--sous-pages-block-heading) !important;
+  }
+
+  // Si une couleur de bloc est définie mais pas de couleur de titre spécifique
+  // NOTE: Ces règles s'appliquent uniquement si --sous-pages-heading n'est PAS défini
+  // Applique au H2 (parent) et H3 (cartes)
+  &.has-couleur-titrage-color:not([class*="--sous-pages-heading"]) {
+    .sous-pages-parent-title,
+    .sous-page-card .sous-page-title,
+    .sous-page-card .sous-page-title a {
+      background: none !important;
+      background-clip: initial !important;
+      -webkit-background-clip: initial !important;
+      -webkit-text-fill-color: $couleur-titrage !important;
+      color: $couleur-titrage !important;
+    }
+  }
+
+  &.has-couleur-texte-color:not([class*="--sous-pages-heading"]) {
+    .sous-pages-parent-title,
+    .sous-page-card .sous-page-title,
+    .sous-page-card .sous-page-title a {
+      background: none !important;
+      background-clip: initial !important;
+      -webkit-background-clip: initial !important;
+      -webkit-text-fill-color: $couleur-texte !important;
+      color: $couleur-texte !important;
+    }
+  }
+
+  &.has-couleur-lien-color:not([class*="--sous-pages-heading"]) {
+    .sous-pages-parent-title,
+    .sous-page-card .sous-page-title,
+    .sous-page-card .sous-page-title a {
+      background: none !important;
+      background-clip: initial !important;
+      -webkit-background-clip: initial !important;
+      -webkit-text-fill-color: $couleur-lien !important;
+      color: $couleur-lien !important;
+    }
+  }
+
+  &.has-couleur-fond-color:not([class*="--sous-pages-heading"]) {
+    .sous-pages-parent-title,
+    .sous-page-card .sous-page-title,
+    .sous-page-card .sous-page-title a {
+      background: none !important;
+      background-clip: initial !important;
+      -webkit-background-clip: initial !important;
+      -webkit-text-fill-color: $couleur-fond !important;
+      color: $couleur-fond !important;
+    }
+  }
+
+  &.has-couleur-fond2-color:not([class*="--sous-pages-heading"]) {
+    .sous-pages-parent-title,
+    .sous-page-card .sous-page-title,
+    .sous-page-card .sous-page-title a {
+      background: none !important;
+      background-clip: initial !important;
+      -webkit-background-clip: initial !important;
+      -webkit-text-fill-color: $couleur-fond2 !important;
+      color: $couleur-fond2 !important;
+    }
+  }
+
+  &.has-couleur-blanc-color:not([class*="--sous-pages-heading"]) {
+    .sous-pages-parent-title,
+    .sous-page-card .sous-page-title,
+    .sous-page-card .sous-page-title a {
+      background: none !important;
+      background-clip: initial !important;
+      -webkit-background-clip: initial !important;
+      -webkit-text-fill-color: $couleur-blanche !important;
+      color: $couleur-blanche !important;
+    }
+  }
+
+  &.has-couleur-noir-color:not([class*="--sous-pages-heading"]) {
+    .sous-pages-parent-title,
+    .sous-page-card .sous-page-title,
+    .sous-page-card .sous-page-title a {
+      background: none !important;
+      background-clip: initial !important;
+      -webkit-background-clip: initial !important;
+      -webkit-text-fill-color: $couleur-noire !important;
+      color: $couleur-noire !important;
+    }
+  }
+
+  // FALLBACK: Si aucune classe spécifique mais que acf-block existe avec couleur_bloc
+  // Utiliser la variable CSS comme fallback
+  &.acf-block[class*="has-couleur-"]:not([class*="--sous-pages-heading"]) {
+    .sous-pages-parent-title,
+    .sous-page-card .sous-page-title,
+    .sous-page-card .sous-page-title a {
+      background: none;
+      background-clip: initial;
+      -webkit-background-clip: initial;
+      -webkit-text-fill-color: currentColor;
+    }
+  }
+
+  // =====================================================
+  // Overrides conditionnels pour liens et CTA
+  // =====================================================
+  // Si une couleur spécifique de lien est définie via --sous-pages-link
+  &[class*="--sous-pages-link"] {
+    .btn-sous-page,
+    .sous-page-link a {
+      color: var(--sous-pages-link) !important;
+
+      svg g {
+        stroke: currentColor !important;
+        color: inherit !important;
+      }
+    }
+  }
+
+  // Si une couleur de bloc est définie mais pas de couleur de lien spécifique
+  &.has-couleur-titrage-color:not([class*="--sous-pages-link"]) {
+    .btn-sous-page,
+    .sous-page-link a {
+      color: $couleur-titrage !important;
+
+      svg g {
+        stroke: currentColor !important;
+        color: inherit !important;
+      }
+    }
+  }
+
+  &.has-couleur-texte-color:not([class*="--sous-pages-link"]) {
+    .btn-sous-page,
+    .sous-page-link a {
+      color: $couleur-texte !important;
+
+      svg g {
+        stroke: currentColor !important;
+        color: inherit !important;
+      }
+    }
+  }
+
+  &.has-couleur-lien-color:not([class*="--sous-pages-link"]) {
+    .btn-sous-page,
+    .sous-page-link a {
+      color: $couleur-lien !important;
+
+      svg g {
+        stroke: currentColor !important;
+        color: inherit !important;
+      }
+    }
+  }
+
+  &.has-couleur-fond-color:not([class*="--sous-pages-link"]) {
+    .btn-sous-page,
+    .sous-page-link a {
+      color: $couleur-fond !important;
+
+      svg g {
+        stroke: currentColor !important;
+        color: inherit !important;
+      }
+    }
+  }
+
+  &.has-couleur-fond2-color:not([class*="--sous-pages-link"]) {
+    .btn-sous-page,
+    .sous-page-link a {
+      color: $couleur-fond2 !important;
+
+      svg g {
+        stroke: currentColor !important;
+        color: inherit !important;
+      }
+    }
+  }
+
+  &.has-couleur-blanc-color:not([class*="--sous-pages-link"]) {
+    .btn-sous-page,
+    .sous-page-link a {
+      color: $couleur-blanche !important;
+
+      svg g {
+        stroke: currentColor !important;
+        color: inherit !important;
+      }
+    }
+  }
+
+  &.has-couleur-noir-color:not([class*="--sous-pages-link"]) {
+    .btn-sous-page,
+    .sous-page-link a {
+      color: $couleur-noire !important;
+
+      svg g {
+        stroke: currentColor !important;
+        color: inherit !important;
+      }
+    }
+  }
+
+  // =====================================================
+  // Variantes de style: standard / compact / large
+  // =====================================================
+
+  // Standard: grille classique avec image, titre, extrait et lien (style carousel)
+  &.style-standard {
+    padding-top: 1rem;
+    
+    .sous-page-card {
+      .sous-page-image { 
+        height: 280px; 
+      }
+    }
+
+    @media (max-width: $break-md) {
+      .sous-page-card { 
+        .sous-page-image { height: 240px; }
+        .sous-page-content { padding: 24px 20px; }
+        .sous-page-title { font-size: 1.45rem; }
+      }
+    }
+
+    @media (max-width: $break-sm) {
+      .sous-page-card { 
+        .sous-page-image { height: 200px; }
+        .sous-page-content { padding: 20px 18px; }
+        .sous-page-title { font-size: 1.3rem; }
+      }
+    }
+  }
+
+  // Compact: mini-cartes, pas d'extrait, style simplifié
+  &.style-compact {
+    padding-top: 1rem;
+    
+    .sous-page-card {
+      padding: 0.5rem;
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      gap: 0.75rem;
+
+      .sous-page-image {
+        flex: 0 0 96px;
+        height: 64px;
+        
+        img { 
+          width: 100%; 
+          height: 100%; 
+          object-fit: cover; 
+        }
+      }
+
+      .sous-page-excerpt { display: none; }
+
+      .sous-page-title { 
+        margin: 0; 
+        font-size: 1rem; 
+      }
+      
+      .btn-sous-page { 
+        margin: 0 0 0 auto; 
+        padding: 0.4rem 0.6rem; 
+      }
+    }
+
+    @media (max-width: $break-md) {
+      .sous-page-card { 
+        flex-direction: column; 
+        
+        .sous-page-image { 
+          width: 100%; 
+          height: 140px; 
+        }
+      }
+    }
+  }
+
+  // Large: mise en page large identique au carousel (mode carte complète)
+  &.style-large {
+    padding-top: 1rem;
+    
+    .sous-page-card {
+      .sous-page-image { 
+        height: 320px; 
+      }
+      
+      .sous-page-content { 
+        padding: 40px 32px; 
+      }
+      
+      .sous-page-title { 
+        font-size: 1.85rem; 
+      }
+    }
+
+    @media (max-width: $break-md) {
+      .sous-page-card { 
+        .sous-page-image { height: 280px; }
+        .sous-page-content { padding: 32px 24px; }
+        .sous-page-title { font-size: 1.65rem; }
+      }
+    }
+
+    @media (max-width: $break-sm) {
+      .sous-page-card { 
+        .sous-page-image { height: 240px; }
+        .sous-page-content { padding: 24px 20px; }
+        .sous-page-title { font-size: 1.45rem; }
+      }
+    }
+  }
+
+  // Accessibilité & petites optimisations
+  .sous-page-card a { outline: none; }
+  .sous-page-card a:focus { box-shadow: 0 0 0 3px rgba(0,137,171,0.15); }
+}
+
+// block livre
+.page-spe-block2 {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0;
+  min-height: 400px;
+  max-width: 900px;
+  margin: 2em auto;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 2px 16px rgba(0,0,0,0.07);
+  overflow: hidden;
+  @media (min-width: 1024px) {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+.page-spe-image {
+  width: 100%;
+  height: 100%;
+  min-height: 320px;
+  background: #f5f5f5;
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 0;
+  }
+}
+.page-spe-content {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  min-height: 320px;
+  padding: 2em;
+  text-align: center;
+  @media (min-width: 1024px) {
+    align-items: flex-start;
+    text-align: left;
+  }
+}
+.page-spe-title {
+  margin-bottom: 1em;
+}
+.page-spe-excerpt {
+  margin-bottom: 2em;
+}
+.page-spe-link-wrapper {
+  margin-top: 1em;
+}

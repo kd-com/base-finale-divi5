@@ -1,0 +1,90 @@
+@use '../_theme-colors' as *;
+@use '../core/_mixin' as m;
+
+
+.tarteaucitron {
+  background-color: $couleur-blanche;
+  border: 1px solid $couleur-fond2;
+  border-radius: 0;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  font-size: 14px;
+  color: $couleur-texte;
+  z-index: 99999;
+
+  .tarteaucitron-title {
+    background-color: $couleur-fond;
+    color: $couleur-blanche;
+    padding: 12px 16px;
+    font-weight: bold;
+    font-size: 16px;
+  }
+
+  .tarteaucitron-close {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    font-size: 18px;
+    color: $couleur-blanche;
+    cursor: pointer;
+  }
+
+  .tarteaucitron-content {
+    padding: 16px;
+  }
+
+  .tarteaucitron-service {
+    margin-bottom: 12px;
+
+    .tarteaucitron-service-name {
+      font-weight: bold;
+      margin-bottom: 4px;
+    }
+
+    .tarteaucitron-service-description {
+      font-size: 13px;
+      margin-bottom: 8px;
+    }
+
+    .tarteaucitron-service-toggle {
+      @include m.btn-outline($couleur-fond);
+      padding: 8px 16px;
+      font-size: 13px;
+    }
+  }
+}
+
+.tac-recaptcha-fallback {
+  padding: 20px;
+  background: linear-gradient(135deg, $couleur-titrage 0%, $couleur-fond 100%);
+  border: none;
+  border-radius: 8px;
+  text-align: center;
+  color: $couleur-blanche;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+  min-height: 78px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+
+  p {
+    margin: 0 0 10px 0;
+    font-weight: 600; font-size: 16px;
+    color: $couleur-blanche;
+  }
+  button {
+    @include m.btn-outline($couleur-blanche);
+    background: transparent;
+    color: $couleur-blanche;
+    border: 2px solid $couleur-blanche;
+    padding: 10px 20px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+
+    &:hover {
+      background: $couleur-blanche;
+      color: $couleur-fond;
+    }
+  }
+}

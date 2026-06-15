@@ -1,0 +1,65 @@
+@use '../theme-colors' as *;
+@use 'admin' as *;
+
+@use '../components/_link-arrowed' as *;
+@use 'my_blocks/chiffre-cle';
+@use 'my_blocks/souspages';
+@use '../modules/mes_modules/videos_grid';
+
+/* Compenser les styles de l'éditeur */
+.editor-styles-wrapper .plugin p { 
+    margin-top: 0;
+    margin-bottom: 20px;
+}
+
+.editor-styles-wrapper .plugin p:last-child {
+    margin-bottom: 0;
+}
+.has-couleur-titrage-color {color:$couleur-titrage !important}
+.has-couleur-texte-color {color:$couleur-texte !important}
+.has-couleur-lien-color {color:$couleur-lien !important}
+.has-couleur-fond-color {color:$couleur-fond !important}
+.has-couleur-fond2-color {color:$couleur-fond2 !important}
+.has-couleur-blanche-color {color:$couleur-blanche !important}
+.has-couleur-noire-color {color:$couleur-noire !important}
+.has-shadow {
+  box-shadow: 0px 0px 12px 1px rgba(0,0,0,0.3);
+}
+
+
+.has-background {margin: 1.25em 0 1.25em !important; padding:1.25em 2.25em !important;}
+.has-couleur-titrage-background-color {background-color:$couleur-titrage !important}
+.has-couleur-texte-background-color {background-color:$couleur-texte !important}
+.has-couleur-lien-background-color {background-color:$couleur-lien !important}
+.has-couleur-fond-background-color {background-color:$couleur-fond !important}
+.has-couleur-fond2-background-color {background-color:$couleur-fond2 !important}
+.has-couleur-blanche-background-color {background-color:$couleur-blanche !important}
+.has-couleur-noire-background-color {background-color:$couleur-noire !important}  
+.btn_flamme {
+    .wp-block-button {
+    width: 100%;
+    text-align: center;
+    border:0;
+  }
+  .wp-block-button__link {
+    width: 28vmin;
+    padding: 1em !important;
+    ;
+    margin: 10px auto;
+    border:0;
+  }
+}
+@media (max-width:600px) {
+  .btn_flamme {
+    width:100%;
+  }
+}
+@media (max-width:1200px) {
+  .wp-block-button {
+    .wp-block-button__link {
+      width:100%;
+      font-size-adjust: 80%;
+    }
+  }
+}
+

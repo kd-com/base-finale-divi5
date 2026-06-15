@@ -1,0 +1,423 @@
+@use '../../theme-colors' as *;
+@use 'sass:list';
+
+.events-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.events-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 30px;
+  margin-top: 30px;
+}
+
+.events-section-title {
+  margin-top:2em;
+}
+
+.event-card {
+  background: $couleur-blanche;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  display: flex;
+  flex-direction: column;
+
+  &:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+  }
+  &:nth-child(even) {
+    background: rgba($couleur-fond, 0.1);
+  }
+}
+
+.event-image {
+  width: 100%;
+  height: 200px;
+  overflow: hidden;
+  position: relative;
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.3s ease;
+  }
+}
+
+.event-card:hover .event-image img {
+  transform: scale(1.05);
+}
+
+.event-content {
+  padding: 20px;
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.event-title {
+  font-size: 1.4em;
+  margin: 0 0 15px 0;
+  color: $couleur-texte;
+
+  a {
+    text-decoration: none;
+    color: $couleur-texte;
+    transition: color 0.3s ease;
+
+    &:hover {
+      color: $couleur-lien;
+    }
+  }
+}
+
+.event-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 20px;
+  color: $couleur-texte;
+  font-size: 0.95em;
+}
+
+.event-date, .event-time, .event-location {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.event-links {
+  display: flex;
+  gap: 10px;
+  margin-top: auto;
+
+  a {
+    flex: 1;
+    padding: 12px 20px;
+    text-align: center;
+    text-decoration: none;
+    border-radius: 5px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+  }
+}
+
+.link-details {
+  background: $couleur-fond2;
+  color: $couleur-blanche;
+
+  &:hover {
+    background: $couleur-fond;
+  }
+}
+
+.link-tickets {
+  background: $couleur-lien;
+  color: $couleur-blanche;
+
+  &:hover {
+    background: $couleur-fond2;
+  }
+}
+
+.no-events {
+  text-align: center;
+  padding: 40px;
+  color: $couleur-texte;
+  font-size: 1.1em;
+}
+
+@media (max-width: 768px) {
+  .events-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+
+// affichage des tarifs 
+.event-prices-container {
+  .prices-title {
+    margin: 0 0 1.5rem 0;
+    font-size: 1.5rem;
+  }
+  .prices-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+
+    .price-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 1rem;
+      border-bottom: 1px solid $couleur-lien;
+
+      &.free {
+        .price-icon {
+          display:none;
+        }        
+      }
+
+      .price-icon {
+        font-size: 1.5rem;
+        color: $couleur-lien;
+      }
+      .price-details {
+        flex: 1;
+        display:flex;
+        flex-direction: row;
+        align-items: stretch;
+        justify-content: space-between;
+        gap: 1rem;
+        flex-wrap: wrap;
+
+        .price-label {
+          margin: 0 0 0.5rem 0;
+          font-weight: 600;
+          font-size: 1.1rem;
+          color: $couleur-titrage;
+        }
+        .price-amount {
+          margin: 0 0 0.5rem 0;
+          font-size: 1.25rem;
+          font-weight: 700;
+          color: $couleur-lien;
+        }
+        .price-description {
+          margin: 0;
+          font-size: 0.9rem;
+          color: $couleur-texte;
+        }
+        .no-prices {
+          padding: 1rem;
+          text-align: center;
+          color: $couleur-texte;
+          font-style: italic;
+        }
+      }
+
+    }
+  }
+  .event-ticket-button {
+    margin-top: 1.5rem;
+    text-align: center;
+  }   
+}
+
+
+.event-map-container {
+    margin: 2rem 0;
+    .event-map {
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  }
+  .event-map-error {
+    padding: 1rem;
+    background: #fff3cd;
+    border: 1px solid #ffc107;
+    border-radius: 6px;
+    color: #856404;
+    text-align: center;
+  }
+  .event-map-error p {
+    margin: 0;
+  }
+  .custom-marker-icon {
+    background: none !important;
+    border: none !important;
+
+      svg {
+      display: block;
+      filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+    }
+  }
+}
+
+/* Styles pour les badges d'événements */
+.event-card {
+    position: relative;
+}
+
+.event-image {
+    position: relative;
+}
+
+.event-badge {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    color: $couleur-blanche;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    z-index: 10;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.event-badge i {
+    font-size: 14px;
+}
+
+.recurring-badge {
+    background: linear-gradient(135deg, $couleur-titrage 0%, $couleur-fond 100%);
+}
+
+.multi-day-badge {
+    background: linear-gradient(135deg, $couleur-fond 0%, $couleur-titrage 100%);
+}
+
+/* Style spécial pour les événements récurrents */
+.event-card.recurring .event-date {
+    font-weight: 600;
+    color: $couleur-titrage;
+}
+
+/* Style spécial pour les événements multi-jours */
+.event-card.multi-day .event-date {
+    font-weight: 600;
+    color: $couleur-titrage;
+}
+
+/* Animation légère au survol */
+.event-badge {
+    transition: transform 0.2s ease;
+}
+
+.event-card:hover .event-badge {
+    transform: scale(1.05);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .event-badge {
+        font-size: 11px;
+        padding: 5px 10px;
+        top: 8px;
+        right: 8px;
+    }
+    
+    .event-badge i {
+        font-size: 12px;
+    }
+}
+
+/* ========================================
+   Styles pour le shortcode display_event_date
+   ======================================== */
+
+.event-date-display {
+    margin: 1.5rem 0;
+}
+
+.event-dates {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.event-dates .date-label {
+    font-size: 1.25rem;
+    color: $couleur-titrage;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.event-dates .date-label i {
+    color: $couleur-titrage;
+    font-size: 1.5rem;
+}
+
+/* Dates récurrentes */
+.event-dates.recurring .date-label.main-recurrence {
+    font-size: 1.5rem;
+    color: $couleur-titrage;
+}
+
+.event-dates.recurring .date-range {
+    font-size: 1rem;
+    color: $couleur-titrage;
+    padding-left: 2.5rem;
+    font-style: italic;
+}
+
+/* Dates multi-jours */
+.event-dates.multi-day .date-label {
+    color: $couleur-titrage;
+}
+
+/* Badge de type d'événement (dans le shortcode) */
+.event-type-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: $couleur-blanche;
+    margin-top: 0.5rem;
+}
+
+.event-type-badge i {
+    font-size: 1rem;
+}
+
+.event-type-badge.recurring {
+    background: linear-gradient(135deg, $couleur-titrage 0%, $couleur-fond 100%);
+}
+
+.event-type-badge.multi-day {
+    background: linear-gradient(135deg, $couleur-fond 0%, $couleur-titrage 100%);
+}
+
+/* Affichage de l'heure */
+.event-time-display {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+    font-size: 1.125rem;
+    color: $couleur-titrage;
+    padding-left: 0.25rem;
+}
+
+.event-time-display i {
+    color: $couleur-titrage;
+    font-size: 1.25rem;
+}
+
+/* Responsive pour le shortcode */
+@media (max-width: 768px) {
+    .event-dates .date-label {
+        font-size: 1.125rem;
+    }
+    
+    .event-dates.recurring .date-label.main-recurrence {
+        font-size: 1.25rem;
+    }
+    
+    .event-dates.recurring .date-range {
+        padding-left: 0;
+        font-size: 0.9rem;
+    }
+    
+    .event-type-badge {
+        font-size: 0.75rem;
+        padding: 0.4rem 0.8rem;
+    }
+    
+    .event-time-display {
+        font-size: 1rem;
+    }
+}

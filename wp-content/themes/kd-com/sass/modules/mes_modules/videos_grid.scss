@@ -1,0 +1,420 @@
+@use '../../_theme-colors' as *;
+@use 'sass:list';
+/**
+ * Styles pour le bloc YouTube Grid
+ * Grille responsive de vidéos YouTube avec système intelligent RGPD/Natif
+ */
+
+.youtube-grid {
+  margin: 40px 0;
+  
+  // Alignements Gutenberg
+  &.alignwide,
+  &.alignfull {
+    margin-left: auto;
+    margin-right: auto;
+  }
+  
+  &.alignwide {
+    max-width: 1200px;
+  }
+  
+  &.alignfull {
+    max-width: 100%;
+    width: 100vw;
+    margin-left: calc(50% - 50vw);
+    margin-right: calc(50% - 50vw);
+    
+    .youtube-grid__container {
+      padding: 0 20px;
+    }
+  }
+  
+  // État vide (éditeur)
+  &--empty {
+    padding: 40px;
+    text-align: center;
+    background: #f8f9fa;
+    border: 2px dashed #dee2e6;
+    border-radius: 8px;
+    color: #6c757d;
+    
+    p {
+      margin: 0;
+      font-size: 1.1em;
+    }
+  }
+}
+
+// En-tête de section
+.youtube-grid__header {
+  text-align: center;
+  margin-bottom: 40px;
+  
+  @media (max-width: 768px) {
+    margin-bottom: 30px;
+  }
+}
+
+.youtube-grid__title {
+  font-size: 2.5em;
+  font-weight: 700;
+  margin: 0 0 15px 0;
+  color: var(--couleur-titrage, #22282d);
+  line-height: 1.2;
+  
+  @media (max-width: 768px) {
+    font-size: 2em;
+  }
+  
+  @media (max-width: 480px) {
+    font-size: 1.75em;
+  }
+}
+
+.youtube-grid__subtitle {
+  font-size: 1.1em;
+  color: var(--couleur-texte, #3e464b);
+  max-width: 700px;
+  margin: 0 auto;
+  line-height: 1.6;
+  
+  p {
+    margin: 0 0 10px 0;
+    
+    &:last-child {
+      margin-bottom: 0;
+    }
+  }
+  
+  @media (max-width: 768px) {
+    font-size: 1em;
+    max-width: 90%;
+  }
+}
+
+// Conteneur de la grille
+.youtube-grid__container {
+  display: grid;
+  width: 100%;
+  
+  // Colonnes
+  &--columns-1 {
+    grid-template-columns: 1fr;
+    max-width: 800px;
+    margin: 0 auto;
+  }
+  
+  &--columns-2 {
+    grid-template-columns: repeat(2, 1fr);
+    
+    @media (max-width: 640px) {
+      grid-template-columns: 1fr;
+    }
+  }
+  
+  &--columns-3 {
+    grid-template-columns: repeat(3, 1fr);
+    
+    @media (max-width: 900px) {
+      grid-template-columns: repeat(2, 1fr);
+    }
+    
+    @media (max-width: 640px) {
+      grid-template-columns: 1fr;
+    }
+  }
+  
+  &--columns-4 {
+    grid-template-columns: repeat(4, 1fr);
+    
+    @media (max-width: 1200px) {
+      grid-template-columns: repeat(3, 1fr);
+    }
+    
+    @media (max-width: 900px) {
+      grid-template-columns: repeat(2, 1fr);
+    }
+    
+    @media (max-width: 640px) {
+      grid-template-columns: 1fr;
+    }
+  }
+  
+  // Espacements
+  &--gap-small {
+    gap: 15px;
+    
+    @media (max-width: 480px) {
+      gap: 10px;
+    }
+  }
+  
+  &--gap-medium {
+    gap: 25px;
+    
+    @media (max-width: 768px) {
+      gap: 20px;
+    }
+    
+    @media (max-width: 480px) {
+      gap: 15px;
+    }
+  }
+  
+  &--gap-large {
+    gap: 35px;
+    
+    @media (max-width: 768px) {
+      gap: 25px;
+    }
+    
+    @media (max-width: 480px) {
+      gap: 20px;
+    }
+  }
+}
+
+// Item de la grille
+.youtube-grid__item {
+  position: relative;
+  width: 100%;
+  
+  // Animation au hover
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  
+  &:hover {
+    transform: translateY(-5px);
+    
+    .youtube-grid__video-wrapper {
+      box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+    }
+  }
+}
+
+// Wrapper de la vidéo
+.youtube-grid__video-wrapper {
+  position: relative;
+  width: 100%;
+  background: transparent;
+  border-radius: 8px;
+  overflow: visible;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  transition: box-shadow 0.3s ease;
+  aspect-ratio: 16/9;
+  
+  // Ratios d'aspect
+  &[style*="padding-bottom: 56.25%"] { 
+    /* 16:9 - ratio standard YouTube */
+    aspect-ratio: 16/9;
+  }
+  
+  &[style*="padding-bottom: 75%"] { 
+    /* 4:3 - ratio classique */
+    aspect-ratio: 4/3;
+  }
+  
+  &[style*="padding-bottom: 100%"] { 
+    /* 1:1 - ratio carré */
+    aspect-ratio: 1/1;
+  }
+  
+  &[style*="padding-bottom: 42.86%"] { 
+    /* 21:9 - ratio cinéma */
+    aspect-ratio: 21/9;
+  }
+  
+  @media (max-width: 768px) {
+    border-radius: 6px;
+  }
+  iframe {
+    border-radius: 8px;
+    @media (max-width: 768px) {
+      border-radius: 6px;
+    }
+    width:100%;
+    height:100%;
+    object-fit: cover;
+    display:block;
+  }
+}
+
+// Iframe et élément YouTube
+.youtube-grid__iframe,
+.youtube-grid__video-wrapper .youtube_player {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100% !important;
+  height: 100% !important;
+  border: 0;
+  object-fit: cover;
+}
+
+
+// Mode natif spécifique
+.youtube-grid__video-wrapper .youtube_player--native {
+  background: #f8f9fa;
+  border: 1px solid #dee2e6;
+  
+  iframe {
+    border-radius: 6px;
+  }
+}
+
+// Contenu textuel
+.youtube-grid__content {
+  padding: 20px 5px 0 5px;
+  
+  @media (max-width: 768px) {
+    padding: 15px 0 0 0;
+  }
+}
+
+.youtube-grid__video-title {
+  font-size: 1.2em;
+  font-weight: 600;
+  margin: 0 0 10px 0;
+  color: var(--couleur-titrage, #22282d);
+  line-height: 1.3;
+  
+  // Limiter à 2 lignes avec ellipsis
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  
+  @media (max-width: 768px) {
+    font-size: 1.1em;
+  }
+  
+  @media (max-width: 480px) {
+    font-size: 1em;
+  }
+}
+
+.youtube-grid__video-description {
+  font-size: 0.95em;
+  color: var(--couleur-texte, #3e464b);
+  line-height: 1.5;
+  
+  p {
+    margin: 0 0 8px 0;
+    
+    &:last-child {
+      margin-bottom: 0;
+    }
+  }
+  
+  // Limiter à 3 lignes avec ellipsis
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  
+  @media (max-width: 768px) {
+    font-size: 0.9em;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+  }
+}
+
+// Débogage (éditeur uniquement)
+.youtube-grid__debug {
+  margin-top: 20px;
+  padding: 12px 16px;
+  background: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: 6px;
+  font-size: 0.85em;
+  color: #6c757d;
+  font-family: monospace;
+  
+  strong {
+    color: #495057;
+  }
+}
+
+// Intégration avec le système YouTube existant
+.youtube-grid {
+  .youtube_player {
+    // Hériter des styles du système existant
+    border-radius: 8px;
+    
+    @media (max-width: 768px) {
+      border-radius: 6px;
+    }
+  }
+  
+  // Mode RGPD avec Tarteaucitron
+  &[data-tarteaucitron="enabled"] {
+    .youtube-grid__video-wrapper {
+      .youtube_player {
+        background: #000;
+      }
+    }
+  }
+  
+  // Mode natif
+  &[data-tarteaucitron="disabled"] {
+    .youtube-grid__video-wrapper {
+      .youtube-grid__iframe {
+        background: #f8f9fa;
+      }
+    }
+  }
+}
+
+// Support pour différents thèmes et contextes
+.entry-content .youtube-grid,
+.widget .youtube-grid,
+.wp-block-column .youtube-grid {
+  margin: 30px 0;
+}
+
+// Dans les colonnes Gutenberg
+.wp-block-columns .youtube-grid {
+  margin: 20px 0;
+  
+  .youtube-grid__container--columns-3,
+  .youtube-grid__container--columns-4 {
+    grid-template-columns: repeat(2, 1fr);
+    
+    @media (max-width: 768px) {
+      grid-template-columns: 1fr;
+    }
+  }
+}
+
+// Support pour les thèmes sombres
+@media (prefers-color-scheme: dark) {
+  .youtube-grid__debug {
+    background: #2d3748;
+    border-color: #4a5568;
+    color: #a0aec0;
+    
+    strong {
+      color: #e2e8f0;
+    }
+  }
+}
+
+.video-aleatoire-container {
+  background: transparent;
+  border-radius: 8px;
+  overflow: visible;
+  aspect-ratio: 16/9;
+  iframe {
+    border-radius: 8px;
+    aspect-ratio: 16/9;
+    @media (max-width: 768px) {
+      border-radius: 6px;
+    }
+    width:100%;
+    height:100%;
+    object-fit: cover;
+    display:block;
+  }
+}

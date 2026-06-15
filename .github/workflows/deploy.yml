@@ -1,0 +1,261 @@
+name: Deploy kd-com theme
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environnement cible'
+        required: true
+        default: 'preprod'
+        type: choice
+        options:
+          - preprod
+          - prod
+  push:
+    branches:
+      - preprod
+      - prod
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+          token: ${{ secrets.GH_PAT }}
+
+      # Déterminer l'environnement
+      - name: Set environment
+        id: env
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "target=${{ inputs.environment }}" >> $GITHUB_OUTPUT
+          elif [ "${{ github.ref }}" == "refs/heads/prod" ]; then
+            echo "target=prod" >> $GITHUB_OUTPUT
+          else
+            echo "target=preprod" >> $GITHUB_OUTPUT
+          fi
+
+      # ============================================
+      # Whitelist IP (preprod + prod si o2switch)
+      # ============================================
+      - name: Get runner's public IP
+        id: ip
+        uses: haythem/public-ip@v1.3
+
+      - name: Check if prod uses o2switch
+        id: prod_check
+        if: steps.env.outputs.target == 'prod'
+        run: |
+          if [[ "${{ secrets.PROD_HOST }}" == *"o2switch.net"* ]]; then
+            echo "is_o2switch=true" >> $GITHUB_OUTPUT
+            echo "✅ Production détectée sur o2switch - whitelist requise"
+          else
+            echo "is_o2switch=false" >> $GITHUB_OUTPUT
+            echo "ℹ️ Production NOT sur o2switch - pas de whitelist"
+          fi
+
+      # PREPROD whitelist
+      - name: Remove all whitelisted IPs (preprod)
+        if: steps.env.outputs.target == 'preprod'
+        run: |
+          curl -sm 45 -H'Authorization: cpanel ${{ secrets.PREPROD_USER }}:${{ secrets.CPANEL_API_TOKEN }}' \
+          'https://${{ secrets.PREPROD_HOST }}:2083/execute/SshWhitelist/remove_all'
+
+      - name: Whitelist runner IP (preprod)
+        if: steps.env.outputs.target == 'preprod'
+        run: |
+          curl -sm 45 -H'Authorization: cpanel ${{ secrets.PREPROD_USER }}:${{ secrets.CPANEL_API_TOKEN }}' \
+          'https://${{ secrets.PREPROD_HOST }}:2083/execute/SshWhitelist/add?address=${{ steps.ip.outputs.ipv4 }}&port=22'
+
+      - name: Verify IP is whitelisted (preprod)
+        if: steps.env.outputs.target == 'preprod'
+        run: |
+          curl -sm 45 -H'Authorization: cpanel ${{ secrets.PREPROD_USER }}:${{ secrets.CPANEL_API_TOKEN }}' \
+          'https://${{ secrets.PREPROD_HOST }}:2083/execute/SshWhitelist/list' | grep ${{ steps.ip.outputs.ipv4 }}
+
+      # ← Délai pour laisser o2switch appliquer la whitelist preprod
+      - name: Wait for whitelist to apply (preprod)
+        if: steps.env.outputs.target == 'preprod'
+        run: sleep 10
+
+      # PROD o2switch whitelist
+      - name: Remove all whitelisted IPs (prod o2switch)
+        if: steps.env.outputs.target == 'prod' && steps.prod_check.outputs.is_o2switch == 'true'
+        run: |
+          curl -sm 45 -H'Authorization: cpanel ${{ secrets.PROD_USER }}:${{ secrets.CPANEL_API_TOKEN }}' \
+          'https://${{ secrets.PROD_HOST }}:2083/execute/SshWhitelist/remove_all'
+
+      - name: Whitelist runner IP (prod o2switch)
+        if: steps.env.outputs.target == 'prod' && steps.prod_check.outputs.is_o2switch == 'true'
+        run: |
+          curl -sm 45 -H'Authorization: cpanel ${{ secrets.PROD_USER }}:${{ secrets.CPANEL_API_TOKEN }}' \
+          'https://${{ secrets.PROD_HOST }}:2083/execute/SshWhitelist/add?address=${{ steps.ip.outputs.ipv4 }}&port=22'
+
+      - name: Verify IP is whitelisted (prod o2switch)
+        if: steps.env.outputs.target == 'prod' && steps.prod_check.outputs.is_o2switch == 'true'
+        run: |
+          curl -sm 45 -H'Authorization: cpanel ${{ secrets.PROD_USER }}:${{ secrets.CPANEL_API_TOKEN }}' \
+          'https://${{ secrets.PROD_HOST }}:2083/execute/SshWhitelist/list' | grep ${{ steps.ip.outputs.ipv4 }}
+
+      # ← Délai pour laisser o2switch appliquer la whitelist prod
+      - name: Wait for whitelist to apply (prod o2switch)
+        if: steps.env.outputs.target == 'prod' && steps.prod_check.outputs.is_o2switch == 'true'
+        run: sleep 10
+
+      # ============================================
+      # SSH Setup
+      # ============================================
+      - name: Install SSH Key
+        run: |
+          eval $(ssh-agent -s)
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 0400 ~/.ssh/id_rsa
+
+      # ============================================
+      # PREPROD : Deploy via SSH
+      # ============================================
+      - name: Deploy theme to PREPROD via SSH
+        if: steps.env.outputs.target == 'preprod'
+        run: |
+          echo "🚀 Déploiement thème PREPROD via SSH/RSYNC..."
+          rsync --timeout=120 -e "ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa" \
+            --exclude=".git" \
+            --exclude=".github" \
+            --exclude="node_modules" \
+            --exclude=".env" \
+            -av --delete wp-content/themes/kd-com/ \
+            ${{ secrets.PREPROD_USER }}@${{ secrets.PREPROD_HOST }}:${{ secrets.PREPROD_PATH }}/wp-content/themes/kd-com/
+          echo "✅ Thème déployé en PREPROD"
+
+      - name: Deploy ACF Pro to PREPROD via SSH
+        if: steps.env.outputs.target == 'preprod'
+        run: |
+          echo "🚀 Déploiement ACF Pro PREPROD via SSH/RSYNC..."
+          rsync --timeout=120 -e "ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa" \
+            --exclude=".git" \
+            -av --delete wp-content/plugins/advanced-custom-fields-pro/ \
+            ${{ secrets.PREPROD_USER }}@${{ secrets.PREPROD_HOST }}:${{ secrets.PREPROD_PATH }}/wp-content/plugins/advanced-custom-fields-pro/
+          echo "✅ ACF Pro déployé en PREPROD"
+
+      # ============================================
+      # PROD : SSH si o2switch, sinon test puis FTP
+      # ============================================
+      - name: Deploy theme to PROD via SSH (o2switch)
+        if: steps.env.outputs.target == 'prod' && steps.prod_check.outputs.is_o2switch == 'true'
+        run: |
+          echo "🚀 Déploiement thème PROD via SSH/RSYNC (o2switch)..."
+          rsync --timeout=120 -e "ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa" \
+            --exclude=".git" \
+            --exclude=".github" \
+            --exclude="node_modules" \
+            --exclude=".env" \
+            -av --delete wp-content/themes/kd-com/ \
+            ${{ secrets.PROD_USER }}@${{ secrets.PROD_HOST }}:${{ secrets.PROD_PATH }}/wp-content/themes/kd-com/
+          echo "✅ Thème déployé en PROD"
+
+      - name: Deploy ACF Pro to PROD via SSH (o2switch)
+        if: steps.env.outputs.target == 'prod' && steps.prod_check.outputs.is_o2switch == 'true'
+        run: |
+          echo "🚀 Déploiement ACF Pro PROD via SSH/RSYNC (o2switch)..."
+          rsync --timeout=120 -e "ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa" \
+            --exclude=".git" \
+            -av --delete wp-content/plugins/advanced-custom-fields-pro/ \
+            ${{ secrets.PROD_USER }}@${{ secrets.PROD_HOST }}:${{ secrets.PROD_PATH }}/wp-content/plugins/advanced-custom-fields-pro/
+          echo "✅ ACF Pro déployé en PROD"
+
+      - name: Test SSH connection (prod non-o2switch)
+        if: steps.env.outputs.target == 'prod' && steps.prod_check.outputs.is_o2switch != 'true'
+        id: ssh_test
+        continue-on-error: true
+        run: |
+          ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 \
+            ${{ secrets.PROD_USER }}@${{ secrets.PROD_HOST }} "echo 'SSH OK'" && echo "ssh_available=true" >> $GITHUB_OUTPUT || echo "ssh_available=false" >> $GITHUB_OUTPUT
+
+      - name: Deploy theme to PROD via SSH (if available)
+        if: steps.env.outputs.target == 'prod' && steps.prod_check.outputs.is_o2switch != 'true' && steps.ssh_test.outputs.ssh_available == 'true'
+        run: |
+          echo "🚀 Déploiement thème PROD via SSH/RSYNC..."
+          rsync --timeout=120 -e "ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa" \
+            --exclude=".git" \
+            --exclude=".github" \
+            --exclude="node_modules" \
+            --exclude=".env" \
+            -av --delete wp-content/themes/kd-com/ \
+            ${{ secrets.PROD_USER }}@${{ secrets.PROD_HOST }}:${{ secrets.PROD_PATH }}/wp-content/themes/kd-com/
+          echo "✅ Thème déployé en PROD"
+
+      - name: Deploy ACF Pro to PROD via SSH (if available)
+        if: steps.env.outputs.target == 'prod' && steps.prod_check.outputs.is_o2switch != 'true' && steps.ssh_test.outputs.ssh_available == 'true'
+        run: |
+          echo "🚀 Déploiement ACF Pro PROD via SSH/RSYNC..."
+          rsync --timeout=120 -e "ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa" \
+            --exclude=".git" \
+            -av --delete wp-content/plugins/advanced-custom-fields-pro/ \
+            ${{ secrets.PROD_USER }}@${{ secrets.PROD_HOST }}:${{ secrets.PROD_PATH }}/wp-content/plugins/advanced-custom-fields-pro/
+          echo "✅ ACF Pro déployé en PROD"
+
+      - name: Deploy theme to PROD via FTP (fallback)
+        if: steps.env.outputs.target == 'prod' && steps.prod_check.outputs.is_o2switch != 'true' && steps.ssh_test.outputs.ssh_available != 'true'
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.4
+        with:
+          server: ${{ secrets.PROD_HOST }}
+          username: ${{ secrets.PROD_USER }}
+          password: ${{ secrets.PROD_PASS }}
+          server-dir: ${{ secrets.PROD_PATH }}/wp-content/themes/kd-com/
+          local-dir: ./wp-content/themes/kd-com/
+          exclude: |
+            **/.git*
+            **/.git*/**
+            **/node_modules/**
+            **/.env
+            **/.github/**
+          dangerous-clean-slate: false
+
+      - name: Deploy ACF Pro to PROD via FTP (fallback)
+        if: steps.env.outputs.target == 'prod' && steps.prod_check.outputs.is_o2switch != 'true' && steps.ssh_test.outputs.ssh_available != 'true'
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.4
+        with:
+          server: ${{ secrets.PROD_HOST }}
+          username: ${{ secrets.PROD_USER }}
+          password: ${{ secrets.PROD_PASS }}
+          server-dir: ${{ secrets.PROD_PATH }}/wp-content/plugins/advanced-custom-fields-pro/
+          local-dir: ./wp-content/plugins/advanced-custom-fields-pro/
+          exclude: |
+            **/.git*
+            **/.git*/**
+          dangerous-clean-slate: false
+
+      # ============================================
+      # Cleanup
+      # ============================================
+      - name: Cleanup SSH keys
+        if: always()
+        run: rm -fr ~/.ssh
+
+      # ============================================
+      # Summary
+      # ============================================
+      - name: Deployment summary
+        if: success()
+        run: |
+          ENV="${{ steps.env.outputs.target }}"
+          echo "🎯 Environnement: $ENV"
+
+          if [ "$ENV" == "preprod" ]; then
+            echo "✅ Déploiement PREPROD réussi via SSH"
+            echo "🌐 Site: ${{ secrets.REMOTE_PREPROD_URL }}"
+          else
+            if [ "${{ steps.prod_check.outputs.is_o2switch }}" == "true" ]; then
+              echo "✅ Déploiement PROD réussi via SSH/RSYNC (o2switch)"
+            elif [ "${{ steps.ssh_test.outputs.ssh_available }}" == "true" ]; then
+              echo "✅ Déploiement PROD réussi via SSH/RSYNC"
+            else
+              echo "✅ Déploiement PROD réussi via FTP"
+            fi
+            echo "🌐 Site: ${{ secrets.REMOTE_PROD_URL }}"
+          fi

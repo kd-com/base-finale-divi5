@@ -1,0 +1,45 @@
+@use '../theme-colors' as *;
+
+.forminator-button {
+    border: 0px !important;
+    color:$couleur-titrage !important;
+    background-color:transparent !important;
+    border-radius: 0px !important;
+    letter-spacing: 0.3px !important;
+
+    &:hover {
+        color:$couleur-lien !important;
+        box-shadow: none !important;
+
+    }
+    
+
+}
+
+.forminator-field {
+    input {
+        border: 1px solid $couleur-titrage !important;
+        background:$couleur-blanche !important;
+        color:$couleur-titrage !important;
+
+        span {
+            &.forminator-checkbox-box {
+                &:before {
+                    color:$couleur-lien !important;
+                }
+            }
+        }
+    }
+    textarea {
+        border: 1px solid $couleur-titrage !important;
+        background:$couleur-blanche !important;
+        color:$couleur-texte !important;
+    }
+    label {
+        color:$couleur-titrage !important;
+    }
+    
+        
+    
+}
+

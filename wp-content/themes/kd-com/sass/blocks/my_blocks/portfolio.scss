@@ -1,0 +1,229 @@
+@use '../../theme-colors' as *;
+/* ========================================
+   PORTFOLIO BLOCK — 
+   ======================================== */
+.portfolio-block {
+    padding: 2rem 0;
+}
+
+.portfolio-block__header {
+    text-align: center;
+    margin-bottom: 3rem;
+}
+
+.portfolio-block__title {
+    font-size: clamp(1.5rem, 3vw, 2.2rem);
+    font-weight: 700;
+    margin: 0 0 .75rem;
+    color: $couleur-titrage;
+}
+
+.portfolio-block__subtitle {
+    font-size: 1rem;
+    color: $couleur-texte;
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+}
+
+/* GRILLE */
+.portfolio-block__grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 32px;
+}
+
+@media (max-width: 980px) {
+    .portfolio-block__grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 24px;
+    }
+}
+
+@media (max-width: 600px) {
+    .portfolio-block__grid {
+        grid-template-columns: 1fr;
+        gap: 24px;
+    }
+}
+
+/* CARTE */
+.portfolio-card {
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+    border-radius: 4px;
+    overflow: hidden;
+    transition: transform .25s ease, box-shadow .25s ease;
+}
+
+.portfolio-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 24px rgba(0,0,0,.10);
+}
+
+/* IMAGE */
+.portfolio-card__image-link {
+    display: block;
+    overflow: hidden;
+    border-radius: 4px 4px 0 0;
+}
+
+.portfolio-card__image-wrapper {
+    aspect-ratio: 3/2;
+    overflow: hidden;
+    background: #f0f0f0;
+}
+
+.portfolio-card__image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    transition: transform .45s ease;
+}
+
+.portfolio-card:hover .portfolio-card__image {
+    transform: scale(1.04);
+}
+
+.portfolio-card__image-placeholder {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #e8e8e8;
+}
+
+.portfolio-card__image-placeholder svg {
+    width: 60px;
+    height: 40px;
+}
+
+/* CORPS */
+.portfolio-card__body {
+    padding: 1.25rem 1em .5rem;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    gap: .5rem;
+}
+
+/* META */
+.portfolio-card__meta {
+    font-size: .78rem;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: $couleur-blanche;
+    opacity: .75;
+    display: flex;
+    align-items: center;
+    gap: .35rem;
+    flex-wrap: wrap;
+    background:$couleur-fond;
+    padding: .25rem 1rem;
+    transition: all .2s ease;
+    width:max-content;
+}
+
+.portfolio-card__date,
+.portfolio-card__category {
+    color: inherit;
+    text-decoration: none;
+}
+
+.portfolio-card__category:hover {
+    text-decoration: none;
+}
+
+.portfolio-card__meta-sep {
+    opacity: .5;
+}
+
+/* TITRE */
+.portfolio-card__title {
+    font-size: 1.05rem;
+    font-weight: 700;
+    line-height: 1.35;
+    margin: 0;
+    color: $couleur-titrage;
+}
+
+.portfolio-card__title a {
+    color: inherit;
+    text-decoration: none;
+}
+
+.portfolio-card__title a:hover {
+    text-decoration: none;
+}
+
+/* EXTRAIT */
+.portfolio-card__excerpt {
+    font-size: .9rem;
+    line-height: 1.6;
+    color: $couleur-texte;
+    margin: 0;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+/* LIEN */
+.portfolio-card__link {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    font-size: .78rem;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    font-weight: 600;
+    color: $couleur-lien;
+    text-decoration: none;
+    margin-top: auto;
+    padding-top: .75rem;
+    border-top: 1px solid #f0f0f0;
+    transition: gap .2s ease;
+}
+
+.portfolio-card__link:hover {
+    gap: .7rem;
+}
+
+.portfolio-card__arrow {
+    display: inline-block;
+    transition: transform .2s ease;
+}
+
+.portfolio-card__link:hover .portfolio-card__arrow {
+    transform: translateX(3px);
+}
+
+/* FOOTER VOIR TOUT */
+.portfolio-block__footer {
+    text-align: center;
+    margin-top: 2.5rem;
+}
+
+.portfolio-block__voir-tout {
+    display: inline-flex;
+    align-items: center;
+    gap: .5rem;
+    font-size: .85rem;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    font-weight: 600;
+    color: $couleur-lien;
+    text-decoration: none;
+    padding: .75rem 1.75rem;
+    border: 2px solid currentColor;
+    border-radius: 2px;
+    transition: background .2s ease, color .2s ease;
+}
+
+.portfolio-block__voir-tout:hover {
+    background: $couleur-lien;
+    color: #fff;
+}

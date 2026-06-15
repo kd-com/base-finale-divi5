@@ -1,0 +1,43 @@
+{
+  "template_repo": "git@github.com:kd-com/base-finale.git",
+  "template_branch": "main",
+  "sync_folders": [
+    "wp-content/themes/kd-com/assets/",
+    "wp-content/themes/kd-com/blocks/",
+    "wp-content/themes/kd-com/includes/",
+    "wp-content/themes/kd-com/module_admin/",
+    "wp-content/themes/kd-com/newsletter/",
+    "wp-content/themes/kd-com/sass/",
+    "wp-content/themes/kd-com/module_front/",
+    "wp-content/themes/kd-com/js/",
+    "wp-content/themes/kd-com/",
+    "scripts/",
+    "wiki/",
+    ".template-sync.json",
+    ".github/workflows/"
+  ],
+  "exclude_patterns": [
+    "*.env",
+    "*.local.*",
+    "node_modules",
+    ".git",
+    "wp-content/themes/kd-com/style.css",
+    "wp-content/themes/kd-com/style.min.css",
+    "wp-content/themes/kd-com/sass/_theme-colors.scss",
+    "wp-content/themes/kd-com/blocks/style.css",
+    "wp-content/themes/kd-com/blocks/style.min.css",
+    "wp-content/themes/kd-com/blocks/blocks.css",
+    "wp-content/plugins/",
+    "wp-content/et-cache/",
+    "wp-content/uploads/",
+    "wp-content/languages/",
+    "wp-content/logs/",
+    "wp-content/mu-plugins/",
+    "wp-content/ewww/",
+    "wp-content/themes/kd-com/module_admin/hamburger-menu.php",
+    "wp-content/themes/kd-com/includes/acf_fields/hamburger-menu.php",
+    "wp-content/themes/kd-com/sass/kd-com.scss",
+    "wp-content/themes/kd-com/module_admin/shortcode_sous_pages.php"
+  ],
+  "projects_dir": "/Volumes/macintosh hdd/Documents/site_clients"
+}

@@ -1,0 +1,650 @@
+@use '../../theme-colors' as *;
+@use 'sass:list';
+/* ================================================
+   Slider Carousel Pages - Modern Design
+   ================================================ */
+
+.slider-carousel-pages-wrapper {
+  position: relative;
+  width: 100%;
+  overflow: visible;
+  
+  .slider-carousel-pages {
+    position: relative;
+    max-width: 380px; // Largeur fixe = 1 card
+    margin: 0 auto; // Centrer le slider
+    overflow: hidden; // Masquer les débordements
+    padding: 0px 0 120px; // Plus de padding en bas pour les flèches
+    
+    .swiper-wrapper {
+      display: flex;
+      align-items: stretch;
+    }
+    
+    .swiper-slide {
+      height: auto;
+      display: flex;
+      width: 380px !important; // Largeur fixe pour toutes les cards
+      flex-shrink: 0;
+      
+      &.carousel-page-item {
+        .carousel-page-card {
+          background: $couleur-blanche;
+          border-radius: 0;
+          overflow: hidden;
+          box-shadow: none; // Pas d'ombre
+          transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+          height: 100%;
+          width: 100%;
+          display: flex;
+          flex-direction: column;
+          position: relative;
+          border: 1px solid rgba(0, 0, 0, 0.04);
+          opacity: 0.6;
+          transform: scale(0.9);
+          
+          // Effet glassmorphism subtil
+          &::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, 
+              transparent 0%, 
+              rgba(255,255,255,0.8) 50%, 
+              transparent 100%
+            );
+            opacity: 0;
+            transition: opacity 0.5s ease;
+          }
+          
+          &:hover {
+            box-shadow: none; // Pas d'ombre au hover
+            transform: translateY(-10px) scale(0.9);
+            border-color: rgba(0, 0, 0, 0.08);
+            
+            &::before {
+              opacity: 1;
+            }
+            
+            .carousel-page-image {
+              &::after {
+                opacity: 0.3;
+              }
+              
+              img {
+                transform: scale(1.15) rotate(2deg);
+              }
+            }
+          }
+        }
+      }
+      
+      // Card active (centrée)
+      &.swiper-slide-active {
+        .carousel-page-card {
+          opacity: 1;
+          transform: scale(1);
+          box-shadow: none; // Pas d'ombre
+          
+          &:hover {
+            transform: translateY(-10px) scale(1.02);
+          }
+        }
+      }
+      
+      // Cards adjacentes (légèrement visibles)
+      &.swiper-slide-prev,
+      &.swiper-slide-next {
+        .carousel-page-card {
+          opacity: 0.7;
+          transform: scale(0.92);
+        }
+      }
+    }
+    
+    // Image de la card avec overlay moderne
+    .carousel-page-image {
+      position: relative;
+      width: 100%;
+      height: 280px;
+      overflow: hidden;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      
+      // Overlay gradient subtil
+      &::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(180deg, 
+          rgba(0,0,0,0) 0%, 
+          rgba(0,0,0,0.4) 100%
+        );
+        opacity: 0.5;
+        transition: opacity 0.5s ease;
+        z-index: 1;
+      }
+      
+      a {
+        display: block;
+        width: 100%;
+        height: 100%;
+        position: relative;
+        z-index: 2;
+      }
+      
+      img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        object-position: center;
+        transition: transform 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+    }
+    
+    // Contenu de la card
+    .carousel-page-content {
+      padding: 32px 28px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      background: linear-gradient(180deg, $couleur-blanche 0%, rgba(255,255,255,0.98) 100%);
+      
+      .carousel-page-title {
+        font-size: 1.65rem;
+        font-weight: 800;
+        line-height: 1.25;
+        margin: 0 0 16px;
+        letter-spacing: -0.02em;
+        
+        a {
+          color: $couleur-fond;
+          text-decoration: none;
+          transition: all 0.3s ease;
+          background: linear-gradient(135deg, $couleur-titrage 0%, $couleur-texte 100%);
+          background-clip: text;
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-size: 200% 200%;
+          
+          &:hover {
+            background-position: 100% 0;
+            transform: translateX(2px);
+            display: inline-block;
+          }
+        }
+      }
+      
+      .carousel-page-excerpt {
+        font-size: 1rem;
+        line-height: 1.75;
+        color: #555;
+        margin-bottom: 24px;
+        flex: 1;
+        font-weight: 400;
+        
+        p {
+          margin-bottom: 12px;
+          
+          &:last-child {
+            margin-bottom: 0;
+          }
+        }
+      }
+      
+      .carousel-page-link {
+        margin-top: auto;
+        
+        .btn-carousel-page {
+          display: inline-block;
+          color: $couleur-texte;
+          cursor: pointer;
+          font-weight: 500;
+          text-decoration: none;
+          text-transform: capitalize;
+          font-size: 14px;
+          transition: all .3s ease;
+          
+          &:hover {
+            color: $couleur-lien;
+          }
+          
+          // Même style que .link--arrowed du slider_contenu
+          .arrow-icon {
+            position: relative;
+            top: 0;
+            width: 22px;
+            height: 22px;
+            margin-left: 5px;
+            -webkit-transition: -webkit-transform 0.3s ease;
+            transition: -webkit-transform 0.3s ease;
+            transition: transform 0.3s ease;
+            transition: transform 0.3s ease, -webkit-transform 0.3s ease;
+            vertical-align: middle;
+          }
+          
+          .arrow-icon--circle {
+            transition: stroke-dashoffset .3s ease;
+            stroke-dasharray: 95;
+            stroke-dashoffset: 95;
+          }
+          
+          g {
+            stroke: currentColor;
+            color: $couleur-texte;
+          }
+          
+          &:hover {
+            .arrow-icon {
+              transform: translate3d(5px, 0, 0);
+            }
+            
+            .arrow-icon--circle {
+              stroke-dashoffset: 0;
+            }
+            
+            g {
+              color: $couleur-lien;
+            }
+          }
+        }
+      }
+    }
+  }
+  // Navigation (même style que slider_contenu) - POSITIONNÉES EN BAS CENTRÉES
+  .carousel-pages-navigation {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 40px;
+    z-index: 10;
+    
+    .swiper-button-prev,
+    .swiper-button-next {
+      width: auto;
+      height: auto;
+      background: transparent;
+      display: inline-block;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      position: relative;
+      top: auto;
+      left: auto;
+      right: auto;
+      transform: none;
+      
+      &:after {
+        display: none;
+      }
+      
+      // Même style que .link--arrowed du slider_contenu
+      .arrow-icon {
+        position: relative;
+        top: 0;
+        width: 40px;
+        height: 40px;
+        -webkit-transition: -webkit-transform 0.3s ease;
+        transition: -webkit-transform 0.3s ease;
+        transition: transform 0.3s ease;
+        transition: transform 0.3s ease, -webkit-transform 0.3s ease;
+        vertical-align: middle;
+      }
+      
+      .arrow-icon--circle {
+        transition: stroke-dashoffset .3s ease;
+        stroke-dasharray: 95;
+        stroke-dashoffset: 95;
+      }
+      
+      g {
+        stroke: currentColor;
+        color: $couleur-texte;
+      }
+      
+      &:hover {
+        .arrow-icon {
+          transform: translate3d(5px, 0, 0);
+        }
+        
+        .arrow-icon--circle {
+          stroke-dashoffset: 0;
+        }
+        
+        g {
+          color: $couleur-lien;
+        }
+      }
+      
+      &.swiper-button-disabled {
+        opacity: 0.3;
+        cursor: not-allowed;
+        
+        &:hover {
+          .arrow-icon {
+            transform: translate3d(0, 0, 0);
+          }
+          
+          .arrow-icon--circle {
+            stroke-dashoffset: 95;
+          }
+          
+          g {
+            color: $couleur-texte;
+          }
+        }
+      }
+    }
+    
+    .swiper-button-prev {
+      transform: rotate(180deg);
+    }
+  }
+  
+  // Pagination (même style SVG que slider_contenu)
+  .carousel-pages-pagination {
+    bottom: 35px !important;
+    display: flex;
+    justify-content: center;
+    gap: 0;
+    
+    .swiper-pagination-bullet {
+      background-color: transparent;
+      opacity: 0.8;
+      width: 20px;
+      height: 20px;
+      margin: 6px -7px;
+      display: inline-block;
+      
+      // Bullet SVG animation (comme slider_contenu)
+      &--svg-animation {
+        svg {
+          -webkit-transform: rotate(-90deg);
+          -moz-transform: rotate(-90deg);
+          -ms-transform: rotate(-90deg);
+          transform: rotate(-90deg);
+        }
+        
+        .svg__circle-inner {
+          stroke: $couleur-texte;
+          fill: transparent;
+          -webkit-transition: all 0.3s ease;
+          -moz-transition: all 0.3s ease;
+          -ms-transition: all 0.3s ease;
+          transition: all 0.3s ease;
+        }
+      }
+      
+      &-active {
+        .svg__circle {
+          stroke: $couleur-lien;
+          stroke-dasharray: 75;
+          stroke-dashoffset: 0;
+          -webkit-animation: progress 4s ease-in-out 1 forwards;
+          -moz-animation: progress 4s ease-in-out 1 forwards;
+          -ms-animation: progress 4s ease-in-out 1 forwards;
+          animation: progress 4s ease-in-out 1 forwards;
+        }
+        
+        .svg__circle-inner {
+          fill: $couleur-texte;
+          stroke: $couleur-lien;
+        }
+      }
+    }
+  }
+}
+
+// Animation progress pour les bullets (comme slider_contenu)
+@-webkit-keyframes progress {
+  0% {
+    stroke-dashoffset: 75;
+    opacity: 1;
+  }
+  95% {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    stroke-dashoffset: 0;
+  }
+}
+
+@-moz-keyframes progress {
+  0% {
+    stroke-dashoffset: 75;
+    opacity: 1;
+  }
+  95% {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes progress {
+  0% {
+    stroke-dashoffset: 75;
+    opacity: 1;
+  }
+  95% {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    stroke-dashoffset: 0;
+  }
+}
+
+// Responsive moderne
+@media (min-width: 1025px) {
+  .slider-carousel-pages-wrapper {
+    .slider-carousel-pages {
+      .swiper-slide {
+        &.swiper-slide-active,
+        &.swiper-slide-prev,
+        &.swiper-slide-next {
+          .carousel-page-card {
+            opacity: 1;
+            transform: scale(1);
+          }
+        }
+      }
+    }
+  }
+}
+
+@media (max-width: 1024px) {
+  .slider-carousel-pages-wrapper {
+    .slider-carousel-pages {
+      .carousel-page-image {
+        height: 240px;
+      }
+    }
+  }
+}
+
+@media (max-width: 768px) {
+  .slider-carousel-pages-wrapper {
+    padding: 40px 0;
+    
+    .slider-carousel-pages {
+      max-width: 340px;
+      padding: 20px 0 100px; // Plus de padding en bas pour les flèches
+      
+      .swiper-slide {
+        width: 340px !important;
+        
+        &.carousel-page-item {
+          .carousel-page-card {
+            &:hover {
+              transform: translateY(-6px) scale(0.9);
+            }
+          }
+        }
+        
+        &.swiper-slide-active {
+          .carousel-page-card {
+            &:hover {
+              transform: translateY(-6px) scale(1.01);
+            }
+          }
+        }
+      }
+      
+      .carousel-page-image {
+        height: 220px;
+      }
+      
+      .carousel-page-content {
+        padding: 24px 20px;
+        
+        .carousel-page-title {
+          font-size: 1.45rem;
+          margin-bottom: 12px;
+        }
+        
+        .carousel-page-excerpt {
+          font-size: 0.95rem;
+          margin-bottom: 20px;
+        }
+        
+        .carousel-page-link {
+          .btn-carousel-page {
+            padding: 12px 28px;
+            font-size: 0.9rem;
+          }
+        }
+      }
+    }
+    
+    .carousel-pages-navigation {
+      bottom: 15px;
+      gap: 30px;
+      
+      .swiper-button-prev,
+      .swiper-button-next {
+        .arrow-icon {
+          width: 35px;
+          height: 35px;
+        }
+      }
+    }
+    
+    .carousel-pages-pagination {
+      bottom: 25px !important;
+      
+      .swiper-pagination-bullet {
+        width: 18px;
+        height: 18px;
+        margin: 5px -6px;
+      }
+    }
+  }
+}
+
+@media (max-width: 480px) {
+  .slider-carousel-pages-wrapper {
+    padding: 30px 0;
+    
+    .slider-carousel-pages {
+      max-width: 300px;
+      padding: 15px 0 90px; // Plus de padding en bas pour les flèches
+      
+      .swiper-slide {
+        width: 300px !important;
+      }
+      
+      .carousel-page-image {
+        height: 200px;
+      }
+      
+      .carousel-page-content {
+        padding: 20px 18px;
+        
+        .carousel-page-title {
+          font-size: 1.3rem;
+          letter-spacing: -0.01em;
+        }
+        
+        .carousel-page-excerpt {
+          font-size: 0.9rem;
+          line-height: 1.65;
+        }
+        
+        .carousel-page-link {
+          .btn-carousel-page {
+            padding: 11px 24px;
+            font-size: 0.85rem;
+            gap: 8px;
+            
+            .arrow-icon {
+              width: 20px;
+              height: 20px;
+            }
+          }
+        }
+      }
+    }
+    
+    .carousel-pages-navigation {
+      bottom: 10px;
+      gap: 25px;
+      
+      .swiper-button-prev,
+      .swiper-button-next {
+        .arrow-icon {
+          width: 32px;
+          height: 32px;
+        }
+      }
+    }
+    
+    .carousel-pages-pagination {
+      bottom: 20px !important;
+      
+      .swiper-pagination-bullet {
+        width: 16px;
+        height: 16px;
+        margin: 4px -5px;
+      }
+    }
+  }
+}
+
+// Animation d'entrée progressive
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.slider-carousel-pages-wrapper {
+  .swiper-slide {
+    animation: fadeInUp 0.6s ease-out forwards;
+    opacity: 0;
+    
+    @for $i from 1 through 6 {
+      &:nth-child(#{$i}) {
+        animation-delay: #{$i * 0.1}s;
+      }
+    }
+  }
+}
+

@@ -1,0 +1,20 @@
+.has-couleur-titrage-color {color:$couleur-titrage}
+.has-couleur-texte-color {color:$couleur-texte}
+.has-couleur-lien-color {color:$couleur-lien}
+.has-couleur-fond-color {color:$couleur-fond}
+.has-couleur-fond2-color {color:$couleur-fond2}
+.has-couleur-blanche-color {color:$couleur-blanche}
+.has-couleur-noire-color {color:$couleur-noire}
+.has-shadow {
+  box-shadow: 0px 0px 12px 1px rgba(0,0,0,0.3);
+}
+
+
+.has-background {margin: 1.25em 0 1.25em !important; padding:1.25em 2.25em !important;}
+.has-couleur-titrage-background-color {background-color:$couleur-titrage}
+.has-couleur-texte-background-color {background-color:$couleur-texte}
+.has-couleur-lien-background-color {background-color:$couleur-lien}
+.has-couleur-fond-background-color {background-color:$couleur-fond}
+.has-couleur-fond2-background-color {background-color:$couleur-fond2}
+.has-couleur-blanche-background-color {background-color:$couleur-blanche}
+.has-couleur-noire-background-color {background-color:$couleur-noire}

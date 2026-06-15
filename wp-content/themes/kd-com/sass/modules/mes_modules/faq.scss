@@ -1,0 +1,141 @@
+@use '../../theme-colors' as *;
+@use 'sass:list';
+
+/* FAQ */
+.faq_list {
+    padding-top: 3em;
+    display:grid;
+    gap:32px;
+    grid-template-columns: repeat(3, 1fr);
+
+    @media (max-width:980px) {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    @media (max-width:600px) {
+        grid-template-columns: 1fr;
+    }
+
+    .faq-categories-nav {
+        grid-column: span 1;
+
+        
+    }
+    .faq-section-grid {
+        grid-column: span 2 !important;
+        @media (max-width:980px) {
+            grid-column: span 2;
+        }
+        @media (max-width:600px) {
+            grid-column: span 1;
+        }
+        
+    }
+}
+.faq_cat_list {
+            list-style:none;
+            display:block;
+            width:100%;
+            font-size: 16px;
+            font-weight: 600;
+            &.sticky {
+                position:sticky;
+                top:50px;
+            }
+            .faq_cat_list_item {
+               list-style:none;
+            
+                .faq_cat_list_link {
+                    &:before {
+                        content:'';
+                        height:2px;
+                        width:0px;
+                        background:$couleur-lien;
+                        display: inline-block;
+                        transition:all .4s;
+                        margin-right:2px;
+                    }
+                    &:hover {
+                        &:before {
+                            width:25px;
+                        }
+                    }
+                }
+            }
+            &.selected {
+                .faq_cat_list_link {
+                    &:before {
+                        width:25px;
+                    }
+                }
+            }
+        }
+.faq-article-list {
+            article {
+                margin-bottom:0;
+                .blog_info {
+                    width:100%;
+                    float:left;
+                    padding:0;
+                     // post meta
+                     .post-meta {
+                        font-weight: 700 !important;
+                        padding-bottom:1em;
+
+                    }
+                    // titre du post
+                    .entry-title {
+                        font-size: 18px;
+                        cursor:pointer;
+                        button {
+                            font-weight: 400;
+                            font-size: 18px;
+                            position:relative;
+                            color:$couleur-lien !important;
+                            transition: all .4s;
+                            background:transparent;
+                            border:0;
+                            cursor:pointer;
+                            &:hover {
+                                color:$couleur-fond !important;
+                            }
+                        }
+                        &:after {
+                            content:'';
+                            display: block;
+                            width: 100%;
+                            height:2px;
+                            background:$couleur-lien;
+                            transition:all .4s;
+                        }
+                        &:hover {
+                            &:after {
+                                width:0;
+                            }
+                        }
+                    }
+                    .faq-answer {
+                        height:0;
+                        overflow:hidden;
+                        transition:all .4s;
+                    }
+                }
+                &.is-open {
+                    .blog_info {
+                        .entry-title {
+                            button {
+                                color:$couleur-fond !important;
+                            }
+                            &:after {
+                                width:0;
+                            }
+                        }
+                        .faq-answer {
+                            height:100% !important;
+                            margin-top:1em;
+                        }
+                    }
+                }
+            }
+        }
+
+   

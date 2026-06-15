@@ -1,0 +1,275 @@
+@use '../_theme-colors' as *;
+@use '../core/_mixin' as m;
+
+// Base button
+.wp-block-button__link,
+.wp-element-button,
+.et_pb_button,
+.et_pb_custom_button,
+.et_pb_promo_button,
+.et_pb_newsletter_button {
+  @include m.btn-reset();
+
+  &:not([class*="btn-bg-"], [class*="btn-outline-"]) {
+    background: transparent;
+    color: $couleur-fond;
+    border: 2px solid $couleur-texte;
+    &:hover { background: $couleur-texte; color: $couleur-blanche; }
+  }
+}
+
+// Solid variants
+.btn-bg-principale { @include m.btn-solid($couleur-titrage, $couleur-blanche, $couleur-texte); }
+.btn-bg-secondaire { @include m.btn-solid($couleur-texte, $couleur-blanche, $couleur-titrage); }
+.btn-bg-accent { @include m.btn-solid($couleur-lien, $couleur-blanche); }
+.btn-bg-gradient {
+  background: linear-gradient(135deg, $couleur-titrage 0%, $couleur-texte 100%);
+  color: $couleur-blanche;
+  border: 2px solid transparent;
+  position: relative;
+  overflow: hidden;
+  &::before { content:''; position:absolute; inset:0; left:-100%; background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,.3) 50%, transparent 100%); transition: transform .6s ease; }
+  &:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,.2); &::before{ transform: translateX(200%);} }
+}
+
+// Outline variants
+.btn-outline-principale { @include m.btn-outline($couleur-titrage); }
+.btn-outline-secondaire { @include m.btn-outline($couleur-texte); }
+.btn-outline-accent { @include m.btn-outline($couleur-lien); }
+
+// Arrowed link utility (for "En savoir +" / "Découvrir")
+.u-link-arrow,
+a[href*="savoir"],
+a[href*="decouvrir"],
+.link--arrowed,
+.btn-link-arrow {
+  display: inline-block;
+  color: $couleur-fond;
+  transition: all .3s ease;
+  text-decoration: none;
+  cursor: pointer;
+
+  &:hover { color: $couleur-lien; }
+
+  .arrow-icon { 
+    position: relative; 
+    top: 0; 
+    width: 22px; 
+    height: 22px; 
+    margin-left: 5px; 
+    transition: transform .3s ease;
+    -webkit-transition: -webkit-transform 0.3s ease;
+    vertical-align: middle;
+    display: inline-block;
+    flex-shrink: 0;
+    
+    svg {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+    
+    g {
+      stroke: currentColor;
+      fill: none;
+    }
+    
+    circle, path {
+      vector-effect: non-scaling-stroke;
+    }
+  }
+  
+  .arrow-icon--circle { 
+    transition: stroke-dashoffset .3s ease; 
+    stroke-dasharray: 95; 
+    stroke-dashoffset: 95; 
+  }
+  
+  g { 
+    stroke: currentColor; 
+  }
+  
+  &:hover { 
+    .arrow-icon { 
+      transform: translate3d(5px, 0, 0);
+      -webkit-transform: translate3d(5px, 0, 0);
+      g, circle, path {
+        stroke: currentColor;
+      }
+    } 
+    .arrow-icon--circle { 
+      stroke-dashoffset: 0; 
+    }
+  }
+}
+
+// Support pour les wrappers Gutenberg avec u-link-arrow
+// Ex: <div class="wp-block-button u-link-arrow"><a>...</a></div>
+.wp-block-button.u-link-arrow,
+div.u-link-arrow,
+span.u-link-arrow {
+  display: inline-block;
+  
+  a, button {
+    display: inline-block;
+    transition: all .3s ease;
+    text-decoration: none;
+    cursor: pointer;
+    // Neutraliser uniquement les styles non-personnalisables
+    border: none !important;
+    box-shadow: none !important;
+    // Permettre la personnalisation via Gutenberg
+    &:not([style*="background"]):not(.has-background) {
+      background: transparent !important;
+      padding: 0 !important;
+    }
+    // Si pas de couleur définie, utiliser la couleur par défaut
+    &:not(.has-text-color):not([style*="color"]) {
+      color: $couleur-fond;
+      &:hover { 
+        color: $couleur-lien;
+      }
+    }
+    // Pour les SVG, toujours hériter de la couleur du texte
+    g { 
+      stroke: currentColor !important; 
+    }
+    .arrow-icon {
+      color: inherit !important;
+      svg {
+        stroke: currentColor !important;
+        color: inherit !important;
+      }
+    }
+    .arrow-icon { 
+      position: relative; 
+      top: 0; 
+      width: 22px; 
+      height: 22px; 
+      margin-left: 5px; 
+      transition: transform .3s ease;
+      -webkit-transition: -webkit-transform 0.3s ease;
+      vertical-align: middle; 
+    }
+    .arrow-icon--circle { 
+      transition: stroke-dashoffset .3s ease; 
+      stroke-dasharray: 95; 
+      stroke-dashoffset: 95; 
+    }
+    &:hover { 
+      .arrow-icon { 
+        transform: translate3d(5px, 0, 0);
+        -webkit-transform: translate3d(5px, 0, 0);
+      } 
+      .arrow-icon--circle { 
+        stroke-dashoffset: 0; 
+      }
+    }
+  }
+}
+
+// Styles spécifiques pour les boutons Divi avec u-link-arrow
+.et_pb_button.u-link-arrow,
+.et_pb_custom_button.u-link-arrow,
+.et_pb_promo_button.u-link-arrow {
+  // Supprimer les styles par défaut de Divi
+  &::after {
+    display: none !important; // Supprimer l'icône after de Divi
+  }
+  
+  // Supprimer les bordures et border-radius par défaut
+  border: none !important;
+  border-radius: 0 !important;
+  
+  // Permettre la personnalisation complète via Divi Builder
+  // Les couleurs de fond, texte et hover sont définies inline par Divi via data-attributes
+  // Divi génère automatiquement les styles hover avec .et_pb_button:hover
+  
+  // Réinitialiser uniquement si AUCUN style de fond n'est défini
+  &:not([style*="background"]):not([class*="et_pb_bg_layout"]) {
+    background: transparent;
+    padding: 0;
+  }
+  
+  // Si un background est défini, garder un padding par défaut
+  &[style*="background"], &[class*="et_pb_bg_layout"] {
+    padding: 12px 24px;
+  }
+  
+  // Couleur de texte par défaut si non définie
+  &:not([style*="color"]) {
+    color: $couleur-fond;
+  }
+  
+  // Permettre les transitions pour le hover (background, color, etc.)
+  transition: all 0.3s ease, transform 0.3s ease;
+  
+  // Styles du SVG arrow
+  .arrow-icon { 
+    position: relative; 
+    top: 0; 
+    width: 22px; 
+    height: 22px; 
+    margin-left: 5px; 
+    transition: transform .3s ease;
+    -webkit-transition: -webkit-transform 0.3s ease;
+    vertical-align: middle;
+    display: inline-block;
+    flex-shrink: 0;
+    
+    svg {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+    
+    g {
+      stroke: currentColor !important;
+      fill: none;
+    }
+    
+    circle, path {
+      vector-effect: non-scaling-stroke;
+      stroke: currentColor !important;
+    }
+  }
+  
+  .arrow-icon--circle { 
+    transition: stroke-dashoffset .3s ease; 
+    stroke-dasharray: 95; 
+    stroke-dashoffset: 95; 
+  }
+  
+  &:hover { 
+    // Les couleurs de hover sont gérées par Divi via les styles inline générés automatiquement
+    // On ajoute juste l'animation du SVG
+    
+    .arrow-icon { 
+      transform: translate3d(5px, 0, 0);
+      -webkit-transform: translate3d(5px, 0, 0);
+      
+      g, circle, path {
+        stroke: currentColor !important;
+      }
+    } 
+    .arrow-icon--circle { 
+      stroke-dashoffset: 0; 
+    }
+  }
+}
+
+// Style Gutenberg : bouton avec flèche
+.wp-block-button.is-style-u-link-arrow {
+  .wp-block-button__link,
+  .wp-element-button {
+    @extend .u-link-arrow;
+  }
+}
+
+// Responsive adjustments
+@media (max-width: 768px){
+  .btn, .wp-block-button__link, .wp-element-button, .et_pb_button, .et_pb_custom_button, .et_pb_promo_button, .et_pb_newsletter_button { padding: 10px 20px; font-size: 13px; }
+}
+@media (max-width: 480px){
+  .btn, .wp-block-button__link, .wp-element-button, .et_pb_button, .et_pb_custom_button, .et_pb_promo_button, .et_pb_newsletter_button { padding: 9px 18px; font-size: 12px; }
+}

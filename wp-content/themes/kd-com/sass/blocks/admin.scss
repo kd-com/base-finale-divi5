@@ -1,0 +1,158 @@
+@use '../theme-colors' as *;
+@use '../components/buttons_animations' as *;
+@use '../components/_link-arrowed' as *;
+/* Masquer les options de couleur dans l'éditeur Gutenberg */
+.wp-admin .acf-block-component {
+
+    ul.acf-radio-list {
+         display: flex;
+         flex-wrap: wrap;
+         padding-left: 0;
+         margin-left: 0;
+
+         li {
+              margin-right: 0;
+              display: flex;
+
+              label {
+                   width: 28px;
+                   height: 28px;
+                   position: relative;
+                   margin-right: 10px;
+                   margin-bottom: 10px;
+                   color: $couleur-blanche;
+
+                   input[type="radio"] {
+                        position: absolute;
+                        top: 0;
+                        left: 0;
+                        width: 28px;
+                        height: 28px;
+
+                        &:checked {
+
+                             &::before {
+                                  content: "\f15e";
+                                  font-family: dashicons;
+                                  width: 20px;
+                                  height: 20px;
+                                  background-color: transparent;
+                                  font-size: 20px;
+                                  margin: 1px;
+                                  color: $couleur-blanche;
+                             }
+                        }
+
+                        // override light colors with a black checkmark when checked (default is white)
+                        &[value="blanc"] {
+
+                             &:checked {
+
+                                  &::before {
+                                       color: #000;
+                                  }
+                             }
+                        }
+                        &[value="couleur-titrage"] {
+                            background:$couleur-titrage;
+                        }
+                        &[value="couleur-texte"] {
+                            background:$couleur-texte;
+                        }
+                        &[value="couleur-lien"] {
+                            background:$couleur-lien;
+                        }
+                        &[value="couleur-fond"] {
+                            background:$couleur-fond;
+                        }
+                        &[value="couleur-fond2"] {
+                            background:$couleur-fond2;
+                        }
+                        &[value="couleur-blanche"] {
+                            background:$couleur-blanche;
+                        }
+                        &[value="couleur-noire"] {
+                            background:$couleur-noire;
+                        }                        
+                   }
+              }
+         }
+    }
+}
+
+.wp-admin .acf-repeater .acf-table tr td {
+
+    ul.acf-radio-list {
+         display: flex;
+         flex-wrap: wrap;
+         padding-left: 0;
+         margin-left: 0;
+
+         li {
+              margin-right: 0;
+              display: flex;
+
+              label {
+                   width: 28px;
+                   height: 28px;
+                   position: relative;
+                   margin-right: 10px;
+                   margin-bottom: 10px;
+                   color: $couleur-blanche;
+
+                   input[type="radio"] {
+                        position: absolute;
+                        top: 0;
+                        left: 0;
+                        width: 28px;
+                        height: 28px;
+
+                        &:checked {
+
+                             &::before {
+                                  content: "\f15e";
+                                  font-family: dashicons;
+                                  width: 20px;
+                                  height: 20px;
+                                  background-color: transparent;
+                                  font-size: 20px;
+                                  margin: 1px;
+                                  color: $couleur-blanche;
+                             }
+                        }
+
+                        // override light colors with a black checkmark when checked (default is white)
+                        &[value="blanc"] {
+
+                             &:checked {
+
+                                  &::before {
+                                       color: #000;
+                                  }
+                             }
+                        }
+                        &[value="couleur-theme-principale"] {
+                            background:$couleur-titrage;
+                        }
+                        &[value="couleur-theme-segondaire"] {
+                            background:$couleur-texte;
+                        }
+                        &[value="couleur-theme-accent"] {
+                            background:$couleur-lien;
+                        }
+                        &[value="couleur-theme-4"] {
+                            background:$couleur-fond;
+                        }
+                        &[value="couleur-theme-5"] {
+                            background:$couleur-fond2;
+                        }
+                        &[value="blanc"] {
+                            background:$couleur-blanche;
+                        }
+
+                        
+                   }
+              }
+         }
+    }
+}
