@@ -63,7 +63,15 @@ is_scripts_file() { [[ "$1" == scripts/* ]]; }
 TEMPLATE_REPO=$(jq -r '.template_repo' "$CONFIG_FILE")
 TEMPLATE_BRANCH=$(jq -r '.template_branch' "$CONFIG_FILE")
 SYNC_FOLDERS=$(jq -r '.sync_folders[]' "$CONFIG_FILE")
-PROJECTS_DIR=$(jq -r '.projects_dir // empty' "$CONFIG_FILE")
+
+# Priorité : variable d'environnement (spécifique à la machine)
+# Fallback  : valeur stockée dans le JSON (rétrocompatibilité)
+if [ -n "$KD_PROJECTS_DIR" ]; then
+    PROJECTS_DIR="${KD_PROJECTS_DIR/#\~/$HOME}"
+    echo -e "${CYAN}ℹ️  Dossier projets (via \$KD_PROJECTS_DIR) : $PROJECTS_DIR${NC}"
+else
+    PROJECTS_DIR=$(jq -r '.projects_dir // empty' "$CONFIG_FILE")
+fi
 
 if [ "$TEMPLATE_REPO" = "null" ] || [ -z "$TEMPLATE_REPO" ]; then
     echo -e "${RED}❌ template_repo non configuré${NC}"; exit 1
