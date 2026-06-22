@@ -41,21 +41,30 @@ CREATE DATABASE IF NOT EXISTS \`$DB_NAME\`
   COLLATE utf8mb4_unicode_ci;
 EOF
 
-echo "👤 Vérification / création de l'utilisateur : $DB_USER"
+# Création de l'utilisateur pour les deux hosts les plus courants :
+#  - '%'         → connexions depuis un autre container (ex: WordPress -> shared-db)
+#  - 'localhost' → connexions directes depuis un script lancé sur la machine hôte
+# Sans l'entrée 'localhost', un script de migration/restauration qui se
+# connecte en spécifiant -h localhost échoue avec "Access denied" même si
+# le mot de passe est correct, car MySQL traite 'user'@'%' et
+# 'user'@'localhost' comme deux comptes distincts (vécu sur equitasun).
+echo "👤 Vérification / création de l'utilisateur : $DB_USER (hosts % et localhost)"
 $MYSQL_CMD <<EOF
 CREATE USER IF NOT EXISTS '$DB_USER'@'%' IDENTIFIED BY '$DB_PASSWORD';
+CREATE USER IF NOT EXISTS '$DB_USER'@'localhost' IDENTIFIED BY '$DB_PASSWORD';
 EOF
 
 echo "🔐 Attribution des privilèges..."
 $MYSQL_CMD <<EOF
 GRANT ALL PRIVILEGES ON \`$DB_NAME\`.* TO '$DB_USER'@'%';
+GRANT ALL PRIVILEGES ON \`$DB_NAME\`.* TO '$DB_USER'@'localhost';
 FLUSH PRIVILEGES;
 EOF
 
 echo ""
 echo "🎉 Base et utilisateur MySQL correctement configurés !"
 echo "📌 Base      : $DB_NAME"
-echo "📌 Utilisateur : $DB_USER"
+echo "📌 Utilisateur : $DB_USER (hosts % et localhost)"
 echo "📌 Mot de passe : (défini via .env)"
 echo ""
 echo "Tu peux maintenant relancer :"

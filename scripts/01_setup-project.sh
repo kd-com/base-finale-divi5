@@ -14,8 +14,34 @@ ask() {
 }
 
 # Génération mot de passe aléatoire
+# Volontairement restreint à [A-Za-z0-9] : pas de $, ", \, `, ', espace.
+# Évite deux bugs vécus en prod (projet equitasun) :
+#  - un $ non échappé dans un .env est interprété par Docker Compose comme
+#    le début d'une interpolation de variable (WARN: variable not set)
+#  - un " ou ' littéral casse les valeurs lues par certains scripts/outils
+#    qui ne nettoient pas le contenu du .env avant utilisation
 generate_password() {
-    openssl rand -base64 12
+    local length="${1:-16}"
+    local pass=""
+    while [ "${#pass}" -lt "$length" ]; do
+        pass="${pass}$(openssl rand -base64 32 | tr -dc 'A-Za-z0-9')"
+    done
+    echo "${pass:0:$length}"
+}
+
+# Échappement défensif d'une valeur avant écriture dans le .env.
+# Ceinture et bretelles : même si generate_password ne produit plus de
+# caractères spéciaux, cette fonction neutralise un $ resté dans une valeur
+# saisie manuellement par l'utilisateur (ex: mot de passe personnalisé).
+escape_env_value() {
+    local val="$1"
+    # Échappe les $ pour Docker Compose ($ -> $$)
+    val="${val//\$/\$\$}"
+    # Échappe les guillemets doubles et backslashes au cas où la valeur
+    # serait quand même entourée de guillemets ailleurs dans la chaîne.
+    val="${val//\\/\\\\}"
+    val="${val//\"/\\\"}"
+    echo "$val"
 }
 
 # Capitaliser la première lettre (portable)
@@ -61,8 +87,14 @@ if [ "$DB_MODE" = "external" ]; then
 
         echo "💡 Vérification / création de la base et de l'utilisateur MySQL..."
         docker exec shared-db mysql -uroot -prootpassword -e "CREATE DATABASE IF NOT EXISTS \`$DB_NAME\`;"
+        # Création explicite pour les deux hosts les plus utilisés (% pour
+        # les connexions inter-containers, localhost pour les connexions
+        # directes/scripts) afin d'éviter le mismatch d'host rencontré sur
+        # le projet equitasun (Access denied alors que le compte existe).
         docker exec shared-db mysql -uroot -prootpassword -e "CREATE USER IF NOT EXISTS '$DB_USER'@'%' IDENTIFIED BY '$DB_PASSWORD';"
+        docker exec shared-db mysql -uroot -prootpassword -e "CREATE USER IF NOT EXISTS '$DB_USER'@'localhost' IDENTIFIED BY '$DB_PASSWORD';"
         docker exec shared-db mysql -uroot -prootpassword -e "GRANT ALL PRIVILEGES ON \`$DB_NAME\`.* TO '$DB_USER'@'%';"
+        docker exec shared-db mysql -uroot -prootpassword -e "GRANT ALL PRIVILEGES ON \`$DB_NAME\`.* TO '$DB_USER'@'localhost';"
         docker exec shared-db mysql -uroot -prootpassword -e "FLUSH PRIVILEGES;"
     else
         echo "⚠️  ATTENTION : Aucun conteneur 'shared-db' détecté !"
@@ -93,30 +125,38 @@ else
 fi
 
 # 📄 Écriture du fichier .env
+# IMPORTANT : aucune valeur n'est entourée de guillemets. Docker Compose ne
+# retire pas les guillemets d'un .env (contrairement à un shell) : une valeur
+# écrite comme DB_USER="x" est lue littéralement comme la chaîne "x" avec
+# les guillemets inclus, ce qui casse les connexions MySQL (vécu sur le
+# projet equitasun : Access denied for user '"equitasun_user"'@'localhost').
+# Chaque valeur passe en plus par escape_env_value() pour neutraliser un $
+# qui aurait pu être saisi manuellement (ask), même si generate_password()
+# n'en produit plus.
 cat <<EOF > .env
 ###############################################
 # 🌐 Configuration Projet WordPress
 ###############################################
 
-PROJECT_NAME="$PROJECT_NAME"
-WP_DOMAIN="$WP_DOMAIN"
-WP_TITLE="$WP_TITLE"
-WP_ADMIN_USER="$WP_ADMIN_USER"
-WP_ADMIN_PASSWORD="$WP_ADMIN_PASSWORD"
-WP_ADMIN_EMAIL="$WP_ADMIN_EMAIL"
+PROJECT_NAME=$(escape_env_value "$PROJECT_NAME")
+WP_DOMAIN=$(escape_env_value "$WP_DOMAIN")
+WP_TITLE=$(escape_env_value "$WP_TITLE")
+WP_ADMIN_USER=$(escape_env_value "$WP_ADMIN_USER")
+WP_ADMIN_PASSWORD=$(escape_env_value "$WP_ADMIN_PASSWORD")
+WP_ADMIN_EMAIL=$(escape_env_value "$WP_ADMIN_EMAIL")
 
-WP_CHILD_THEME_NAME="$WP_CHILD_THEME_NAME"
+WP_CHILD_THEME_NAME=$(escape_env_value "$WP_CHILD_THEME_NAME")
 
 ###############################################
 # 🗄️ Base de données
 ###############################################
 
-DB_MODE="$DB_MODE"
-DB_HOST="$DB_HOST"
-DB_NAME="$DB_NAME"
-DB_USER="$DB_USER"
-DB_PASSWORD="$DB_PASSWORD"
-DB_PREFIX="$DB_PREFIX"
+DB_MODE=$(escape_env_value "$DB_MODE")
+DB_HOST=$(escape_env_value "$DB_HOST")
+DB_NAME=$(escape_env_value "$DB_NAME")
+DB_USER=$(escape_env_value "$DB_USER")
+DB_PASSWORD=$(escape_env_value "$DB_PASSWORD")
+DB_PREFIX=$(escape_env_value "$DB_PREFIX")
 EOF
 
 echo ""
@@ -138,4 +178,3 @@ else
         echo "(La base de données a déjà été créée automatiquement)"
     fi
 fi
-

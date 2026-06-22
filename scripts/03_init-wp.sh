@@ -12,6 +12,9 @@ if [ ! -f .env ]; then
 fi
 
 # Export des variables du .env (compatible Mac/PC)
+# Note : compatible avec un .env sans guillemets autour des valeurs (format
+# généré par la version corrigée de 01_setup-project.sh) comme avec l'ancien
+# format entre guillemets — `source` gère les deux nativement en bash.
 set -a
 source .env
 set +a
@@ -253,4 +256,4 @@ echo "🔍 En cas de problème :"
 echo "   - Vérifiez les logs : docker logs $WORDPRESS_CONTAINER"
 echo "   - Vérifiez la console navigateur (F12)"
 echo "   - Restaurez la sauvegarde si besoin : cp wp-config.local.php.backup wp-config.local.php"
-echo "" 
+echo ""
