@@ -473,13 +473,42 @@ class ET_Builder_Library {
 	}
 
 	/**
+	 * Returns a `WP_Error` when the database reported a library join-size limit failure.
+	 *
+	 * @since 5.7.2
+	 *
+	 * @return WP_Error|null
+	 */
+	protected function _get_library_query_join_limit_wp_error() {
+		global $wpdb;
+
+		if ( ! ET_Builder_Post_Query_Layouts::is_library_query_join_limit_error( $wpdb->last_error ) ) {
+			return null;
+		}
+
+		return new WP_Error(
+			'library_query_join_limit',
+			esc_html__(
+				'Your saved layouts could not be loaded because this site\'s database limits large library queries. Contact your host about increasing MySQL join limits, or reduce the number of items in the Divi Library.',
+				'et_builder'
+			),
+			array(
+				'status' => 503,
+			)
+		);
+	}
+
+	/**
 	 * Generates layouts data for the builder's library UI.
 	 *
 	 * @since 3.0.99
 	 *
-	 * @return array $data
+	 * @return array|WP_Error $data Layout data, or `WP_Error` when the library index query fails.
 	 */
 	public function builder_library_layouts_data( $library_type = 'layout' ) {
+		// This is needed to make sure ET_Builder_Element is instantiated in D5.
+		// When this code is rewritten in builder-5, we can remove this instantiation.
+		// $elements          = new ET_Builder_Element();
 		$layout_categories = array();
 		$layout_packs      = array();
 		$layout_tags       = array();
@@ -492,17 +521,31 @@ class ET_Builder_Library {
 
 		$extra_layout_post_type = 'layout';
 
+		global $wpdb;
+
+		// Only treat join-limit errors raised by the library index query below.
+		$wpdb->last_error = '';
+
 		$posts = $this->layouts
 			->query()
+			->is_type( $library_type )
 			->not()->with_meta( '_et_pb_built_for_post_type', $extra_layout_post_type )
 			->run(
 				array(
-					'post_status' => array( 'publish', 'trash' ),
-					'fields'      => 'ids',
+					'post_status'            => array( 'publish', 'trash' ),
+					'fields'                 => 'ids',
+					'update_post_meta_cache' => false,
+					'update_post_term_cache' => false,
 				)
 			);
 
-		$posts = is_array( $posts ) ? $posts : array( $posts );
+		$join_limit_error = $this->_get_library_query_join_limit_wp_error();
+
+		if ( $join_limit_error ) {
+			return $join_limit_error;
+		}
+
+		$posts = is_array( $posts ) ? $posts : array_filter( (array) $posts );
 
 		foreach ( $posts as $post_id ) {
 			$post   = get_post( $post_id );
@@ -536,8 +579,10 @@ class ET_Builder_Library {
 			$layout->subtype = get_post_meta( $post->ID, '_et_pb_module_type', true );
 
 			if ( '' !== $layout->subtype ) {
-				$module           = ET_Builder_Element::get_module( $layout->subtype );
-				$layout->subtitle = ! empty( $module->name ) ? $module->name : $layout->type;
+				// See TODO above where $elements is instantiated.
+				// $module           = $elements::get_module( $layout->subtype );
+				// $layout->subtitle = ! empty( $module->name ) ? $module->name : $layout->type;
+				$layout->subtitle = $layout->type;
 			}
 
 			$title      = html_entity_decode( $post->post_title );
@@ -736,9 +781,25 @@ class ET_Builder_Library {
 	}
 
 	/**
+	 * Proxy function Get data for the 'Your Existing Pages' tab.
+	 *
+	 * @since 5.0.0
+	 *
+	 * @param array $exclude_ids Array of ID to exclude.
+	 *
+	 * @see _builder_library_modal_custom_tabs_existing_pages
+	 */
+	public function builder_library_modal_custom_tabs_existing_pages( $exclude_ids = array() ) {
+		return $this->_builder_library_modal_custom_tabs_existing_pages( $exclude_ids );
+	}
+
+	/**
 	 * Filters data for the 'Your Existing Pages' tab.
 	 *
 	 * @since 3.4
+	 * @since 5.0.0 Added $exclude_ids parameter. In D5, we are not using AJAX. Hence the exclude list is passed as parameter.
+	 *
+	 * @param array $exclude_ids Array of ID to exclude.
 	 *
 	 * @return array[] $saved_layouts_data {
 	 *     Existing Pages/Posts Data
@@ -809,13 +870,17 @@ class ET_Builder_Library {
 	 *     }
 	 * }
 	 */
-	protected function _builder_library_modal_custom_tabs_existing_pages() {
+	protected function _builder_library_modal_custom_tabs_existing_pages( $exclude_ids = array() ) {
 		et_core_nonce_verified_previously();
 
 		$categories = array();
 		$packs      = array();
 		$layouts    = array();
 		$index      = 0;
+
+		if ( $exclude_ids ) {
+			$exclude_ids = array_map( 'intval', $exclude_ids );
+		}
 
 		$thumbnail       = self::_get_image_size_name( 'screenshot' );
 		$thumbnail_small = self::_get_image_size_name( 'thumbnail_small' );
@@ -834,12 +899,18 @@ class ET_Builder_Library {
 			unset( $post_types[ array_search( 'layout', $post_types, true ) ] );
 		}
 
-		if ( wp_doing_ajax() ) {
-			// VB case.
-			$exclude = isset( $_POST['postId'] ) ? (int) $_POST['postId'] : false;
-		} else {
-			// BB case.
-			$exclude = get_the_ID();
+		// Fallback for D4 when the exclude list parameter is empty.
+		if ( ! $exclude_ids ) {
+			if ( wp_doing_ajax() ) {
+				// VB case.
+				$exclude = isset( $_POST['postId'] ) ? (int) $_POST['postId'] : false;
+			} else {
+				// BB case.
+				$exclude = get_the_ID();
+			}
+
+			// Add the current page to the exclude list.
+			$exclude_ids[] = $exclude;
 		}
 
 		if ( $post_types ) {
@@ -883,9 +954,25 @@ class ET_Builder_Library {
 					// Do not include unused Theme Builder layouts. For more information
 					// see et_theme_builder_trash_draft_and_unused_posts().
 					->not()->with_meta( '_et_theme_builder_marked_as_unused' )
-					->run();
+					->run(
+						array(
+							'post_status'            => array( 'publish', 'draft' ),
+							'fields'                 => 'ids',
+							'update_post_meta_cache' => false,
+							'update_post_term_cache' => false,
+						)
+					);
 
-				$posts = self::$_->array_sort_by( is_array( $posts ) ? $posts : array( $posts ), 'post_name' );
+				$post_ids = is_array( $posts ) ? $posts : array_filter( (array) $posts );
+
+				if ( ! empty( $post_ids ) ) {
+					$post_objects = array_map( 'get_post', $post_ids );
+					$post_objects = array_filter( $post_objects );
+
+					$posts = self::$_->array_sort_by( $post_objects, 'post_name' );
+				} else {
+					$posts = array();
+				}
 
 				if ( ! empty( $posts ) ) {
 					foreach ( $posts as $post ) {
@@ -894,13 +981,34 @@ class ET_Builder_Library {
 							continue;
 						}
 
-						// Do not add the current page to the list.
-						if ( $post->ID === $exclude ) {
+						// Do not add item if listed in the exclude list.
+						if ( $exclude_ids && in_array( $post->ID, $exclude_ids, true ) ) {
 							continue;
 						}
 
-						// Check if content has shortcode.
-						if ( ! has_shortcode( $post->post_content, 'et_pb_section' ) ) {
+						/**
+						 * Conditional to exclude item that has no builder content.
+						 */
+
+						// Account item that have divi/section Gutenberg block.
+						// This was introduced in D5, in D4 this will always false.
+						$is_builder_content = has_block( 'divi/section', $post->post_content );
+
+						if ( ! $is_builder_content ) {
+							// Account item that have et_pb_section shortcode.
+							// In D4, we use the has_shortcode built-in WP function,
+							// but it will not as expected in D5. Because in D5 the builder shortcode
+							// is not registered into the WP. So the usage of has_shortcode will always false.
+							// Hence we use regular expression to detect the builder shortcode.
+							$pattern = get_shortcode_regex( array( 'et_pb_section' ) );
+
+							if ( preg_match_all( '/' . $pattern . '/s', $post->post_content, $matches ) && array_key_exists( 2, $matches ) ) {
+								$is_builder_content = true;
+							}
+						}
+
+						// Exclude item if the builder content is not detected.
+						if ( ! $is_builder_content ) {
 							continue;
 						}
 
@@ -1846,7 +1954,7 @@ class ET_Builder_Library {
 		 * For cloud item.
 		 */
 		if ( isset( $payload['content'] ) ) {
-			if ( 'convert_module_to_section' === $payload['action'] && 'fullwidth' === $payload['item']['width'] ) {	
+			if ( 'convert_module_to_section' === $payload['action'] && 'fullwidth' === $payload['item']['width'] ) {
 				// For fullwidth module, there is no row and column.
 				$wrapper_start = $fullwidth_wrapper;
 				$wrapper_end   = $section_end;
@@ -1941,7 +2049,18 @@ class ET_Builder_Library {
 
 		$library_type = isset( $_POST['et_library_type'] ) ? (string) sanitize_text_field( $_POST['et_library_type'] ) : 'layout';
 
-		wp_send_json_success( $this->builder_library_layouts_data( $library_type ) );
+		$layouts_data = $this->builder_library_layouts_data( $library_type );
+
+		if ( is_wp_error( $layouts_data ) ) {
+			wp_send_json_error(
+				array(
+					'code'    => $layouts_data->get_error_code(),
+					'message' => $layouts_data->get_error_message(),
+				)
+			);
+		}
+
+		wp_send_json_success( $layouts_data );
 	}
 
 	/**
@@ -2067,28 +2186,28 @@ class ET_Builder_Library {
 	public function wp_hook_admin_enqueue_scripts( $page ) {
 		global $typenow;
 
+		if ( 'et_pb_layout' !== $typenow ) {
+			return;
+		}
+
 		et_core_load_main_fonts();
 
 		wp_enqueue_style( 'et-builder-notification-popup-styles', ET_BUILDER_URI . '/styles/notification_popup_styles.css', array(), ET_BUILDER_PRODUCT_VERSION );
 
-		if ( 'et_pb_layout' === $typenow ) {
-			$new_layout_modal = et_pb_generate_new_layout_modal();
+		$new_layout_modal = et_pb_generate_new_layout_modal();
 
-			wp_enqueue_style( 'library-styles', ET_BUILDER_URI . '/styles/library_pages.css', array( 'et-core-admin' ), ET_BUILDER_PRODUCT_VERSION );
-			$deps = array(
-				'jquery',
-			);
-			wp_enqueue_script( 'library-scripts', ET_BUILDER_URI . '/scripts/library_scripts.js', $deps, ET_BUILDER_PRODUCT_VERSION, false );
+		wp_enqueue_style( 'library-styles', ET_BUILDER_URI . '/styles/library_pages.css', array( 'et-core-admin' ), ET_BUILDER_PRODUCT_VERSION );
+		$deps = array(
+			'jquery',
+		);
+		wp_enqueue_script( 'library-scripts', ET_BUILDER_URI . '/scripts/library_scripts.js', $deps, ET_BUILDER_PRODUCT_VERSION, false );
 
-			$new_template_options_data = array(
-				'ajaxurl'             => admin_url( 'admin-ajax.php' ),
-				'et_admin_load_nonce' => wp_create_nonce( 'et_admin_load_nonce' ),
-				'modal_output'        => $new_layout_modal,
-			);
-			wp_localize_script( 'library-scripts', 'et_pb_new_template_options', $new_template_options_data );
-		} else {
-			wp_enqueue_script( 'et-builder-failure-notice', ET_BUILDER_URI . '/scripts/failure_notice.js', array( 'jquery' ), ET_BUILDER_PRODUCT_VERSION, false );
-		}
+		$new_template_options_data = array(
+			'ajaxurl'             => admin_url( 'admin-ajax.php' ),
+			'et_admin_load_nonce' => wp_create_nonce( 'et_admin_load_nonce' ),
+			'modal_output'        => $new_layout_modal,
+		);
+		wp_localize_script( 'library-scripts', 'et_pb_new_template_options', $new_template_options_data );
 	}
 
 	/**

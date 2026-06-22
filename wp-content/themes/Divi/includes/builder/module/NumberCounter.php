@@ -194,6 +194,64 @@ class ET_Builder_Module_Number_Counter extends ET_Builder_Module {
 		$video_background          = $this->video_background();
 		$parallax_image_background = $this->get_parallax_image_background();
 
+		// setup data for D5 front-end script.
+		// Helper function to get the value based on device type.
+		$get_device_value = function( $mode, $desktop, $tablet, $phone, $hover_enabled, $hover, $sticky ) {
+			// Breakpoint inheritance.
+			$tablet = '' !== $tablet ? $tablet : $desktop;
+			$phone  = '' !== $phone ? $phone : $tablet;
+
+			// Value by Breakpoint.
+			if ( 'phone' === $mode ) {
+				$value = $phone;
+			} elseif ( 'tablet' === $mode ) {
+				$value = $tablet;
+			} else {
+				$value = $desktop;
+			}
+
+			// Required.
+			$device_value = [
+				'value' => $value,
+			];
+
+			// Optional.
+			if ( $hover_enabled && '' !== $hover ) {
+				$device_value['hover'] = $hover;
+			}
+			if ( '' !== $sticky ) {
+				$device_value['sticky'] = $sticky;
+			}
+
+			return $device_value;
+		};
+
+		// Setup data for D5 front-end script.
+		$sticky_options       = et_pb_sticky_options();
+		$number_tablet        = $this->props['number_tablet'] ?? '';
+		$number_phone         = $this->props['number_phone'] ?? '';
+		$number_sticky        = $sticky_options->get_value( 'number', $this->props, '' );
+		$number_hover         = et_pb_hover_options()->get_value( 'number', $this->props, '' );
+		$number_hover_enabled = et_builder_is_hover_enabled( 'number', $this->props );
+
+		// Add front-end script data used by D5.
+		\ET\Builder\FrontEnd\Module\ScriptData::add_data_item(
+			[
+				'data_name'    => 'number_counter',
+				'data_item_id' => null,
+				'data_item'    => [
+					'selector' => str_replace( '%%order_class%%', '.' . ET_Builder_Element::get_module_order_class( $render_slug ), $this->main_css_element ),
+					'data'     => [
+						'numberValue' => [
+							'desktop' => $get_device_value( 'desktop', $number, $number_tablet, $number_phone, $number_hover_enabled, $number_hover, $number_sticky ),
+							'tablet'  => $get_device_value( 'tablet', $number, $number_tablet, $number_phone, $number_hover_enabled, $number_hover, $number_sticky ),
+							'phone'   => $get_device_value( 'phone', $number, $number_tablet, $number_phone, $number_hover_enabled, $number_hover, $number_sticky ),
+						],
+					],
+				],
+			]
+		);
+
 		// Module classnames
 		$this->add_classname(
 			array(

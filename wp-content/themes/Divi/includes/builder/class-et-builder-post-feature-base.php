@@ -7,6 +7,10 @@
  * @since 4.10.0
  */
 
+require_once ET_BUILDER_5_DIR . 'server/FrontEnd/Assets/DynamicAssetsUtils.php';
+
+use ET\Builder\FrontEnd\Assets\DynamicAssetsUtils;
+
 /**
  * Post Based Feature Base.
  *
@@ -16,7 +20,7 @@ class ET_Builder_Post_Feature_Base {
 
 
 	// Only save cache if time (milliseconds) to generate it is above this threshold.
-	const CACHE_SAVE_THRESHOLD = 15;
+	const CACHE_SAVE_THRESHOLD = 10;
 	const CACHE_META_KEY       = '_et_builder_module_feature_cache';
 
 	/**
@@ -81,13 +85,13 @@ class ET_Builder_Post_Feature_Base {
 		if ( self::enabled() ) {
 			global $shortname;
 
-			$this->_post_id = ET_Builder_Element::get_current_post_id();
+			$this->_post_id = et_core_get_current_post_id();
 
 			if ( 'extra' === $shortname ) {
-				if ( ( et_is_extra_layout_used_as_home() || et_is_extra_layout_used_as_front() ) && ! is_null( et_get_extra_home_layout_id() ) ) {
-					$this->_post_id = et_get_extra_home_layout_id();
-				} elseif ( ( is_category() || is_tag() ) && ! is_null( et_get_extra_tax_layout_id() ) ) {
-					$this->_post_id = et_get_extra_tax_layout_id();
+				if ( ( DynamicAssetsUtils::is_extra_layout_used_as_home() || DynamicAssetsUtils::is_extra_layout_used_as_front() ) && ! is_null( DynamicAssetsUtils::get_extra_home_layout_id() ) ) {
+					$this->_post_id = DynamicAssetsUtils::get_extra_home_layout_id();
+				} elseif ( ( is_category() || is_tag() ) && ! is_null( DynamicAssetsUtils::get_extra_tax_layout_id() ) ) {
+					$this->_post_id = DynamicAssetsUtils::get_extra_tax_layout_id();
 				}
 			}
 
@@ -224,22 +228,26 @@ class ET_Builder_Post_Feature_Base {
 	protected static function _get_cache_index_items() {
 		global $wp_version;
 
-		$dynamic_assets = ET_Dynamic_Assets::init();
-		$tb_ids = $dynamic_assets->get_theme_builder_template_ids();
+		$tb_ids = DynamicAssetsUtils::get_theme_builder_template_ids();
 
 		$tb_data = [];
 		foreach ( $tb_ids as $tb_id ) {
 			$tb_post = get_post( $tb_id );
-			$tb_data[ $tb_id ] = $tb_post->post_modified_gmt;
+			if ( $tb_post ) {
+				$tb_data[ $tb_id ] = $tb_post->post_modified_gmt;
+			}
 		}
 
 		// Ignore WP Editor template if current page use TB.
 		$wpe_data = [];
 		if ( empty( $tb_data ) ) {
-			$wpe_ids = $dynamic_assets->get_wp_editor_template_ids();
+			$wpe_ids = DynamicAssetsUtils::get_wp_editor_template_ids();
+
 			foreach ( $wpe_ids as $wpe_id ) {
-				$wpe_post            = get_post( $wpe_id );
-				$wpe_data[ $wpe_id ] = $wpe_post->post_modified_gmt;
+				$wpe_post = get_post( $wpe_id );
+				if ( $wpe_post ) {
+					$wpe_data[ $wpe_id ] = $wpe_post->post_modified_gmt;
+				}
 			}
 		}
 
@@ -283,10 +291,11 @@ class ET_Builder_Post_Feature_Base {
 	 * @param mixed  $value To be cached.
 	 * @param string $group Cache group.
 	 * @param float  $elapsed How much time it took to generate the value.
+	 * @param bool   $forcefully Whether to forcefully set the cache.
 	 */
-	public function cache_set( $key, $value, $group = 'default', $elapsed = 0 ) {
-		// Only save truthy values into cache.
-		if ( $value ) {
+	public function cache_set( $key, $value, $group = 'default', $elapsed = 0, $forcefully = false ) {
+		// Only save truthy values into cache or if forcefully is set.
+		if ( $value || $forcefully ) {
 			$this->_cache[ $group ][ $key ] = $value;
 		}
 		$this->_cache_set_time         += $elapsed * 1000;
@@ -301,10 +310,11 @@ class ET_Builder_Post_Feature_Base {
 	 * @param string   $key Name of item.
 	 * @param function $cb  Callback function to perform logic.
 	 * @param string   $group Cache group.
+	 * @param bool     $forcefully Whether to forcefully set the cache.
 	 *
 	 * @return bool/mixed Result.
 	 */
-	public function get( $key, $cb, $group = 'default' ) {
+	public function get( $key, $cb, $group = 'default', $forcefully = false ) {
 		if ( ! self::enabled() ) {
 			return $cb();
 		}
@@ -318,7 +328,7 @@ class ET_Builder_Post_Feature_Base {
 				$result  = $cb();
 				$elapsed = microtime( true ) - $before;
 
-				$this->cache_set( $key, $result, $group, $elapsed );
+				$this->cache_set( $key, $result, $group, $elapsed, $forcefully );
 			} else {
 				// No entry found in a previsouly loaded cache,
 				// means the answer was falsey last time $cb() was checked,

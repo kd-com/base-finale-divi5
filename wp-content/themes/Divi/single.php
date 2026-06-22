@@ -1,35 +1,55 @@
 <?php
+/**
+ * Single.php
+ *
+ * @package Divi
+ */
+
+use ET\Builder\Framework\Utility\PostUtility;
+
+$post_id                                = get_queried_object_id();
+$show_default_title                     = get_post_meta( $post_id, '_et_pb_show_title', true );
+$is_page_builder_used                   = et_pb_is_pagebuilder_used( $post_id );
+$is_builder_cpt_single                  = $is_page_builder_used && et_builder_post_is_of_custom_post_type( $post_id );
+$cpt_page_layout                        = get_post_meta( $post_id, '_et_pb_page_layout', true );
+$is_builder_cpt_single_with_sidebar     = $is_builder_cpt_single && in_array( $cpt_page_layout, [ 'et_right_sidebar', 'et_left_sidebar' ], true );
+$render_default_single_shell            = ! $is_builder_cpt_single || $is_builder_cpt_single_with_sidebar;
+$show_builder_cpt_title                 = $is_builder_cpt_single_with_sidebar && 'off' !== $show_default_title;
 
 get_header();
-
-$show_default_title = get_post_meta( get_the_ID(), '_et_pb_show_title', true );
-
-$is_page_builder_used = et_pb_is_pagebuilder_used( get_the_ID() );
 
 ?>
 
 <div id="main-content">
 	<?php
-		if ( et_builder_is_product_tour_enabled() ):
-			// load fullwidth page in Product Tour mode
-			while ( have_posts() ): the_post(); ?>
+	if ( et_builder_is_product_tour_enabled() ) :
+		// load fullwidth page in Product Tour mode.
+		while ( have_posts() ) :
+			the_post();
+			?>
 
 				<article id="post-<?php the_ID(); ?>" <?php post_class( 'et_pb_post' ); ?>>
 					<div class="entry-content">
 					<?php
-						the_content();
+					the_content();
 					?>
 					</div>
 
 				</article>
 
-		<?php endwhile;
-		else:
-	?>
-	<div class="container">
-		<div id="content-area" class="clearfix">
-			<div id="left-area">
-			<?php while ( have_posts() ) : the_post(); ?>
+			<?php
+		endwhile;
+		else :
+			?>
+	<?php if ( $render_default_single_shell ) : ?>
+		<div class="container">
+			<div id="content-area" class="clearfix">
+				<div id="left-area">
+	<?php endif; ?>
+			<?php
+			while ( have_posts() ) :
+				the_post();
+				?>
 				<?php
 				/**
 				 * Fires before the title and post meta on single posts.
@@ -39,92 +59,102 @@ $is_page_builder_used = et_pb_is_pagebuilder_used( get_the_ID() );
 				do_action( 'et_before_post' );
 				?>
 				<article id="post-<?php the_ID(); ?>" <?php post_class( 'et_pb_post' ); ?>>
-					<?php if ( ( 'off' !== $show_default_title && $is_page_builder_used ) || ! $is_page_builder_used ) { ?>
+					<?php if ( $show_builder_cpt_title ) { ?>
+						<div class="et_post_meta_wrapper">
+							<h1 class="entry-title"><?php the_title(); ?></h1>
+							<?php
+							if ( ! post_password_required() ) {
+								et_divi_post_meta();
+							}
+							?>
+						</div>
+					<?php } elseif ( ! $is_builder_cpt_single && ( ( 'off' !== $show_default_title && $is_page_builder_used ) || ! $is_page_builder_used ) ) { ?>
 						<div class="et_post_meta_wrapper">
 							<h1 class="entry-title"><?php the_title(); ?></h1>
 
 						<?php
-							if ( ! post_password_required() ) :
+						if ( ! post_password_required() ) :
 
-								et_divi_post_meta();
+							et_divi_post_meta();
 
-								$thumb = '';
+							$thumb = '';
 
-								$width = (int) apply_filters( 'et_pb_index_blog_image_width', 1080 );
+							$width = (int) apply_filters( 'et_pb_index_blog_image_width', 1080 );
 
-								$height = (int) apply_filters( 'et_pb_index_blog_image_height', 675 );
-								$classtext = 'et_featured_image';
-								$titletext = get_the_title();
-								$alttext = get_post_meta( get_post_thumbnail_id(), '_wp_attachment_image_alt', true );
-								$thumbnail = get_thumbnail( $width, $height, $classtext, $alttext, $titletext, false, 'Blogimage' );
-								$thumb = $thumbnail["thumb"];
+							$height    = (int) apply_filters( 'et_pb_index_blog_image_height', 675 );
+							$classtext = 'et_featured_image';
+							$titletext = get_the_title();
+							$alttext   = get_post_meta( get_post_thumbnail_id(), '_wp_attachment_image_alt', true );
+							$thumbnail = get_thumbnail( $width, $height, $classtext, $alttext, $titletext, false, 'Blogimage' );
+							$thumb     = $thumbnail['thumb'];
 
-								$post_format = et_pb_post_format();
+							$post_format = et_pb_post_format();
+							$first_video = PostUtility::get_first_video();
 
-								if ( 'video' === $post_format && false !== ( $first_video = et_get_first_video() ) ) {
-									printf(
-										'<div class="et_main_video_container">
+							if ( 'video' === $post_format && false !== $first_video ) {
+								printf(
+									'<div class="et_main_video_container">
 											%1$s
 										</div>',
-										et_core_esc_previously( $first_video )
-									);
-								} else if ( ! in_array( $post_format, array( 'gallery', 'link', 'quote' ) ) && 'on' === et_get_option( 'divi_thumbnails', 'on' ) && '' !== $thumb ) {
-									print_thumbnail( $thumb, $thumbnail["use_timthumb"], $alttext, $width, $height );
-								} else if ( 'gallery' === $post_format ) {
-									et_pb_gallery_images();
-								}
+									et_core_esc_previously( $first_video )
+								);
+							} elseif ( ! in_array( $post_format, [ 'gallery', 'link', 'quote' ], true ) && 'on' === et_get_option( 'divi_thumbnails', 'on' ) && '' !== $thumb ) {
+								print_thumbnail( $thumb, $thumbnail['use_timthumb'], $alttext, $width, $height );
+							} elseif ( 'gallery' === $post_format ) {
+								et_pb_gallery_images();
+							}
 							?>
 
 							<?php
-								$text_color_class = et_divi_get_post_text_color();
+							$text_color_class = et_divi_get_post_text_color();
 
-								$inline_style = et_divi_get_post_bg_inline_style();
+							$inline_style = et_divi_get_post_bg_inline_style();
 
-								switch ( $post_format ) {
-									case 'audio' :
-										$audio_player = et_pb_get_audio_player();
+							switch ( $post_format ) {
+								case 'audio':
+									$audio_player = et_pb_get_audio_player();
 
-										if ( $audio_player ) {
-											printf(
-												'<div class="et_audio_content%1$s"%2$s>
+									if ( $audio_player ) {
+										printf(
+											'<div class="et_audio_content%1$s"%2$s>
 													%3$s
 												</div>',
-												esc_attr( $text_color_class ),
-												et_core_esc_previously( $inline_style ),
-												et_core_esc_previously( $audio_player )
-											);
-										}
+											esc_attr( $text_color_class ),
+											et_core_esc_previously( $inline_style ),
+											et_core_esc_previously( $audio_player )
+										);
+									}
 
-										break;
-									case 'quote' :
-										printf(
-											'<div class="et_quote_content%2$s"%3$s>
+									break;
+								case 'quote':
+									printf(
+										'<div class="et_quote_content%2$s"%3$s>
 												%1$s
 											</div>',
-											et_core_esc_previously( et_get_blockquote_in_content() ),
-											esc_attr( $text_color_class ),
-											et_core_esc_previously( $inline_style )
-										);
+										et_core_esc_previously( et_get_blockquote_in_content() ),
+										esc_attr( $text_color_class ),
+										et_core_esc_previously( $inline_style )
+									);
 
-										break;
-									case 'link' :
-										printf(
-											'<div class="et_link_content%3$s"%4$s>
+									break;
+								case 'link':
+									printf(
+										'<div class="et_link_content%3$s"%4$s>
 												<a href="%1$s" class="et_link_main_url">%2$s</a>
 											</div>',
-											esc_url( et_get_link_url() ),
-											esc_html( et_get_link_url() ),
-											esc_attr( $text_color_class ),
-											et_core_esc_previously( $inline_style )
-										);
+										esc_url( et_get_link_url() ),
+										esc_html( et_get_link_url() ),
+										esc_attr( $text_color_class ),
+										et_core_esc_previously( $inline_style )
+									);
 
-										break;
-								}
+									break;
+							}
 
 							endif;
 						?>
 					</div>
-				<?php  } ?>
+				<?php } ?>
 
 					<div class="entry-content">
 					<?php
@@ -132,17 +162,27 @@ $is_page_builder_used = et_pb_is_pagebuilder_used( get_the_ID() );
 
 						the_content();
 
-						wp_link_pages( array( 'before' => '<div class="page-links">' . esc_html__( 'Pages:', 'Divi' ), 'after' => '</div>' ) );
+						wp_link_pages(
+							[
+								'before' => '<div class="page-links">' . esc_html__( 'Pages:', 'Divi' ),
+								'after'  => '</div>',
+							]
+						);
 					?>
 					</div>
-					<div class="et_post_meta_wrapper">
+					<?php if ( ! $is_builder_cpt_single ) : ?>
+						<div class="et_post_meta_wrapper">
+					<?php endif; ?>
 					<?php
-					if ( et_get_option('divi_468_enable') === 'on' ){
+					if ( ! $is_builder_cpt_single && et_get_option( 'divi_468_enable' ) === 'on' ) {
 						echo '<div class="et-single-post-ad">';
-						if ( et_get_option('divi_468_adsense') !== '' ) echo et_core_intentionally_unescaped( et_core_fix_unclosed_html_tags( et_get_option('divi_468_adsense') ), 'html' );
-						else { ?>
+						if ( et_get_option( 'divi_468_adsense' ) !== '' ) {
+							echo et_core_intentionally_unescaped( et_core_fix_unclosed_html_tags( et_get_option( 'divi_468_adsense' ) ), 'html' );
+						} else {
+							?>
 							<a href="<?php echo esc_url( strval( et_get_option( 'divi_468_url' ) ) ); ?>"><img src="<?php echo esc_attr( et_get_option( 'divi_468_image' ) ); ?>" alt="468" class="foursixeight" /></a>
-				<?php 	}
+							<?php
+						}
 						echo '</div>';
 					}
 
@@ -153,19 +193,28 @@ $is_page_builder_used = et_pb_is_pagebuilder_used( get_the_ID() );
 					 */
 					do_action( 'et_after_post' );
 
-						if ( ( comments_open() || get_comments_number() ) && 'on' === et_get_option( 'divi_show_postcomments', 'on' ) ) {
-							comments_template( '', true );
-						}
+					if (
+						! $is_builder_cpt_single &&
+						( comments_open() || get_comments_number() ) &&
+						'on' === et_get_option( 'divi_show_postcomments', 'on' )
+					) {
+						// TODO fix(D4, Comments): Revert to comments_template after WordPress core resolves Trac #61468. [https://github.com/elegantthemes/Divi/issues/28338].
+						et_comments_template_safe( '', true );
+					}
 					?>
-					</div>
+					<?php if ( ! $is_builder_cpt_single ) : ?>
+						</div>
+					<?php endif; ?>
 				</article>
 
 			<?php endwhile; ?>
-			</div>
+			<?php if ( $render_default_single_shell ) : ?>
+				</div>
 
-			<?php get_sidebar(); ?>
+				<?php get_sidebar(); ?>
+			</div>
 		</div>
-	</div>
+			<?php endif; ?>
 	<?php endif; ?>
 </div>
 

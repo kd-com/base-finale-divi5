@@ -85,7 +85,7 @@
           supportUserTimeToExpiry();
           $msgExpiry.show(showHideDelay);
           $('.et-support-user-elevated').show(showHideDelay);
-          $('.card.et_remote_access .et_card_cta').append(
+          $('.card.et_remote_access .et_card_cta > a:first-child').after(
             $('<a>')
               .attr({
                 'class':      'copy_support_token',
@@ -318,7 +318,7 @@
   }
 
   $(window).on('resize', function() {
-    resizeTimer = _.debounce(et_core_correct_video_proportions(), showHideDelay);
+    resizeTimer = _.debounce(et_core_correct_video_proportions, showHideDelay);
   });
 
   $(function() {

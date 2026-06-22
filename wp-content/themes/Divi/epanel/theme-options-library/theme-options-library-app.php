@@ -111,12 +111,11 @@ class ET_Theme_Options_Library_App {
 			wp_enqueue_style( 'et-theme-options-library-styles', "{$build_dir_uri}/et-theme-options-library-app.bundle.css", [], (string) $cache_buster );
 		}
 
-		$BUNDLE_DEPS = [
-			'jquery',
-			'react',
-			'react-dom',
-			'es6-promise',
-		];
+		$bundle_deps = array( 'jquery', 'react', 'react-dom', 'es6-promise' );
+
+		if ( function_exists( 'et_common_is_command_palette_admin_screen' ) && et_common_is_command_palette_admin_screen() ) {
+			$bundle_deps = array( 'jquery', 'divi-legacy-react', 'divi-legacy-react-dom', 'es6-promise' );
+		}
 
 		if ( $DEBUG || $enqueue_prod_scripts || file_exists( $asset_path ) ) {
 			$BUNDLE_URI = ! file_exists( $asset_path ) ? "{$home_url['scheme']}://{$home_url['host']}:31599/et-theme-options-library-app.bundle.js" : "{$build_dir_uri}/et-theme-options-library-app.bundle.js";
@@ -131,7 +130,7 @@ class ET_Theme_Options_Library_App {
 			wp_enqueue_script(
 				'et-theme-options-library-app',
 				$BUNDLE_URI,
-				$BUNDLE_DEPS,
+				$bundle_deps,
 				(string) $cache_buster,
 				true
 			);

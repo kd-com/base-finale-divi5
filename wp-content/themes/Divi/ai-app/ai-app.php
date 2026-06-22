@@ -47,19 +47,16 @@ class ET_AI_App {
 		$username = isset( $_POST['et_username'] ) ? sanitize_text_field( $_POST['et_username'] ) : '';
 		$api_key  = isset( $_POST['et_api_key'] ) ? sanitize_text_field( $_POST['et_api_key'] ) : '';
 
-		$result = update_site_option(
-			'et_automatic_updates_options',
-			[
-				'username' => $username,
-				'api_key'  => $api_key,
-			]
+		$updates_options = get_site_option( 'et_automatic_updates_options', array() );
+		$account         = array(
+			'username' => $username,
+			'api_key'  => $api_key,
 		);
 
-		if ( $result ) {
-			wp_send_json_success();
-		} else {
-			wp_send_json_error();
-		}
+		update_site_option( 'et_automatic_updates_options', array_merge( $updates_options, $account ) );
+		update_site_option( 'et_account_status', 'active' );
+
+		wp_send_json_success();
 	}
 
 	/**
@@ -168,8 +165,8 @@ class ET_AI_App {
 	 * @return void
 	 */
 	public static function init_hooks() {
-		add_filter( 'et_builder_load_requests', [ 'ET_AI_App', 'update_ajax_calls_list' ] );
-
+		add_action( 'wp', [ 'ET_AI_App', 'register_package_builds' ] );
+		add_action( 'wp_ajax_et_builder_update_et_account', [ 'ET_AI_App', 'register' ] );
 		add_action( 'wp_ajax_et_builder_update_et_account_local', [ 'ET_AI_App', 'et_builder_update_et_account_local' ] );
 		add_action( 'wp_ajax_et_ai_upload_image', [ 'ET_AI_App', 'et_ai_upload_image' ] );
 		add_action( 'wp_ajax_et_ai_layout_save_defaults', [ 'ET_AI_App', 'et_ai_layout_save_defaults' ] );
@@ -383,6 +380,7 @@ class ET_AI_App {
 			'woocommerce_status'         => class_exists( 'WooCommerce' ) ? 'active' : 'inactive',
 			'placeholder_image'          => ET_AI_PLACEHOLDER_LANDSCAPE_IMAGE_DATA,
 			'product_version'            => ET_BUILDER_PRODUCT_VERSION,
+			'et_account'                 => et_core_get_et_account(),
 		);
 
 		$is_onboarding = is_admin() && isset( $_GET['page'] ) && 'et_onboarding' === $_GET['page'];
@@ -404,9 +402,9 @@ class ET_AI_App {
 
 	/**
 	 * AJAX Callback :: Convert shortcode string to object.
-	 * 
+	 *
 	 * @since ??
-	 * 
+	 *
 	 * @return object
 	 */
 	public static function et_ai_shortcode_string_to_object() {
@@ -422,6 +420,83 @@ class ET_AI_App {
 		$shortcode_obj = et_fb_process_shortcode( stripslashes( $shortcode_string ) );
 
 		wp_send_json_success( $shortcode_obj );
+	}
+
+	/**
+	 * Register AI App package builds.
+	 *
+	 * @since ??
+	 *
+	 * @return void
+	 */
+	public static function register_package_builds() {
+		if ( defined( 'ET_BUILDER_PLUGIN_ACTIVE' ) ) {
+			if ( ! defined( 'ET_AI_PLUGIN_URI' ) ) {
+				define( 'ET_AI_PLUGIN_URI', untrailingslashit( plugin_dir_url( __FILE__ ) ) );
+			}
+
+			if ( ! defined( 'ET_AI_PLUGIN_DIR' ) ) {
+				define( 'ET_AI_PLUGIN_DIR', untrailingslashit( plugin_dir_path( __FILE__ ) ) );
+			}
+		} else {
+			if ( ! defined( 'ET_AI_PLUGIN_URI' ) ) {
+				define( 'ET_AI_PLUGIN_URI', get_template_directory_uri() . '/ai-app' );
+			}
+
+			if ( ! defined( 'ET_AI_PLUGIN_DIR' ) ) {
+				define( 'ET_AI_PLUGIN_DIR', get_template_directory() . '/ai-app' );
+			}
+		}
+
+		$CORE_VERSION = defined( 'ET_CORE_VERSION' ) ? ET_CORE_VERSION : '';
+		$ET_DEBUG     = defined( 'ET_DEBUG' ) && ET_DEBUG;
+		$DEBUG        = $ET_DEBUG;
+
+		$home_url      = wp_parse_url( get_site_url() );
+		$build_dir_uri = ET_AI_PLUGIN_URI . '/build';
+		$cache_buster  = $DEBUG ? mt_rand() / mt_getrandmax() : $CORE_VERSION;
+		$asset_path    = ET_AI_PLUGIN_DIR . '/build/et-ai-app.bundle.js';
+
+		if ( file_exists( $asset_path ) ) {
+			\ET\Builder\VisualBuilder\Assets\PackageBuildManager::register_package_build(
+				[
+					'name'    => 'et-ai-app-style',
+					'version' => (string) $cache_buster,
+					'style'  => [
+						'src'                => "{$build_dir_uri}/et-ai-app.bundle.css",
+						'enqueue_top_window' => true,
+						'enqueue_app_window' => false,
+						'defer'              => true,
+					]
+				]
+			);
+		}
+
+		if ( $DEBUG || file_exists( $asset_path ) ) {
+			$BUNDLE_URI = ! file_exists( $asset_path ) ? "{$home_url['scheme']}://{$home_url['host']}:31498/et-ai-app.bundle.js" : "{$build_dir_uri}/et-ai-app.bundle.js";
+
+			$BUNDLE_DEPS = [
+				'jquery',
+				'react',
+				'react-dom',
+				'es6-promise',
+			];
+
+			\ET\Builder\VisualBuilder\Assets\PackageBuildManager::register_package_build(
+				[
+					'name'    => 'et-ai-app',
+					'version' => (string) $cache_buster,
+					'script'  => [
+						'src'                => $BUNDLE_URI,
+						'deps'               => $BUNDLE_DEPS,
+						'enqueue_top_window' => false,
+						'enqueue_app_window' => false,
+						'data_top_window'    => self::get_ai_app_helpers(),
+						'data_app_window'    => self::get_ai_app_helpers(),
+					]
+				]
+			);
+		}
 	}
 
 	/**
@@ -456,7 +531,7 @@ class ET_AI_App {
 
 		$home_url       = wp_parse_url( get_site_url() );
 		$build_dir_uri  = ET_AI_PLUGIN_URI . '/build';
-		$common_scripts = ET_COMMON_URL . '/scripts';
+		$common_scripts = ET_COMMON_URL . 'scripts';
 		$cache_buster   = $DEBUG ? mt_rand() / mt_getrandmax() : $CORE_VERSION;
 		$asset_path     = ET_AI_PLUGIN_DIR . '/build/et-ai-app.bundle.js';
 
@@ -484,7 +559,7 @@ class ET_AI_App {
 			}
 
 			wp_enqueue_script( 'et-ai-app', $BUNDLE_URI, $BUNDLE_DEPS, (string) $cache_buster, true );
-			wp_localize_script( 'et-ai-app', 'et_ai_data', self::get_ai_app_helpers() );
+			wp_localize_script( 'et-ai-app', 'EtAiAppData', self::get_ai_app_helpers() );
 		}
 	}
 }

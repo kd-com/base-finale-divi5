@@ -241,11 +241,15 @@ class ET_Api_Rest_Block_Layout {
 					// the value doesn't change.
 					$result = true;
 				} else {
+					// D5: Use wp_slash() to preserve unicode escapes like "\u003cp\u003e".
+					// WordPress's update_metadata() calls wp_unslash() internally,
+					// so we need to pre-slash the content.
+					$slashed_content = wp_slash( $layout_content );
 					// Otherwise, attempt to save post meta and returns how it goes.
 					$result = update_post_meta(
 						$post_id,
 						$post_meta_key,
-						$layout_content
+						$slashed_content
 					);
 				}
 

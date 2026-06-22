@@ -1294,7 +1294,7 @@ class ET_Builder_Module_Post_Slider extends ET_Builder_Module_Type_PostBased {
 							if ( $is_text_overlay_applied ) :
 								?>
 								<div class="et_pb_text_overlay_wrapper"><?php endif; ?>
-								<<?php echo et_pb_process_header_level( $header_level, 'h2' ); ?> class="et_pb_slide_title"><a href="<?php esc_url( the_permalink() ); ?>"><?php the_title(); ?></a></<?php echo et_pb_process_header_level( $header_level, 'h2' ); ?>>
+								<<?php echo et_pb_process_header_level( $header_level, 'h2' ); ?> class="et_pb_slide_title"><a href="<?php echo esc_url( get_the_permalink() ); ?>"><?php the_title(); ?></a></<?php echo et_pb_process_header_level( $header_level, 'h2' ); ?>>
 								<div class="et_pb_slide_content
 								<?php
 								if ( 'on' !== $show_content_on_mobile ) {

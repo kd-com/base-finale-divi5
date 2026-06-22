@@ -11,6 +11,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit; // Exit if accessed directly.
 }
 
+use ET\Builder\Framework\Utility\Conditions;
+
 /**
  * Class use theme's chosen fonts in Gutenberg editor.
  *
@@ -109,6 +111,20 @@ class ET_GB_Editor_Typography {
 				$body_layout             = $tb_layouts[ ET_THEME_BUILDER_BODY_LAYOUT_POST_TYPE ];
 				$body_layout_id          = et_()->array_get( $body_layout, 'id' );
 				$this->_body_layout_post = get_post( $body_layout_id );
+
+				// Check if Theme Builder body layout contains D4 shortcodes (backwards compatibility mode).
+				// If yes, skip Theme Builder typography extraction because:
+				// 1. These pages don't use Block Editor for content editing.
+				// 2. D4 shortcode framework isn't loaded in Block Editor context.
+				// 3. Attempting to process D4 shortcodes causes fatal errors.
+				if ( $this->_body_layout_post && Conditions::has_shortcode( '', $this->_body_layout_post->post_content ) ) {
+					$editor_settings['styles'][] = array(
+						'css'            => $styles,
+						'__unstableType' => 'theme',
+					);
+
+					return $editor_settings;
+				}
 
 				$this->_initialize_shortcode( '_post_content_shortcode', et_theme_builder_get_post_content_modules() );
 				$this->_initialize_shortcode( '_post_title_shortcode', array( 'et_pb_post_title' ) );
@@ -293,7 +309,19 @@ class ET_GB_Editor_Typography {
 		}
 
 		if ( ! empty( $title_styles ) ) {
-			$title_styles = sprintf( 'h1,h2,h3,h4,h5,h6,.editor-post-title__block .editor-post-title__input { %1$s }', $title_styles );
+			// Exclude WordPress UI elements: post title input and Divi placeholder block.
+			$heading_selectors = array();
+			foreach ( array( 'h1', 'h2', 'h3', 'h4', 'h5', 'h6' ) as $heading ) {
+				$heading_selectors[] = '.editor-styles-wrapper ' . $heading . ':not(.editor-post-title__input)';
+			}
+			$title_styles = sprintf( '%1$s { %2$s }', implode( ',', $heading_selectors ), $title_styles );
+
+			// Explicitly exclude .wp-block-divi-placeholder headings from Customizer styles.
+			$exclusion_selectors = array();
+			foreach ( array( 'h1', 'h2', 'h3', 'h4', 'h5', 'h6' ) as $heading ) {
+				$exclusion_selectors[] = '.editor-styles-wrapper .wp-block-divi-placeholder ' . $heading;
+			}
+			$title_styles .= sprintf( ' %1$s { font-family: inherit !important; text-transform: none !important; letter-spacing: normal !important; line-height: normal !important; }', implode( ',', $exclusion_selectors ) );
 		}
 
 		$title_styles .= $this->get_heading_levels_font_size_style();
@@ -392,6 +420,10 @@ class ET_GB_Editor_Typography {
 	/**
 	 * Generate the heading levels font size from the Header Size customizer setting and return style.
 	 *
+	 * Applies Customizer heading font sizes scoped to Gutenberg editor content area only.
+	 * Styles are automatically scoped to `.editor-styles-wrapper` by WordPress when injected
+	 * via `block_editor_settings_all` filter.
+	 *
 	 * @return string
 	 */
 	public function get_heading_levels_font_size_style() {
@@ -404,25 +436,33 @@ class ET_GB_Editor_Typography {
 			return $title_styles;
 		}
 
-		$font_sizes = array(
-			'h1,.editor-post-title__block .editor-post-title__input' => $body_header_size,
-			'h2' => $body_header_size * .86,
-			'h3' => $body_header_size * .73,
-			'h4' => $body_header_size * .60,
-			'h5' => $body_header_size * .53,
-			'h6' => $body_header_size * .47,
+		$font_size_multipliers = array(
+			'h1' => 1,
+			'h2' => .86,
+			'h3' => .73,
+			'h4' => .60,
+			'h5' => .53,
+			'h6' => .47,
 		);
 
-		foreach ( $font_sizes as $selector => $font_size ) {
+		foreach ( $font_size_multipliers as $heading => $multiplier ) {
+			$selector      = '.editor-styles-wrapper ' . $heading . ':not(.editor-post-title__input)';
 			$title_styles .= ',' . et_builder_generate_css(
 				array(
 					'style'    => 'font-size',
-					'value'    => intval( $font_size ),
+					'value'    => intval( $body_header_size * $multiplier ),
 					'suffix'   => 'px',
 					'selector' => $selector,
 				)
 			);
 		}
+
+		// Explicitly exclude .wp-block-divi-placeholder headings from Customizer font sizes.
+		$exclusion_selectors = array();
+		foreach ( array( 'h1', 'h2', 'h3', 'h4', 'h5', 'h6' ) as $heading ) {
+			$exclusion_selectors[] = '.editor-styles-wrapper .wp-block-divi-placeholder ' . $heading;
+		}
+		$title_styles .= sprintf( ' %1$s { font-size: inherit !important; }', implode( ',', $exclusion_selectors ) );
 
 		return $title_styles;
 	}

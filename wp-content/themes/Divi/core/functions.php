@@ -42,11 +42,9 @@ function et_core_autoloader( $class_name ) {
 	$groups = $components[ $class_name ]['groups'];
 	$slug   = $components[ $class_name ]['slug'];
 
-	if ( ! file_exists( $file ) ) {
-		return;
-	}
-
-	// Load component class
+	// Load component class.
+	// Note, we dont check file exists first, becase this list is hardcoded and should always be correct,
+	// see et_core_get_components_metadata().
 	require_once $file;
 
 	/**
@@ -250,7 +248,7 @@ function et_core_get_main_fonts() {
 		$font_families = array();
 
 		if ( 'off' !== $open_sans )
-			$font_families[] = 'Open+Sans:300italic,400italic,600italic,700italic,800italic,400,300,600,700,800';
+			$font_families[] = 'Inter:500,600,700';
 
 		$protocol = is_ssl() ? 'https' : 'http';
 		$query_args = array(
@@ -286,7 +284,7 @@ if ( ! function_exists( 'et_core_get_theme_info' ) ) :
 			}
 		}
 
-		return $theme_info->display( $key );
+		return $theme_info->get( $key );
 	}
 endif;
 
@@ -338,7 +336,8 @@ if ( ! function_exists( 'et_core_initialize_component_group' ) ):
 function et_core_initialize_component_group( $slug, $init_file = null ) {
 	$slug = strtolower( $slug );
 
-	if ( null !== $init_file && file_exists( $init_file ) ) {
+	// were not doing a file_exists check here because we know the file exists, it's hardcoded in _metadata.php.
+	if ( null !== $init_file ) {
 		// Load and run component group's init function
 		require_once $init_file;
 
@@ -396,11 +395,22 @@ endif;
 
 if ( ! function_exists( 'et_core_is_fb_enabled' ) ):
 function et_core_is_fb_enabled() {
-	if ( function_exists( 'et_fb_is_enabled' ) ) {
-		return et_fb_is_enabled();
+	static $is_fb_enabled = null;
+
+	// once its not null, and true, we can return it, no need to check further.
+	if ( null !== $is_fb_enabled && $is_fb_enabled ) {
+		return $is_fb_enabled;
 	}
 
-	return isset( $_GET['et_fb'] ) && current_user_can( 'edit-posts' );
+	if ( function_exists( 'et_fb_is_enabled' ) ) {
+		$is_fb_enabled = et_fb_is_enabled();
+
+		return $is_fb_enabled;
+	}
+
+	$is_fb_enabled = isset( $_GET['et_fb'] ) && current_user_can( 'edit-posts' );
+
+	return $is_fb_enabled;
 }
 endif;
 
@@ -423,14 +433,20 @@ endif;
 if ( ! function_exists( 'et_core_is_gutenberg_active' ) ):
 function et_core_is_gutenberg_active() {
 	global $wp_version;
-
+	static $is_gutenberg_active = null;
 	static $has_wp5_plus = null;
+
+	if ( null !== $is_gutenberg_active ) {
+		return $is_gutenberg_active;
+	}
 
 	if ( is_null( $has_wp5_plus ) ) {
 		$has_wp5_plus = version_compare( $wp_version, '5.0-alpha1', '>=' );
 	}
 
-	return $has_wp5_plus || function_exists( 'is_gutenberg_page' );
+	$is_gutenberg_active = $has_wp5_plus || function_exists( 'is_gutenberg_page' );
+
+	return $is_gutenberg_active;
 }
 endif;
 
@@ -496,6 +512,21 @@ endif;
 
 if ( ! function_exists( 'et_core_maybe_patch_old_theme' ) ):
 function et_core_maybe_patch_old_theme() {
+	$current_theme = et_core_get_theme_info( 'Name' );
+	$theme_version = et_core_get_theme_info( 'Version' );
+	$themes        = [
+		'Divi'  => '3.0.41',
+		'Extra' => '2.0.40',
+	];
+
+	if ( ! in_array( $current_theme, array_keys( $themes ), true ) ) {
+		return;
+	}
+
+	if ( version_compare( $theme_version, $themes[ $current_theme ], '>' ) ) {
+		return;
+	}
+
 	if ( ! ET_Core_Logger::php_notices_enabled() ) {
 		return;
 	}
@@ -505,15 +536,6 @@ function et_core_maybe_patch_old_theme() {
 		add_action( 'after_setup_theme', 'ET_Core_Logger::enable_php_notices', 11 );
 		return;
 	}
-
-	$themes         = array( 'Divi' => '3.0.41', 'Extra' => '2.0.40' );
-	$current_theme  = et_core_get_theme_info( 'Name' );
-
-	if ( ! in_array( $current_theme, array_keys( $themes ) ) ) {
-		return;
-	}
-
-	$theme_version = et_core_get_theme_info( 'Version' );
 
 	if ( version_compare( $theme_version, $themes[ $current_theme ], '<' ) ) {
 		add_action( 'after_setup_theme', 'ET_Core_Logger::disable_php_notices', 9 );
@@ -588,6 +610,36 @@ if ( ! function_exists( 'et_core_register_admin_assets' ) ) :
 	}
 endif;
 add_action( 'admin_enqueue_scripts', 'et_core_register_admin_assets' );
+
+
+if ( ! function_exists( 'et_core_register_admin_style_early' ) ) :
+	/**
+	 * Register et-core-admin style handle early on admin_init to ensure it's available
+	 * for dependency resolution during block editor asset registration, which occurs
+	 * before admin_enqueue_scripts fires in WordPress 6.9.1+ block editor flow.
+	 *
+	 * @since 5.0.0
+	 *
+	 * @private
+	 */
+	function et_core_register_admin_style_early() {
+		global $pagenow;
+
+		// Only register early on post editing pages where block editor might be used.
+		// This ensures the style handle is available when block editor styles declare it as a dependency,
+		// while avoiding unnecessary registration on other admin pages.
+		$edit_page_names = array( 'post.php', 'post-new.php' );
+		if ( ! in_array( $pagenow, $edit_page_names, true ) ) {
+			return;
+		}
+
+		// Register style handle early so it's available when block editor styles declare it as a dependency.
+		// The full registration (including script) still happens on admin_enqueue_scripts.
+		wp_register_style( 'et-core-admin', ET_CORE_URL . 'admin/css/core.css', array(), ET_CORE_VERSION );
+	}
+endif;
+add_action( 'admin_init', 'et_core_register_admin_style_early', 1 );
+
 
 if ( ! function_exists( 'et_core_register_common_assets' ) ) :
 /**
@@ -736,47 +788,55 @@ endif;
 
 
 if ( ! function_exists( 'et_core_setup' ) ) :
-/**
- * Setup Core.
- *
- * @since 1.0.0
- * @since 3.0.60 The `$url` param is deprecated.
- *
- * @param string $deprecated Deprecated parameter.
- */
-function et_core_setup( $deprecated = '' ) {
-	if ( defined( 'ET_CORE_PATH' ) ) {
-		return;
+	/**
+	 * Setup Core.
+	 *
+	 * @since 1.0.0
+	 * @since 3.0.60 The `$url` param is deprecated.
+	 *
+	 * @param string $deprecated Deprecated parameter.
+	 */
+	function et_core_setup( $deprecated = '' ) {
+		if ( defined( 'ET_CORE_PATH' ) ) {
+			return;
+		}
+
+		$core_path = _et_core_normalize_path( trailingslashit( dirname( __FILE__ ) ) );
+		$theme_dir = _et_core_normalize_path( trailingslashit( realpath( get_template_directory() ) ) );
+
+		if ( 0 === strpos( $core_path, $theme_dir ) ) {
+			$url  = get_template_directory_uri() . '/core/';
+			$type = 'theme';
+		} else {
+			$url  = plugin_dir_url( __FILE__ );
+			$type = 'plugin';
+		}
+
+		define( 'ET_CORE_PATH', $core_path );
+		define( 'ET_CORE_URL', $url );
+		define( 'ET_CORE_TEXTDOMAIN', 'et-core' );
+		define( 'ET_CORE_TYPE', $type );
+
+		// Translations should be loaded at the init action since WP 6.7.0.
+		add_action(
+			'init',
+			function () {
+				load_theme_textdomain( 'et-core', ET_CORE_PATH . 'languages/' );
+			}
+		);
+
+		et_core_maybe_set_updated();
+		et_new_core_setup();
+
+		register_shutdown_function( 'ET_Core_PageResource::shutdown' );
+
+		// phpcs:ignore WordPress.Security.NonceVerification -- Nonce verification is not required here.
+		if ( is_admin() || ! empty( $_GET['et_fb'] ) ) {
+			add_action( 'admin_enqueue_scripts', 'et_core_load_main_styles' );
+		}
+
+		et_core_maybe_patch_old_theme();
 	}
-
-	$core_path = _et_core_normalize_path( trailingslashit( dirname( __FILE__ ) ) );
-	$theme_dir = _et_core_normalize_path( trailingslashit( realpath( get_template_directory() ) ) );
-
-	if ( 0 === strpos( $core_path, $theme_dir ) ) {
-		$url  = get_template_directory_uri() . '/core/';
-		$type = 'theme';
-	} else {
-		$url  = plugin_dir_url( __FILE__ );
-		$type = 'plugin';
-	}
-
-	define( 'ET_CORE_PATH', $core_path );
-	define( 'ET_CORE_URL', $url );
-	define( 'ET_CORE_TEXTDOMAIN', 'et-core' );
-	define( 'ET_CORE_TYPE', $type );
-
-	load_theme_textdomain( 'et-core', ET_CORE_PATH . 'languages/' );
-	et_core_maybe_set_updated();
-	et_new_core_setup();
-
-	register_shutdown_function( 'ET_Core_PageResource::shutdown' );
-
-	if ( is_admin() || ! empty( $_GET['et_fb'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.NoNonceVerification
-		add_action( 'admin_enqueue_scripts', 'et_core_load_main_styles' );
-	}
-
-	et_core_maybe_patch_old_theme();
-}
 endif;
 
 
@@ -872,10 +932,11 @@ if ( ! function_exists( 'et_requeue_child_theme_styles' ) ) :
 		if ( is_child_theme() ) {
 			global $shortname;
 
+			$should_use_dynamic_css = \ET\Builder\FrontEnd\Assets\DynamicAssetsUtils::use_dynamic_assets();
 			$theme_version          = et_get_child_theme_version();
 			$template_directory_uri = preg_quote( get_stylesheet_directory_uri(), '/' );
 			$styles                 = wp_styles();
-			$inline_style_suffix    = et_core_is_inline_stylesheet_enabled() && et_use_dynamic_css() ? '-inline' : '';
+			$inline_style_suffix    = et_core_is_inline_stylesheet_enabled() && $should_use_dynamic_css ? '-inline' : '';
 			$style_dep              = array( $shortname . '-style-parent' . $inline_style_suffix );
 
 			if ( empty( $styles->registered ) ) {
@@ -893,24 +954,29 @@ if ( ! function_exists( 'et_requeue_child_theme_styles' ) ) :
 endif;
 
 if ( ! function_exists( 'et_new_core_setup') ):
-function et_new_core_setup() {
-	$has_php_52x = -1 === version_compare( PHP_VERSION, '5.3' );
+	/**
+	 * Setup Core.
+	 *
+	 * @return void
+	 */
+	function et_new_core_setup() {
+		$has_php_52x = -1 === version_compare( PHP_VERSION, '5.3' );
 
-	require_once ET_CORE_PATH . 'components/Updates.php';
-	require_once ET_CORE_PATH . 'components/init.php';
-	require_once ET_CORE_PATH . 'php_functions.php';
-	require_once ET_CORE_PATH . 'wp_functions.php';
+		require_once ET_CORE_PATH . 'components/Updates.php';
+		require_once ET_CORE_PATH . 'components/init.php';
+		require_once ET_CORE_PATH . 'php_functions.php';
+		require_once ET_CORE_PATH . 'wp_functions.php';
 
-	if ( $has_php_52x ) {
-		spl_autoload_register( 'et_core_autoloader', true );
-	} else {
-		spl_autoload_register( 'et_core_autoloader', true, true );
+		if ( $has_php_52x ) {
+			spl_autoload_register( 'et_core_autoloader', true );
+		} else {
+			spl_autoload_register( 'et_core_autoloader', true, true );
+		}
+
+		// Initialize top-level components "group".
+		$hook = did_action( 'plugins_loaded' ) ? 'after_setup_theme' : 'plugins_loaded';
+		add_action( $hook, 'et_core_init', 9999999 );
 	}
-
-	// Initialize top-level components "group"
-	$hook = did_action( 'plugins_loaded' ) ?  'after_setup_theme' : 'plugins_loaded';
-	add_action( $hook, 'et_core_init', 9999999 );
-}
 endif;
 
 
@@ -1012,49 +1078,67 @@ if ( ! function_exists( 'et_core_is_inline_stylesheet_enabled' ) ) :
 	 * @since 4.10.2
 	 */
 	function et_core_is_inline_stylesheet_enabled() {
-		global $shortname;
-
-		if ( defined( 'ET_BUILDER_PLUGIN_ACTIVE' ) ) {
-			$options           = get_option( 'et_pb_builder_options', array() );
-			$inline_stylesheet = isset( $options['performance_main_inline_stylesheet'] ) ? $options['performance_main_inline_stylesheet'] : 'on';
-		} else {
-			// Get option value. If Extra, defaults to off.
-			$inline_stylesheet = et_get_option( $shortname . '_inline_stylesheet', 'extra' === $shortname ? 'off' : 'on' );
+		// TODO Remove this or deprecate the function during Divi 5 test.
+		// We are temporarily returning overriding this function to force Inline Stylesheets to be on to improve performance.
+		if ( ! et_core_is_fb_enabled() && ! is_preview() && ! is_customize_preview() ) {
+			return true;
 		}
 
-		$enable_inline_stylesheet = 'on' === $inline_stylesheet ? true : false;
+		global $shortname;
+		static $enable_inline_stylesheet = null;
+
+		if ( null === $enable_inline_stylesheet ) {
+			if ( defined( 'ET_BUILDER_PLUGIN_ACTIVE' ) ) {
+				$options           = get_option( 'et_pb_builder_options', array() );
+				$inline_stylesheet = isset( $options['performance_main_inline_stylesheet'] ) ? $options['performance_main_inline_stylesheet'] : 'on';
+			} else {
+				// Get option value. If Extra, defaults to off.
+				$inline_stylesheet = et_get_option( $shortname . '_inline_stylesheet', 'extra' === $shortname ? 'off' : 'on' );
+			}
+
+			$enable_inline_stylesheet = 'on' === $inline_stylesheet ? true : false;
+
+			/**
+			 * Filters whether to enable inline stylesheets.
+			 *
+			 * @since 5.0.0
+			 *
+			 * @param bool $enable_inline_stylesheet
+			 */
+			$enable_inline_stylesheet = apply_filters( 'et_core_is_inline_stylesheet_enabled', (bool) $enable_inline_stylesheet );
+		}
 
 		return $enable_inline_stylesheet;
 	}
 endif;
 
 if ( ! function_exists( 'et_core_is_safe_mode_active' ) ):
-/**
- * Check whether the Support Center's Safe Mode is active
- *
- * @param false|string $product The ET theme or plugin checking for Safe Mode status.
- *
- * @since ?.?
- *
- * @see ET_Core_SupportCenter::toggle_safe_mode
- *
- * @return bool
- */
-function et_core_is_safe_mode_active($product=false) {
-	// If we're checking against a particular product, return false if the product-specific usermeta doesn't match
-	if ( $product ) {
-		$product = esc_attr( $product );
-		if ( $product === get_user_meta( get_current_user_id(), '_et_support_center_safe_mode_product', true ) ) {
-			return true;
-		}
-		return false;
-	};
+	/**
+	 * Check whether the Support Center's Safe Mode is active
+	 *
+	 * @param false|string $product The ET theme or plugin checking for Safe Mode status.
+	 *
+	 * @since ?.?
+	 *
+	 * @see ET_Core_SupportCenter::toggle_safe_mode
+	 *
+	 * @return bool
+	 */
+	function et_core_is_safe_mode_active( $product = false ) {
+		// If we're checking against a particular product, return false if the product-specific usermeta doesn't match.
+		if ( $product ) {
+			$product = esc_attr( $product );
+			if ( get_user_meta( get_current_user_id(), '_et_support_center_safe_mode_product', true ) === $product ) {
+				return true;
+			}
+			return false;
+		};
 
-	if ( 'on' === get_user_meta( get_current_user_id(), '_et_support_center_safe_mode', true ) ) {
-		return true;
-	};
-	return false;
-}
+		if ( 'on' === get_user_meta( get_current_user_id(), '_et_support_center_safe_mode', true ) ) {
+			return true;
+		};
+		return false;
+	}
 endif;
 
 if ( ! function_exists( 'et_core_load_component' ) ) :
@@ -1147,6 +1231,7 @@ function et_core_add_allowed_protocols( $protocols = array() ) {
 	$additional = array(
 		'skype', // Add Skype messaging protocol
 		'sms', // Add SMS text messaging protocol
+		'viber', // Add Viber messaging protocol.
 	);
 	$protocols  = array_unique( array_merge( $protocols, $additional ) );
 
@@ -1824,10 +1909,10 @@ if ( ! function_exists( 'et_core_parse_google_fonts_json' ) ) :
 				continue;
 			}
 
-			$fonts[ sanitize_text_field( $font_item['family'] ) ] = array(
-				'styles'        => sanitize_text_field( implode( ',', $font_item['variants'] ) ),
-				'character_set' => sanitize_text_field( implode( ',', $font_item['subsets'] ) ),
-				'type'          => sanitize_text_field( $font_item['category'] ),
+			$fonts[ $font_item['family'] ] = array(
+				'styles'        => implode( ',', $font_item['variants'] ),
+				'character_set' => implode( ',', $font_item['subsets'] ),
+				'type'          => $font_item['category'],
 			);
 		}
 
@@ -1846,17 +1931,13 @@ if ( ! function_exists( 'et_core_get_saved_google_fonts' ) ) :
 	 * @return array Associative array list of google fonts.
 	 */
 	function et_core_get_saved_google_fonts() {
-		static $saved_google_fonts;
+		static $saved_google_fonts = null;
 
 		if ( ! is_null( $saved_google_fonts ) ) {
 			return $saved_google_fonts;
 		}
 
 		$json_file = ET_CORE_PATH . 'json-data/google-fonts.json';
-
-		if ( ! et_()->WPFS()->is_readable( $json_file ) ) {
-			return array();
-		}
 
 		$saved_google_fonts = et_core_parse_google_fonts_json( et_()->WPFS()->get_contents( $json_file ) );
 
@@ -2063,7 +2144,7 @@ if ( ! function_exists( 'et_dequeue_block_css' ) ) :
 		$post_id                 = get_the_id();
 		$is_page_builder_used    = function_exists( 'et_pb_is_pagebuilder_used' ) ? et_pb_is_pagebuilder_used( $post_id ) : false;
 		$defer_block_css_enabled = ( 'on' === et_get_option( $shortname . '_defer_block_css', 'on' ) );
-		$is_wp_template_used     = ! empty( et_builder_get_wp_editor_templates() );
+		$is_wp_template_used     = is_admin() && ! empty( et_builder_get_wp_editor_templates() );
 
 		if ( $is_page_builder_used && $defer_block_css_enabled && ! $is_wp_template_used ) {
 			wp_dequeue_style( 'wp-block-library' );
@@ -2147,10 +2228,30 @@ function et_code_snippets_admin_enqueue_scripts( $hook_suffix ) {
 		// Avoids et_cloud_data not defined error.
 		ET_Cloud_App::load_js();
 	}
-	ET_Code_Snippets_App::load_js();
+	ET_Code_Snippets_App::load_js( true, true );
 }
 
 add_action( 'admin_enqueue_scripts', 'et_code_snippets_admin_enqueue_scripts' );
+
+/**
+ *  Enqueue scripts on theme builder admin page.
+ *
+ * @since 5.0.0
+ *
+ * @param string $hook_suffix Page hook suffix.
+ * @return void
+ */
+function et_enqueue_theme_builder_script( $hook_suffix ) {
+	global $shortname;
+
+	if ( $shortname . '_page_et_theme_builder' !== $hook_suffix ) {
+		return;
+	}
+
+	et_builder_enqueue_assets_head();
+}
+
+add_action( 'admin_enqueue_scripts', 'et_enqueue_theme_builder_script' );
 
 /**
  * Enqueue Code snippets library scripts in VB.
@@ -2180,11 +2281,12 @@ add_action( 'wp_enqueue_scripts', 'et_code_snippets_vb_enqueue_scripts' );
  * @return void
  */
 function et_ai_admin_enqueue_scripts() {
-	if ( ! function_exists( 'et_builder_bfb_enabled' ) ) {
-		return;
-	}
+	global $pagenow;
 
-	if ( ! et_builder_bfb_enabled() ) {
+	$page = isset( $_GET['page'] ) ? $_GET['page'] : ''; // phpcs:ignore ET.Sniffs.ValidatedSanitizedInput.InputNotSanitized -- sanitization is not needed here.
+
+	// ensure were on admin.php?page=et_onboarding
+	if ( 'admin.php' !== $pagenow || 'et_onboarding' !== $page ) {
 		return;
 	}
 
@@ -2273,4 +2375,101 @@ function et_core_get_roles_by_capabilities( $capabilities ) {
 	 * @param string $capabilities Specific capabilities that we want to check.
 	 */
 	return apply_filters( 'et_core_get_roles_by_capabilities', $roles, $capabilities );
+}
+
+/**
+ * Check if Static Builder CSS is enabled for the current page.
+ * Static Builder CSS can be enabled at the website level via Theme Options.
+ * It can also be enabled at the post level via builder options.
+ *
+ * @since 5.0.0
+ *
+ * @return bool.
+ */
+function et_core_is_static_css_enabled() {
+	// TODO Remove this or deprecate the function during Divi 5 test.
+	// We are temporarily returning overriding this function to force Static CSS to be on to improve performance.
+	if ( ! et_core_is_fb_enabled() && ! is_preview() && ! is_customize_preview() ) {
+		return true;
+	}
+
+	static $is_enabled = null;
+
+	if ( null === $is_enabled ) {
+		$is_enabled = 'on' === et_get_option( 'et_pb_static_css_file', 'on' );
+
+		/**
+		 * Filters whether to disable Static Builder CSS.
+		 *
+		 * @since 5.0.0
+		 *
+		 * @param bool $is_enabled
+		 */
+		$is_enabled = apply_filters( 'et_core_is_static_css_enabled', (bool) $is_enabled );
+	}
+
+	return $is_enabled;
+}
+
+/**
+ * Get whether third party post interference should be respected.
+ * Current use case is for plugins like Toolset that render a
+ * loop within a layout which renders another layout for
+ * each post - in this case we must NOT override the
+ * current post so the loop works as expected.
+ *
+ * @since 4.0.6
+ *
+ * @return boolean
+ */
+function et_core_should_respect_post_interference() {
+	$post = ET_Post_Stack::get();
+
+	return null !== $post && get_the_ID() !== $post->ID;
+}
+
+/**
+ * Retrieve the main query post id.
+ * Accounts for third party interference with the current post.
+ *
+ * @since 4.0.6
+ *
+ * @return integer|boolean
+ */
+function et_core_get_main_post_id() {
+	if ( et_core_should_respect_post_interference() ) {
+		return get_the_ID();
+	}
+
+	return ET_Post_Stack::get_main_post_id();
+}
+
+/**
+ * Retrieve Post ID from 1 of 4 sources depending on which exists:
+ * - $_POST['current_page']['id']
+ * - $_POST['et_post_id']
+ * - $_GET['post']
+ * - get_the_ID()
+ *
+ * @since 3.17.2
+ *
+ * @return int|bool
+ */
+function et_core_get_current_post_id() {
+	// Getting correct post id in computed_callback request.
+	// phpcs:disable WordPress.Security.NonceVerification -- This function does not change any state, and is therefore not susceptible to CSRF.
+	if ( wp_doing_ajax() && isset( $_POST['current_page']['id'] ) ) {
+		return absint( $_POST['current_page']['id'] );
+	}
+
+	if ( wp_doing_ajax() && isset( $_POST['et_post_id'] ) ) {
+		return absint( $_POST['et_post_id'] );
+	}
+
+	if ( isset( $_POST['post'] ) ) {
+		return absint( $_POST['post'] );
+	}
+
+	return et_core_get_main_post_id();
+	// phpcs:enable
 }

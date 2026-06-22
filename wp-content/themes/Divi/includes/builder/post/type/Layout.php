@@ -184,6 +184,30 @@ class ET_Builder_Post_Type_Layout extends ET_Core_Post_Type {
 		$has_preview = ! $is_VB && ! is_null( self::$_->array_get( $get, 'et_pb_preview', null ) );
 		$is_preview  = $has_preview && et_core_security_check_passed( '', 'et_pb_preview_nonce', '', '_GET' );
 
+		if ( et_builder_d5_enabled() ) {
+			if ( ! $is_preview ) {
+				if (
+						isset( $_SERVER['REQUEST_METHOD'] ) &&
+						'POST' === $_SERVER['REQUEST_METHOD'] &&
+						isset( $_SERVER['REQUEST_URI'] ) &&
+						strpos( esc_url_raw( $_SERVER['REQUEST_URI'] ), 'sync-to-server' ) !== false
+				) {
+					$json = file_get_contents( 'php://input' );
+					$data = json_decode( $json, true );
+
+					if ( isset( $data['syncType'] ) && 'preview' === $data['syncType'] ) {
+						$is_preview = true;
+					}
+				} elseif ( isset( $_GET['preview_id'] ) && isset( $_GET['preview_nonce'] ) ) {
+					$id = (int) $_GET['preview_id'];
+
+					if ( wp_verify_nonce( sanitize_text_field( $_GET['preview_nonce'] ), 'post_preview_' . $id ) ) {
+						$is_preview = true;
+					}
+				}
+			}
+		}
+
 		return $is_VB || $is_preview || $is_wpcli;
 	}
 

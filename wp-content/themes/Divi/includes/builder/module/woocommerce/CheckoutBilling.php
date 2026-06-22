@@ -544,7 +544,7 @@ class ET_Builder_Module_Woocommerce_Checkout_Billing extends ET_Builder_Module {
 		self::maybe_handle_hooks( $conditional_tags );
 
 		$is_cart_empty = function_exists( 'WC' ) && isset( WC()->cart ) && WC()->cart->is_empty();
-		$is_pb_mode    = et_fb_is_computed_callback_ajax() || is_et_pb_preview();
+		$is_pb_mode    = et_fb_is_computed_callback_ajax() || is_et_pb_preview() || et_builder_is_rest_api_request( '/module-data/shortcode-module' );
 		$class         = 'ET_Builder_Module_Helper_Woocommerce_Modules';
 
 		// Set dummy cart contents to output Billing when no product is in cart.
@@ -657,9 +657,12 @@ class ET_Builder_Module_Woocommerce_Checkout_Billing extends ET_Builder_Module {
 			$this->add_classname( 'et_pb_wc_order_pay' );
 		}
 
-		if ( isset( WC()->cart )
+		if (
+			isset( WC()->cart )
 			&& ! is_null( WC()->cart && method_exists( WC()->cart, 'check_cart_items' ) )
-			&& ! is_et_pb_preview() ) {
+			&& ! is_et_pb_preview()
+			&& ! et_builder_is_rest_api_request( '/module-data/shortcode-module' )
+		) {
 			$return = WC()->cart->check_cart_items();
 
 			if ( wc_notice_count( 'error' ) > 0 ) {

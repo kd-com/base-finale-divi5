@@ -127,6 +127,7 @@ class ET_Builder_Code_Snippets_Library {
 		$files = [
 			ET_CODE_SNIPPETS_DIR . 'post/type/CodeSnippet.php',
 			ET_CODE_SNIPPETS_DIR . 'post/taxonomy/CodeSnippetType.php',
+			ET_BUILDER_DIR . 'frontend-builder/theme-builder/post/type/TBItem.php',
 		];
 
 		if ( ! $files ) {

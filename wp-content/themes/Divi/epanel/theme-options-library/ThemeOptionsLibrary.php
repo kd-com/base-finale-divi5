@@ -88,6 +88,9 @@ class ET_Builder_Theme_Options_Library {
 	protected function _register_cpt_and_taxonomies() {
 		$files = [
 			ET_THEME_OPTIONS_DIR . 'post/type/ThemeOptions.php',
+			ET_BUILDER_DIR . 'post/taxonomy/LayoutCategory.php',
+			ET_BUILDER_DIR . 'post/taxonomy/LayoutTag.php',
+			ET_BUILDER_DIR . 'post/type/Layout.php',
 		];
 
 		if ( ! $files ) {

@@ -55,8 +55,6 @@ class ET_Global_Settings {
 	 * Set default global setting value
 	 */
 	private static function set_values() {
-		$hover = et_pb_hover_options();
-
 		$font_defaults_h1 = array(
 			'size'           => '30px',
 			'letter_spacing' => '0px',
@@ -97,10 +95,6 @@ class ET_Global_Settings {
 			'blend'    => 'normal',
 		);
 
-		$background_blend_mode_defaults = array(
-			'background_blend_mode' => $background_image_defaults['blend'],
-		);
-
 		$filter_defaults = array(
 			'filter_hue_rotate' => '0deg',
 			'filter_saturate'   => '100%',
@@ -119,8 +113,8 @@ class ET_Global_Settings {
 			'all_buttons_border_radius'                    => '3',
 			'all_buttons_spacing'                          => '0',
 			'all_buttons_font_style'                       => '',
-			$hover->get_hover_field( 'all_buttons_border_radius' ) => '3',
-			$hover->get_hover_field( 'all_buttons_spacing' ) => '0',
+			'all_buttons_border_radius__hover'             => '3',
+			'all_buttons_spacing__hover'                   => '0',
 			// Global: Background Gradients.
 			'all_background_gradient_repeat'               => $background_gradient_defaults['repeat'],
 			'all_background_gradient_type'                 => $background_gradient_defaults['type'],
@@ -655,8 +649,8 @@ class ET_Global_Settings {
 			'all_field_border_radius'                      => '3',
 			'all_field_spacing'                            => '0',
 			'all_field_font_style'                         => '',
-			$hover->get_hover_field( 'all_field_border_radius' ) => '3',
-			$hover->get_hover_field( 'all_field_spacing' ) => '0',
+			'all_field_border_radius__hover'               => '3',
+			'all_field_spacing__hover'                     => '0',
 		);
 
 		if ( et_builder_has_limitation( 'forced_icon_color_default' ) ) {

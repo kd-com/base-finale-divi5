@@ -134,22 +134,27 @@ class ET_Builder_Global_Feature_Base {
 	protected static function _get_cache_index_items() {
 		global $wp_version;
 
+		// Value for the filter.
+		$cache_key = static::CACHE_META_KEY;
+		$value     = [
+			// TODO feat(D5, Preets): Add D5 global history index.
+			'gph'  => ET_Builder_Global_Presets_History::instance()->get_global_history_index(),
+			'divi' => et_get_theme_version(),
+			'wp'   => $wp_version,
+		];
+
 		/**
 		 * Filters global feature cache index items.
 		 *
 		 * @since 4.10.0
 		 *
-		 * @param array  Assoc array of cache index items.
-		 * @param string The cache meta key that the cache index items belong to.
+		 * @param array  $value     Assoc array of cache index items.
+		 * @param string $cache_key The cache meta key that the cache index items belong to.
 		 */
 		return apply_filters(
 			'et_global_feature_cache_index_items',
-			array(
-				'gph'  => ET_Builder_Global_Presets_History::instance()->get_global_history_index(),
-				'divi' => et_get_theme_version(),
-				'wp'   => $wp_version,
-			),
-			static::CACHE_META_KEY
+			$value,
+			$cache_key
 		);
 	}
 

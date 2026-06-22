@@ -7,6 +7,8 @@
  * @since 4.10.0
  */
 
+use ET\Builder\Packages\Shortcode\ShortcodeUtils;
+
 /**
  * Handles module shortcodes.
  *
@@ -15,12 +17,25 @@
 class ET_Builder_Module_Shortcode_Manager {
 
 	/**
+	 * Whether the shortcode manager has been initialized.
+	 */
+	private static $initialzed;
+
+	/**
 	 * Modules container.
 	 *
 	 * @access public
 	 * @var array
 	 */
 	public static $modules_map = [];
+
+	/**
+	 * Additional slugs to register.
+	 *
+	 * @access public
+	 * @var array
+	 */
+	public static $additional_slugs_to_register = [];
 
 	/**
 	 * WooCommerce modules container.
@@ -39,6 +54,35 @@ class ET_Builder_Module_Shortcode_Manager {
 	public static $structural_modules_map = [];
 
 	/**
+	 * Initialized Modules.
+	 *
+	 * @access public
+	 * @var array
+	 */
+	public static $initialized_modules = [];
+
+	/**
+	 * Placeholder recovery attempted flags by shortcode tag in current request.
+	 *
+	 * @var array<string,bool>
+	 */
+	private static $_placeholder_recovery_attempted = [];
+
+	/**
+	 * Placeholder recovery resolved flags by shortcode tag in current request.
+	 *
+	 * @var array<string,bool>
+	 */
+	private static $_placeholder_recovery_resolved = [];
+
+	/**
+	 * Whether global lifecycle fallback recovery was attempted in current request.
+	 *
+	 * @var bool
+	 */
+	private static $_placeholder_global_fallback_attempted = false;
+
+	/**
 	 * Initialize shortcode manager class.
 	 *
 	 * @since 4.10.0
@@ -46,11 +90,72 @@ class ET_Builder_Module_Shortcode_Manager {
 	 * @return void
 	 */
 	public function init() {
+		if ( self::$initialzed ) {
+			return;
+		}
+
+		self::$initialzed = true;
+
 		$this->register_modules();
 		$this->register_fullwidth_modules();
 		$this->register_structural_modules();
 		$this->register_woo_modules();
 		$this->register_shortcode();
+
+		// hook into theme/plugin activation, so we can get the list of third party
+		// modules that just initialized themselves, and store them in the db.
+		add_action( 'after_switch_theme', [ $this, 'register_third_party_modules' ] );
+		add_action( 'activated_plugin', [ $this, 'register_third_party_modules' ] );
+		// Lets also make sure this runs at least once,
+		// in case the theme/plugin was activated before this code was added,
+		// This will ensure that the third party modules are registered.
+		if ( false === et_get_option( 'all_third_party_shortcode_slugs', false ) ) {
+			$this->register_third_party_modules();
+		}
+	}
+
+	/**
+	 * Register third party modules.
+	 *
+	 * This method is called on theme/plugin activation.
+	 *
+	 * This way we can get list of third party module slugs that just initialized themselves, and store them in the db.
+	 * Then we can use this list of slugs to register the shortcodes on the fly, and also to ensure that the modules are loaded.
+	 *
+	 * @since 4.10.0
+	 * @access public
+	 * @return void
+	 */
+	public function register_third_party_modules() {
+		// Load the shortcode framework.
+		et_load_shortcode_framework();
+
+		// Fire off the hooks that will initialize the third party modules.
+		do_action( 'divi_extensions_init' );
+
+		$fire_et_builder_ready = true;
+		if ( defined( 'WP_SANDBOX_SCRAPING' ) && WP_SANDBOX_SCRAPING ) {
+			// During activation, some plugins break if et_builder_ready fires because DiviExtensions
+			// ends up loading the modules too early.
+			$require_skip = array(
+				'divi-essential/divi-essential.php',
+			);
+
+			// phpcs:ignore WordPress.Security.NonceVerification -- This is just check, therefore nonce verification not required.
+			if ( isset( $_GET['plugin'] ) && in_array( $_GET['plugin'], $require_skip, true ) ) {
+				$fire_et_builder_ready = false;
+			}
+		}
+
+		if ( $fire_et_builder_ready ) {
+			do_action( 'et_builder_ready' );
+		}
+
+		// Get the list of third party modules that were initialized.
+		$third_party_modules = \ET_Builder_Element::get_third_party_modules();
+
+		// save the slugs to the database.
+		et_update_option( 'all_third_party_shortcode_slugs', array_keys( $third_party_modules ) );
 	}
 
 	/**
@@ -74,6 +179,116 @@ class ET_Builder_Module_Shortcode_Manager {
 		return self::$modules_map;
 	}
 
+	private static function _should_register_shortcodes() {
+		static $should_register_shortcodes = null;
+
+		if ( null !== $should_register_shortcodes ) {
+			// Use the cached value.
+			return $should_register_shortcodes;
+		}
+
+		// If this is an ajax request.
+		if ( defined( 'DOING_AJAX' ) && DOING_AJAX ) {
+			// load for these actions.
+			$load_for_ajax_actions = [
+				'et_core_portability_import',
+				'et_core_portability_export',
+				'et_d5_readiness_convert_d4_to_d5',
+				'et_d5_readiness_get_result_list',
+				'et_theme_builder_api_import_theme_builder',
+				'et_theme_builder_api_import_theme_builder_step',
+			];
+
+			// phpcs:ignore WordPress.Security.NonceVerification -- This is just check, therefore nonce verification not required.
+			if ( isset( $_REQUEST['action'] ) && in_array( $_REQUEST['action'], $load_for_ajax_actions, true ) ) {
+				$should_register_shortcodes = true;
+				return $should_register_shortcodes;
+			} else {
+				$should_register_shortcodes = false;
+				return $should_register_shortcodes;
+			}
+		}
+
+		// always load builder files when WP CLI is running.
+		if ( defined( 'WP_CLI' ) && WP_CLI ) {
+			$should_register_shortcodes = true;
+			return $should_register_shortcodes;
+		}
+
+		// always load builder files when in Test env.
+		if ( defined( 'WP_TESTS_DOMAIN' ) ) {
+			$should_register_shortcodes = true;
+			return $should_register_shortcodes;
+		}
+
+		// Don't load builder files when in REST API request.
+		$request_uri         = esc_url_raw( wp_unslash( $_SERVER['REQUEST_URI'] ?? '' ) );
+		$is_rest_api_request = defined( 'REST_REQUEST' ) && REST_REQUEST || 0 === strpos( $request_uri, '/' . rest_get_url_prefix() ) || false !== strpos( $request_uri, '?rest_route=/' );
+
+		if ( $is_rest_api_request ) {
+			$should_register_shortcodes = false;
+			return $should_register_shortcodes;
+		}
+
+		// If we are in the admin.
+		if ( is_admin() ) {
+			$should_register_shortcodes = false;
+			return $should_register_shortcodes;
+		}
+
+		// phpcs:ignore WordPress.Security.NonceVerification -- This is just check, therefore nonce verification not required.
+		$is_vb_enabled = isset( $_GET['et_fb'] ) && '1' === $_GET['et_fb'];
+
+		// phpcs:ignore WordPress.Security.NonceVerification -- This is just check, therefore nonce verification not required.
+		$has_page_id = ! empty( $_GET['page_id'] );
+
+		if ( $is_vb_enabled && $has_page_id ) {
+			// Don't load when this is a request for the VB from GB.
+			$should_register_shortcodes = false;
+			return $should_register_shortcodes;
+		}
+
+		// phpcs:ignore WordPress.Security.NonceVerification -- This is just check, therefore nonce verification not required.
+		$is_app_window = isset( $_GET['app_window'] ) && '1' === $_GET['app_window'];
+		if ( $is_vb_enabled && $is_app_window ) {
+			// Return false if WooCommerce is not active.
+			if ( ! class_exists( 'WooCommerce', false ) ) {
+				$should_register_shortcodes = false;
+				return false;
+			}
+
+			// phpcs:ignore WordPress.Security.NonceVerification -- This is just check, therefore nonce verification not required.
+			if ( isset( $_REQUEST['REQUEST_METHOD'] ) && ! ( 'POST' === $_REQUEST['REQUEST_METHOD'] || 'GET' === $_REQUEST['REQUEST_METHOD'] ) ) {
+				$should_register_shortcodes = false;
+				return false;
+			}
+
+			global $post;
+
+			// Return false if the post isn't available, or contains no Woo modules "[et_pb_wc" or "[et_pb_shop".
+			if ( ! $post || isset( $post->post_content ) && ( false === strpos( $post->post_content, '[et_pb_wc' ) && false === strpos( $post->post_content, '[et_pb_shop' ) ) ) {
+				return false;
+			}
+
+			// Only load these when this is a request for the VB and this is the app window.
+			$should_register_shortcodes = true;
+			return $should_register_shortcodes;
+		}
+
+		// If this is any other request for the VB, then we shouldn't register the shortcodes.
+		if ( et_core_is_fb_enabled() ) {
+			// Don't load on Visual Builder requests. No shortcode nor serialized block are ever parsed in Visual Builder
+			// request due to two reasons:
+			// 1. To optimize document size, D5 VB loads special blank template page that contains iframe to load app window.
+			// 2. The saved content are parsed on the VB JS app directly.
+			$should_register_shortcodes = false;
+			return $should_register_shortcodes;
+		}
+
+		$should_register_shortcodes = false;
+		return $should_register_shortcodes;
+	}
+
 	/**
 	 * Start registering shortcodes.
 	 *
@@ -82,9 +297,11 @@ class ET_Builder_Module_Shortcode_Manager {
 	 * @return void
 	 */
 	public function register_shortcode() {
-		// is_saving_cache or other scenarios where we need to load everything.
-		if ( et_builder_should_load_all_module_data() ) {
-			$this->register_all_shortcodes();
+		// check if we should register all shortcodes or just the lazy ones.
+		if ( self::_should_register_shortcodes() ) {
+			$action_hook = apply_filters( 'et_builder_modules_load_hook', is_admin() ? 'wp_loaded' : 'wp' );
+
+			add_action( $action_hook, [ $this, 'register_all_shortcodes' ], 1 );
 		} else {
 			$this->register_lazy_shortcodes();
 		}
@@ -489,6 +706,8 @@ class ET_Builder_Module_Shortcode_Manager {
 	 * @return void
 	 */
 	public function register_all_shortcodes() {
+		et_load_shortcode_framework();
+
 		$et_builder_module_files = glob( ET_BUILDER_DIR . 'module/*.php' );
 		$et_builder_module_types = glob( ET_BUILDER_DIR . 'module/type/*.php' );
 
@@ -503,10 +722,30 @@ class ET_Builder_Module_Shortcode_Manager {
 		 */
 		do_action( 'et_builder_modules_load' );
 
+		/**
+		 * Fires before loading Divi module type files.
+		 *
+		 * @since 5.3.3
+		 */
+		do_action( 'divi_visual_builder_before_load_module_types' );
+
 		foreach ( $et_builder_module_types as $module_type ) {
 			require_once $module_type;
 		}
 
+		/**
+		 * Fires after loading Divi module type files.
+		 *
+		 * @since 5.3.3
+		 */
+		do_action( 'divi_visual_builder_after_load_module_types' );
+
+		/**
+		 * Fires before loading Divi module files.
+		 *
+		 * @since 5.3.3
+		 */
+		do_action( 'divi_visual_builder_before_load_module_files' );
 		foreach ( $et_builder_module_files as $module_file ) {
 			// skip this all caps version, if it exists.
 			// See https://github.com/elegantthemes/Divi/issues/24780.
@@ -517,11 +756,32 @@ class ET_Builder_Module_Shortcode_Manager {
 			require_once $module_file;
 		}
 
-		if ( et_is_woocommerce_plugin_active() ) {
+		/**
+		 * Fires after loading Divi module files.
+		 *
+		 * @since 5.3.3
+		 */
+		do_action( 'divi_visual_builder_after_load_module_files' );
+
+		if ( apply_filters( 'et_builder_load_woocommerce_modules', et_is_woocommerce_plugin_active() ) ) {
+			/**
+			 * Fires before loading WooCommerce module files.
+			 *
+			 * @since 5.3.3
+			 */
+			do_action( 'divi_visual_builder_before_load_woo_module_files' );
+
 			$et_builder_woocommerce_module_files = glob( ET_BUILDER_DIR . 'module/woocommerce/*.php' );
 			foreach ( $et_builder_woocommerce_module_files as $module_type ) {
 				require_once $module_type;
 			}
+
+			/**
+			 * Fires after loading WooCommerce module files.
+			 *
+			 * @since 5.3.3
+			 */
+			do_action( 'divi_visual_builder_after_load_woo_module_files' );
 		}
 
 		/**
@@ -552,6 +812,31 @@ class ET_Builder_Module_Shortcode_Manager {
 		// code will exit early and the pre_do_shortcode_tag hook won't be executed.
 		foreach ( self::$modules_map as $shortcode_slug => $module_data ) {
 			add_shortcode( $shortcode_slug, '__return_empty_string' );
+		}
+
+		// lets register our structural modules
+		foreach ( self::$structural_modules_map as $shortcode_slug => $module_data ) {
+			add_shortcode( $shortcode_slug, '__return_empty_string' );
+		}
+
+		// Lets load all shortcode slugs that have been registered.
+		$all_third_party_shortcode_slugs = et_get_option( 'all_third_party_shortcode_slugs', [], '', true );
+
+		// Known 3rd party module slugs.
+		$known_3rd_party_module_slugs = $this->get_known_3rd_party_module_slugs();
+
+		// add all_third_party_shortcode_slugs to the known_3rd_party_module_slugs.
+		$all_third_party_shortcode_slugs = array_merge( $all_third_party_shortcode_slugs, $known_3rd_party_module_slugs );
+
+		// dedupe $all_third_party_shortcode_slugs.
+		$all_third_party_shortcode_slugs = array_unique( $all_third_party_shortcode_slugs );
+
+		// compute the difference between all shortcode slugs and the ones we have in the map.
+		self::$additional_slugs_to_register = array_diff( $all_third_party_shortcode_slugs, array_keys( self::$modules_map ) );
+
+		// Register the slugs that are not in the map.
+		foreach ( self::$additional_slugs_to_register as $slug ) {
+			add_shortcode( $slug, '__return_empty_string' );
 		}
 
 		// Load modules as needed.
@@ -652,35 +937,640 @@ class ET_Builder_Module_Shortcode_Manager {
 	 * @return mixed
 	 */
 	public function load_modules( $override, $tag ) {
+		$was_placeholder = $this->_is_placeholder_shortcode_callback( $tag );
+
 		$this->maybe_load_module_from_slug( $tag );
+
+		// Prevent placeholder callbacks from leaking past the shared pre_do_shortcode_tag
+		// boundary in both Theme Builder and normal page-content rendering paths.
+		$is_placeholder_after_load = $this->_is_placeholder_shortcode_callback( $tag );
+		$did_resolve_placeholder   = $was_placeholder && ! $is_placeholder_after_load;
+
+		// Only run recovery when callback remains a placeholder after normal lazy load.
+		if ( ! $did_resolve_placeholder && $is_placeholder_after_load ) {
+			$did_resolve_placeholder = $this->_ensure_resolved_shortcode_callback( $tag );
+		}
+
+		if ( $did_resolve_placeholder ) {
+			ShortcodeUtils::maybe_wrap_resolved_shortcode_for_theme_builder( (string) $tag );
+		}
+
 		return $override;
 	}
 
 	/**
-	 * Instantiate module from a shortcode slug.
+	 * Ensure shortcode callback is resolved when lazy placeholder is still registered.
+	 *
+	 * This runs at pre_do_shortcode_tag boundary so callback-state correctness is
+	 * enforced before shortcode callback execution, regardless of render context.
+	 *
+	 * @since 5.0.0
+	 *
+	 * @param string $tag Shortcode tag.
+	 *
+	 * @return bool True when placeholder callback was resolved in this method.
+	 */
+	private function _ensure_resolved_shortcode_callback( $tag ) {
+		if ( ! $this->_is_placeholder_shortcode_callback( $tag ) ) {
+			return false;
+		}
+
+		// Fast-return for tags already finalized in this request.
+		if ( ! empty( self::$_placeholder_recovery_resolved[ $tag ] ) ) {
+			return true;
+		}
+
+		// Run per-tag framework recovery once per request.
+		if ( empty( self::$_placeholder_recovery_attempted[ $tag ] ) ) {
+			self::$_placeholder_recovery_attempted[ $tag ] = true;
+
+			// Ensure shortcode framework is loaded for this specific tag if needed.
+			et_load_shortcode_framework( $tag );
+
+			// Retry loading after ensuring framework availability.
+			$this->maybe_load_module_from_slug( $tag );
+			if ( ! $this->_is_placeholder_shortcode_callback( $tag ) ) {
+				self::$_placeholder_recovery_resolved[ $tag ] = true;
+				return true;
+			}
+		}
+
+		// Final safety: run lifecycle fallback once per request for late extension bindings.
+		if ( ! did_action( 'et_builder_ready' ) && ! self::$_placeholder_global_fallback_attempted ) {
+			self::$_placeholder_global_fallback_attempted = true;
+
+			// Ensure Divi extensions are initialized before builder-ready runs.
+			if ( ! did_action( 'divi_extensions_init' ) ) {
+				do_action( 'divi_extensions_init' );
+			}
+
+			do_action( 'et_builder_ready' );
+		}
+
+		// Always retry one more time after lifecycle hooks as final boundary guard.
+		$this->maybe_load_module_from_slug( $tag );
+
+		$did_resolve = ! $this->_is_placeholder_shortcode_callback( $tag );
+		if ( $did_resolve ) {
+			self::$_placeholder_recovery_resolved[ $tag ] = true;
+		}
+
+		return $did_resolve;
+	}
+
+	/**
+	 * Check whether shortcode callback for a tag is lazy placeholder callback.
+	 *
+	 * @since 5.0.0
+	 *
+	 * @param string $tag Shortcode tag.
+	 *
+	 * @return bool
+	 */
+	private function _is_placeholder_shortcode_callback( $tag ) {
+		global $shortcode_tags;
+
+		return isset( $shortcode_tags[ $tag ] ) && '__return_empty_string' === $shortcode_tags[ $tag ];
+	}
+
+	/**
+	 * Get List of known 3rd party module slugs.
+	 *
+	 * @since 5.0.0
+	 * @access public
+	 * @return array
+	 */
+	public function get_known_3rd_party_module_slugs() {
+		static $_module_slugs = null;
+
+		if ( ! is_null( $_module_slugs ) ) {
+			return $_module_slugs;
+		}
+
+		$module_slugs = [
+			'ags_woo_shop_plus',
+			'bck_advanced_divider',
+			'bck_advanced_heading',
+			'bck_advanced_team',
+			'bck_animated_text',
+			'bck_blog_plus',
+			'bck_card',
+			'bck_cf7_styler',
+			'bck_content_toggle',
+			'bck_dual_button',
+			'bck_flipbox',
+			'bck_floating_image',
+			'bck_horizontal_timeline_child',
+			'bck_horizontal_timeline',
+			'bck_hotspots_child',
+			'bck_hotspots',
+			'bck_hover_box',
+			'bck_icon_box',
+			'bck_image_accordion',
+			'bck_image_compare',
+			'bck_image_masking',
+			'bck_info_box',
+			'bck_inline_svg',
+			'bck_instagram_feed',
+			'bck_list_group_child',
+			'bck_list_group',
+			'bck_lottie',
+			'bck_price_menu_child',
+			'bck_price_menu',
+			'bck_review',
+			'bck_social_share_child',
+			'bck_social_share',
+			'bck_testimonial',
+			'bck_twitter_feed',
+			'bck_vertical_timeline_child',
+			'bck_vertical_timeline',
+			'bck_video_popup',
+			'brbl_author_list',
+			'brbl_post_carousel',
+			'brbl_post_grid',
+			'brbl_post_list',
+			'brbl_post_masonry',
+			'brbl_post_ticker',
+			'brbl_post_tiles',
+			'brbl_posts_ticker',
+			'brbl_smart_post_list',
+			'brcr_image_carousel',
+			'brcr_logo_carousel',
+			'brcr_team_carousel_child',
+			'brcr_team_carousel',
+			'checkout_field',
+			'chiac_divi_accordions_item',
+			'chiac_divi_accordions',
+			'cwp_business_hour',
+			'cwp_image_collage',
+			'dag_animated_gallery',
+			'ddt_agent_grid',
+			'ddt_agent_list',
+			'ddt_cpt_posts_grid',
+			'ddt_cpt_posts_list',
+			'ddt_cpt_posts_slider',
+			'ddt_cpt_slider_masonary',
+			'ddt_event_grid',
+			'ddt_event_list',
+			'ddt_event_slider',
+			'ddt_facebook',
+			'ddt_flipbox',
+			'ddt_image_swap',
+			'ddt_image_tilt',
+			'ddt_img_hover_box',
+			'ddt_instagram',
+			'ddt_property_fullwidth_slider',
+			'ddt_property_grid',
+			'ddt_property_list',
+			'ddt_property_slider',
+			'ddt_property_table',
+			'ddt_team_members_slider',
+			'ddt_teammember_grid',
+			'ddt_teammember_horizontal',
+			'ddt_teammember_list',
+			'ddt_testimonial_grid',
+			'ddt_testimonial_list',
+			'ddt_testimonial_slider',
+			'ddt_twitter',
+			'ddt_woo_slider',
+			'de_fb_form',
+			'decm_event_display',
+			'dfp_flipbox',
+			'dhsp_hotspots_child',
+			'dhsp_hotspots',
+			'dico_copy',
+			'dif_instagram_carousel',
+			'dif_instagram_feed',
+			'difl_marqueetext',
+			'difl_marqueetextitem',
+			'digr_social_share_item',
+			'digr_social_share',
+			'dip_animated_gallery',
+			'dip_floating_image',
+			'dip_image_accordion',
+			'dip_image_compare',
+			'dip_image_masking',
+			'dipi_advanced_tabs_item',
+			'dipi_advanced_tabs',
+			'dipi_balloon',
+			'dipi_blog_slider',
+			'dipi_button_grid_child',
+			'dipi_button_grid',
+			'dipi_carousel_child',
+			'dipi_content_slider_child',
+			'dipi_counter',
+			'dipi_fancy_text_child',
+			'dipi_fancy_text',
+			'dipi_flip_box',
+			'dipi_floating_multi_images_child',
+			'dipi_floating_multi_images',
+			'dipi_horizontal_timeline_item',
+			'dipi_hover_box',
+			'dipi_hover_gallery_item',
+			'dipi_hover_gallery',
+			'dipi_image_accordion_child',
+			'dipi_image_accordion',
+			'dipi_image_gallery_child',
+			'dipi_image_hotspot_child',
+			'dipi_image_magnifier',
+			'dipi_image_rotator',
+			'dipi_image_showcase_child',
+			'dipi_info_circle_item',
+			'dipi_parallax_images_item',
+			'dipi_reveal',
+			'dipi_scroll_image',
+			'dipi_svg_animator',
+			'dipi_table_maker_child',
+			'dipi_testimonial',
+			'dipi_tile_scroll_item',
+			'dipi_timeline_item',
+			'ditp_countdown_timer',
+			'divi_instagram_chat',
+			'divi_pro_gallery',
+			'divi_rocket_dummy',
+			'divi_telegram_chat',
+			'divi_whatsapp_chat',
+			'dmnp_mega_menu',
+			'dmnp_off_canvas',
+			'dnxte_review',
+			'dondivi_content_toggle',
+			'dondivi_gallery',
+			'dondivi_grid_item',
+			'dondivi_grid',
+			'dondivi_hotspot',
+			'dondivi_hotspots',
+			'dondivi_menu_item',
+			'dondivi_menu',
+			'dondivi_popup',
+			'dondivi_tab',
+			'dondivi_tabs',
+			'dondivi_timeline_item',
+			'dondivi_timeline',
+			'dpevent_calendar',
+			'dpevent_grid',
+			'dpevent_list',
+			'dpevent_slider',
+			'ds_balloon',
+			'ds_blog_slider',
+			'ds_button_grid_child',
+			'ds_button_grid',
+			'ds_carousel_child',
+			'ds_fancy_text_child',
+			'ds_fancy_text',
+			'ds_flip_box',
+			'ds_floating_multi_images_child',
+			'ds_floating_multi_images',
+			'ds_hover_box',
+			'ds_image_accordion_child',
+			'ds_image_accordion',
+			'ds_image_gallery_child',
+			'ds_image_hotspot_child',
+			'ds_image_magnifier',
+			'ds_image_showcase_child',
+			'ds_scroll_image',
+			'ds_svg_animator',
+			'ds_timeline_item',
+			'dsm_image_accordion_child',
+			'dsm_image_accordion',
+			'dsp_instagram_carousel',
+			'dsp_instagram_feed',
+			'dsp_social_share_child',
+			'dsp_social_share',
+			'dsp_twitter_feed_carousel',
+			'dsp_twitter_feed',
+			'dssb_sharing_button',
+			'dssb_sharing_buttons',
+			'dtlp_horizontal_timeline_child',
+			'dtlp_horizontal_timeline',
+			'dtlp_vertical_timeline_child',
+			'dtlp_vertical_timeline',
+			'dvcr_video_carousel',
+			'dvmd_image_box',
+			'dvmd_simple_heading',
+			'dvmd_table_maker_item',
+			'dvmd_table_maker',
+			'dvmd_tablepress_styler',
+			'dvmd_text_on_a_path',
+			'dvmd_typewriter',
+			'dvmm_mad_menu',
+			'dvmmv_madmenu_vertical',
+			'dvppl_cf7_styler',
+			'el_advanced_flipbox',
+			'elegantGallery_main',
+			'emods_gallery',
+			'emods_rating',
+			'et_db_stock_status',
+			'et_pb_animals',
+			'et_pb_before_after',
+			'et_pb_blurb_extended',
+			'et_pb_countdown_timer',
+			'et_pb_db_account_nav',
+			'et_pb_db_action_shortcode',
+			'et_pb_db_add_info',
+			'et_pb_db_atc',
+			'et_pb_db_attribute',
+			'et_pb_db_breadcrumbs',
+			'et_pb_db_cart_products',
+			'et_pb_db_cart_total',
+			'et_pb_db_checkout_after_cust_details',
+			'et_pb_db_checkout_before_cust_details',
+			'et_pb_db_checkout_before_order_review',
+			'et_pb_db_checkout_billing',
+			'et_pb_db_checkout_coupon',
+			'et_pb_db_checkout_order_review',
+			'et_pb_db_checkout_payment',
+			'et_pb_db_checkout_shipping',
+			'et_pb_db_content',
+			'et_pb_db_crosssell',
+			'et_pb_db_images',
+			'et_pb_db_login_form',
+			'et_pb_db_login_password_confirmation',
+			'et_pb_db_login_password_lost',
+			'et_pb_db_login_password_reset',
+			'et_pb_db_meta',
+			'et_pb_db_notices',
+			'et_pb_db_price',
+			'et_pb_db_pro_before',
+			'et_pb_db_pro_navigation',
+			'et_pb_db_product_carousel',
+			'et_pb_db_product_slider',
+			'et_pb_db_product_summary',
+			'et_pb_db_product_title',
+			'et_pb_db_products_search',
+			'et_pb_db_rating',
+			'et_pb_db_register_form',
+			'et_pb_db_related_products',
+			'et_pb_db_reviews',
+			'et_pb_db_sharing',
+			'et_pb_db_shop_after',
+			'et_pb_db_shop_button',
+			'et_pb_db_shop_cat_loop',
+			'et_pb_db_shop_cat_title',
+			'et_pb_db_shop_loop',
+			'et_pb_db_shop_thumbnail',
+			'et_pb_db_short_desc',
+			'et_pb_db_single_image',
+			'et_pb_db_tabs',
+			'et_pb_db_thankyou_cust_details',
+			'et_pb_db_thankyou_details',
+			'et_pb_db_thankyou_overview',
+			'et_pb_db_thankyou_payment_details',
+			'et_pb_db_upsell',
+			'et_pb_db_woo_add_payment_method',
+			'et_pb_db_woo_addresses',
+			'et_pb_db_woo_avatar',
+			'et_pb_db_woo_downloads',
+			'et_pb_db_woo_edit_account',
+			'et_pb_db_woo_get_name',
+			'et_pb_db_woo_orders',
+			'et_pb_db_woo_payment_methods',
+			'et_pb_db_woo_user_name',
+			'et_pb_db_woo_view_order',
+			'et_pb_de_mach_archive_loop',
+			'et_pb_de_mach_filter_posts',
+			'et_pb_de_mach_search_posts_item',
+			'et_pb_de_nitro_defer_video',
+			'et_pb_de_protect',
+			'et_pb_divimenus_flex_item',
+			'et_pb_divimenus_flex',
+			'et_pb_divimenus_item',
+			'et_pb_divimenus',
+			'et_pb_dm_stop_stacking',
+			'et_pb_dmm_dropdown',
+			'et_pb_dp_posts_slider',
+			'et_pb_filterable_portfolio',
+			'et_pb_fullwidth_kkheader_seg',
+			'et_pb_icon_divider',
+			'et_pb_image_divider',
+			'et_pb_image_swap',
+			'et_pb_jv_team_grid_members',
+			'et_pb_jv_team_list_members',
+			'et_pb_jv_team_members',
+			'et_pb_jvt_testimonial_grid',
+			'et_pb_jvt_testimonial_list',
+			'et_pb_jvt_testimonial_slider',
+			'et_pb_kkblogext_grid',
+			'et_pb_kkblogext',
+			'et_pb_kkcomplex_form',
+			'et_pb_kkfilterable_grid',
+			'et_pb_kkpost_title',
+			'et_pb_masonry_post_type_gallery_fw',
+			'et_pb_mm_tabs',
+			'et_pb_signatures_item',
+			'et_pb_signatures',
+			'et_pb_star_rating',
+			'et_pb_stop_stacking',
+			'et_pb_team_members_horizontal',
+			'et_pb_team_members_slider',
+			'et_pb_team_members_table',
+			'et_pb_testify',
+			'et_pb_text_divider',
+			'et_pb_wpdt_image_card_carousel_fw',
+			'et_pb_wpdt_image_card_carousel_item_fw',
+			'et_pb_wpdt_post_type_carousel_fw',
+			'et_pb_wpdt_taxonomy_carousel_fw',
+			'et_pb_wpdt_wc_product_carousel_fw',
+			'et_pb_wpt_masonry_image_gallery_fw',
+			'et_pb_wpt_recipe_image',
+			'et_pb_wpt_schema_breadcrumbs_full_width',
+			'et_pb_wpt_schema_special_announcement_full_width',
+			'gdofilter',
+			'north_checkout',
+			'north_upsell',
+			'pac_dcm_library_layouts',
+			'pac_divi_table_of_contents',
+			'pac_dth_taxonomy_list',
+			'pac_dtm_child',
+			'pac_dtm_parent',
+			'snapway_rating',
+			'testify_wpform',
+			'torq_alert',
+			'torq_basic_list_child',
+			'torq_basic_list',
+			'torq_blurb',
+			'torq_card',
+			'torq_carousel',
+			'torq_checkmark_list_child',
+			'torq_checkmark_list',
+			'torq_compare_img',
+			'torq_contact_form7',
+			'torq_content_toggle',
+			'torq_countdown',
+			'torq_divider',
+			'torq_filterable_gallery',
+			'torq_flip_box',
+			'torq_gradient_heading',
+			'torq_heading',
+			'torq_hotspot_child',
+			'torq_hotspot',
+			'torq_icon_box',
+			'torq_icon_list_child',
+			'torq_icon_list',
+			'torq_instagram_chat',
+			'torq_instagram_feed',
+			'torq_logo_carousel',
+			'torq_lottie',
+			'torq_pricing_table_child',
+			'torq_pricing_table',
+			'torq_restro_menu_child',
+			'torq_restro_menu',
+			'torq_review_card',
+			'torq_social_share_child',
+			'torq_social_share',
+			'torq_star_rating',
+			'torq_stats_grid_child',
+			'torq_stats_grid',
+			'torq_svg',
+			'torq_team',
+			'torq_telegram_chat',
+			'torq_testimonial',
+			'torq_timeline_child',
+			'torq_timeline_horizontal_child',
+			'torq_timeline_horizontal',
+			'torq_timeline',
+			'torq_video_modal',
+			'torq_whatsapp_chat',
+			'wdc_card_carousel_child',
+			'wdc_card_carousel',
+			'wdc_content_carousel_child',
+			'wdc_content_carousel',
+			'wdc_divi_library_child',
+			'wdc_divi_library',
+			'wdc_google_reviews',
+			'wdc_instagram_feed',
+			'wdc_logo_carousel',
+			'wdc_post_carousel',
+			'wdc_product_carousel',
+			'wdc_team_carousel',
+			'wdc_testimonial_carousel',
+			'wdc_twitter_feed_carousel',
+			'wdc_video_carousel',
+			'wdcl_logo_carousel',
+			'wdcl_twitter_feed_carousel',
+			'woofilter',
+			'zinv_drop_cap',
+			'ts_divi_image',
+			'bda_breadcrumb',
+			'bda_heading',
+			'bda_business_hours',
+			'bda_business_hours_child',
+			'bda_faq',
+			'bda_faq_child',
+			'bda_how_to',
+			'bda_howto_steps',
+			'bda_icon_list',
+			'bda_icon_list_item',
+			'bda_info_box',
+			'bda_login_form',
+			'bda_marketing_button',
+			'bda_video',
+			'bda_registration_form',
+			'bda_registration_form_item',
+			'bda_retina_image',
+			'bda_ribbon',
+			'bda_social_share',
+			'bda_social_share_item',
+			'bda_spacer',
+			'bda_table_of_contents',
+			'bda_welcome_music',
+		];
+
+		/**
+		 * Filters known 3rd party module slugs.
+		 *
+		 * Used to add shortcode slugs for 3rd party modules,
+		 * which will be lazy loaded by the shortcode manager.
+		 *
+		 * Format:
+		 * ```
+		 * $module_slugs = [
+		 *    'torq_alert',
+		 *    'torq_basic_list',
+		 * ];
+		 * ```
+		 *
+		 * @param array $module_slugs Known 3rd party module slugs. Array of strings.
+		 */
+		$_module_slugs = apply_filters( 'et_builder_3rd_party_module_slugs', $module_slugs );
+
+		return $_module_slugs;
+	}
+
+	/**
+	 * Instantiate module from a shortcode tag (aka slug).
 	 *
 	 * @since 4.10.0
 	 * @access public
-	 * @param string $tag Shortcode tag.
+	 * @param string $tag Shortcode tag (aka slug).
 	 * @return void
 	 */
 	public function maybe_load_module_from_slug( $tag ) {
+		// If the module is already initialized, usually we return early.
+		// However, if the currently-registered callback is still a lazy placeholder,
+		// retry loading to recover a real module callback in this request.
+		if ( ! empty( self::$initialized_modules[ $tag ] ) ) {
+			global $shortcode_tags;
 
-		if ( empty( self::$modules_map[ $tag ] ) ) {
-			// None of our business.
+			$current_callback = $shortcode_tags[ $tag ] ?? null;
+			if ( '__return_empty_string' !== $current_callback ) {
+				return;
+			}
+		}
+
+		// Note that this module has been initialized.
+		self::$initialized_modules[ $tag ] = $tag;
+
+		/**
+		 * Module loading configuration details.
+		 *
+		 * If Array, it will contain:
+		 * - classname: string, class name of the module. Required.
+		 * - preload_deps: array, slugs of modules to load before this module. Optional.
+		 * - deps: array, slugs of modules to load after this module. Optional.
+		 *
+		 * If String, it will be the shortcode slug of the module.
+		 *
+		 * @var array|string $module
+		 */
+		$module = null;
+
+		$tag_in_modules_map      = ! empty( self::$modules_map[ $tag ] );
+		$tag_in_additional_slugs = in_array( $tag, self::$additional_slugs_to_register, true );
+
+		if ( $tag_in_modules_map ) {
+			// $module is an array, in this case, and it's a reference.
+			$module =& self::$modules_map[ $tag ];
+		} elseif ( ! empty( self::$woo_modules_map[ $tag ] ) ) {
+			// $module is an array, in this case, and it's a reference.
+			$module =& self::$woo_modules_map[ $tag ];
+		} elseif ( ! empty( self::$structural_modules_map[ $tag ] ) ) {
+			// $module is an array, in this case, and it's a reference.
+			$module =& self::$structural_modules_map[ $tag ];
+		} elseif ( $tag_in_additional_slugs ) {
+			// $module is a string (a shortcode module slug, e.g. torq_alert), in this case.
+			$module = $tag;
+		} else {
+			// None of our business, this is some other shortcode.
 			return;
 		}
 
-		$module =& self::$modules_map[ $tag ];
+		// If we don't have a module, return early.
+		if ( empty( $module ) ) {
+			return;
+		}
 
 		if ( empty( $module['instance'] ) ) {
+			// Load shortcode framework.
+			et_load_shortcode_framework( $tag );
+
 			/**
 			 * Fires before module class is instantiated.
 			 *
-			 * @param string $tag    Shortcode tag for module.
-			 * @param array  $module Module loading configuration details.
-			 *
 			 * @since 4.10.0
+			 *
+			 * @param array|string $module Module loading configuration details, or shortcode slug.
+			 *
+			 * @param string       $tag    Shortcode tag for module.
 			 */
 			do_action( 'et_builder_module_loading', $tag, $module );
 
@@ -689,9 +1579,9 @@ class ET_Builder_Module_Shortcode_Manager {
 			 *
 			 * The dynamic portion of the hook, `$tag`, refers to the shortcode tag.
 			 *
-			 * @param array $module Module loading configuration details.
-			 *
 			 * @since 4.10.0
+			 *
+			 * @param array|string $module Module loading configuration details, or shortcode slug.
 			 */
 			do_action( "et_builder_module_loading_{$tag}", $module );
 
@@ -702,10 +1592,13 @@ class ET_Builder_Module_Shortcode_Manager {
 				}
 			}
 
-			if ( class_exists( $module['classname'] ) ) {
+			// Load the class, if there is one.
+			if ( ! empty( $module['classname'] ) && class_exists( $module['classname'] ) ) {
+				// FYI, This is setting by reference.
 				$module['instance'] = new $module['classname']();
 			}
 
+			// Load dependency after the class if needed.
 			if ( ! empty( $module['deps'] ) ) {
 				foreach ( $module['deps'] as $slug ) {
 					$this->maybe_load_module_from_slug( $slug );
@@ -715,10 +1608,11 @@ class ET_Builder_Module_Shortcode_Manager {
 			/**
 			 * Fires after module class is instantiated.
 			 *
-			 * @param string $tag    Shortcode tag for module.
-			 * @param array  $module Module loading configuration details.
-			 *
 			 * @since 4.10.0
+			 *
+			 * @param array|string $module Module loading configuration details, or shortcode slug.
+			 *
+			 * @param string       $tag    Shortcode tag for module.
 			 */
 			do_action( 'et_builder_module_loaded', $tag, $module );
 
@@ -727,9 +1621,9 @@ class ET_Builder_Module_Shortcode_Manager {
 			 *
 			 * The dynamic portion of the hook, `$tag`, refers to the shortcode tag.
 			 *
-			 * @param array $module Module loading configuration details.
-			 *
 			 * @since 4.10.0
+			 *
+			 * @param array|string $module Module loading configuration details, or shortcode slug.
 			 */
 			do_action( "et_builder_module_loaded_{$tag}", $module );
 		}

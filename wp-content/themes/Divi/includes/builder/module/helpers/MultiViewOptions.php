@@ -111,6 +111,15 @@ class ET_Builder_Module_Helper_MultiViewOptions {
 	protected $inherited_values = array();
 
 	/**
+	 * Module Order class.
+	 *
+	 * @since 5.0.0
+	 *
+	 * @var string
+	 */
+	protected $_module_order_class = '';
+
+	/**
 	 * Hover enabled option name suffix
 	 *
 	 * @since 3.27.1
@@ -1087,6 +1096,24 @@ class ET_Builder_Module_Helper_MultiViewOptions {
 			$desktop_attrs .= ' class="' . implode( ' ', array_unique( $desktop_classes ) ) . '"';
 		}
 
+		$context = array(
+			'render_slug' => $contexts['render_slug'],
+		);
+
+		// Inject target from `selector` context if not defined.
+		if ( array_key_exists( 'target', $contexts ) ) {
+			$context['target'] = $contexts['target'];
+		} elseif ( array_key_exists( 'selector', $contexts ) ) {
+			$context['target'] = $contexts['selector'];
+		} else {
+			$context['target'] = '%%order_class%%';
+		}
+
+		// Inject hover_selector from `hover_selector` context if available.
+		if ( array_key_exists( 'hover_selector', $contexts ) ) {
+			$context['hover_selector'] = $contexts['hover_selector'];
+		}
+
 		// Render the output.
 		if ( $this->is_self_closing_tag( $tag ) ) {
 			$output = sprintf(
@@ -1095,11 +1122,7 @@ class ET_Builder_Module_Helper_MultiViewOptions {
 				et_core_esc_previously( $desktop_attrs ), // #2
 				et_core_esc_previously(
 					$this->render_attrs(
-						array(
-							'target'         => $contexts['target'],
-							'hover_selector' => $contexts['hover_selector'],
-							'render_slug'    => $contexts['render_slug'],
-						),
+						$context,
 						false,
 						$data
 					)
@@ -1112,11 +1135,7 @@ class ET_Builder_Module_Helper_MultiViewOptions {
 				et_core_esc_previously( $desktop_attrs ), // #2
 				et_core_esc_previously(
 					$this->render_attrs(
-						array(
-							'target'         => $contexts['target'],
-							'hover_selector' => $contexts['hover_selector'],
-							'render_slug'    => $contexts['render_slug'],
-						),
+						$context,
 						false,
 						$data
 					)
@@ -1199,6 +1218,12 @@ class ET_Builder_Module_Helper_MultiViewOptions {
 			'custom_props'   => array(),
 		);
 
+		// Module Order class.
+		// Ensure we have the module order class (but don't call it more than once).
+		if ( '' === $this->_module_order_class ) {
+			$this->_module_order_class = ET_Builder_Element::get_module_order_class( $this->slug );
+		}
+
 		// Parse incoming $args into an array and merge it with $defaults.
 		$contexts = wp_parse_args( $contexts, $defaults );
 
@@ -1266,12 +1291,7 @@ class ET_Builder_Module_Helper_MultiViewOptions {
 				$is_hidden_on_load_phone = true;
 			}
 
-			$data = array(
-				'schema' => $data,
-				'slug'   => $this->slug,
-			);
-
-			if ( ! empty( $contexts['target'] ) ) {
+			if ( array_key_exists( 'target', $contexts ) ) {
 				if ( false !== strpos( $contexts['target'], '%%order_class%%' ) ) {
 					$render_slug = ! empty( $contexts['render_slug'] ) ? $contexts['render_slug'] : $this->slug;
 					$order_class = ET_Builder_Element::get_module_order_class( $render_slug );
@@ -1284,7 +1304,7 @@ class ET_Builder_Module_Helper_MultiViewOptions {
 				}
 			}
 
-			if ( ! empty( $contexts['hover_selector'] ) ) {
+			if ( array_key_exists( 'hover_selector', $contexts ) ) {
 				if ( false !== strpos( $contexts['hover_selector'], '%%order_class%%' ) ) {
 					$render_slug = ! empty( $contexts['render_slug'] ) ? $contexts['render_slug'] : $this->slug;
 					$order_class = ET_Builder_Element::get_module_order_class( $render_slug );
@@ -1296,6 +1316,124 @@ class ET_Builder_Module_Helper_MultiViewOptions {
 					$data['hover_selector'] = $contexts['hover_selector'];
 				}
 			}
+
+			// Set the action type.
+			switch ( $context ) {
+				case 'content':
+					$action = 'setContent';
+					break;
+				case 'styles':
+					$action = 'setStyle';
+					break;
+				case 'classes':
+					$action = 'setClassName';
+					break;
+				case 'visibility':
+					$action = 'setVisibility';
+					break;
+				case 'attrs':
+				default:
+					$action = 'setAttrs';
+			}
+
+			// Get a D5-friendly module name from the module slug.
+			$d5_module_name = str_replace(
+				'_',
+				'-',
+				str_replace(
+					'et_pb_',
+					'divi/',
+					$this->slug
+				)
+			);
+
+			// Get a D5-friendly module ID from the module order class.
+			$d5_module_id = str_replace(
+				'_',
+				'-',
+				str_replace(
+					'et_pb_',
+					'divi/',
+					$this->_module_order_class
+				)
+			);
+
+			// Prepare the data item for D5 Frontend render.
+			$base_data_attributes = [
+				'data_name'    => 'multi_view',
+				'data_item_id' => null,
+				'data_item'    => [
+					'action'       => $action,
+					'moduleId'     => $d5_module_id,
+					'moduleName'   => $d5_module_name,
+					'switchOnLoad' => $data['switchOnLoad'] ?? false,
+				],
+			];
+
+			// Only add target/selector if it exists.
+			if ( isset( $data['target'] ) ) {
+				$base_data_attributes['data_item']['selector'] = $data['target'];
+			} elseif ( isset( $contexts['target'] ) ) {
+				$base_data_attributes['data_item']['selector'] = $contexts['target'];
+			}
+
+			// Only add hoverSelector if it exists.
+			if ( isset( $data['hover_selector'] ) ) {
+				$base_data_attributes['data_item']['hoverSelector'] = $data['hover_selector'];
+			} elseif ( isset( $contexts['hover_selector'] ) ) {
+				$base_data_attributes['data_item']['hoverSelector'] = $contexts['hover_selector'];
+			}
+
+			if ( isset( $data['attrs'] ) && is_array( $data['attrs'] ) ) {
+				$unique_keys     = [];
+				$filtered_arrays = [];
+
+				// Collect all unique third-level keys and build filtered arrays.
+				foreach ( $data['attrs'] as $data_mode => $collected ) {
+					$cleaned_mode = str_replace( 'hover', 'desktop--hover', $data_mode );
+					foreach ( $collected as $data_attr => $data_value ) {
+						if ( ! isset( $unique_keys[ $data_attr ] ) ) {
+							$unique_keys[ $data_attr ] = true;
+						}
+						if ( ! isset( $filtered_arrays[ $data_attr ] ) ) {
+							$filtered_arrays[ $data_attr ] = [];
+						}
+						$filtered_arrays[ $data_attr ][ $cleaned_mode ] = [ $data_attr => $data_value ];
+					}
+				}
+
+				// Create new arrays for each unique third-level data_attr.
+				foreach ( $filtered_arrays as $data_attr => $filtered_array ) {
+					// If there's only one value in the filtered array and it's 'desktop', skip it.
+					if ( count( $filtered_array ) < 2 && isset( $filtered_array['desktop'] ) ) {
+						continue;
+					}
+
+					// Merge the filtered array with the base data_item contents.
+					$d5_data_item = array_merge(
+						$base_data_attributes['data_item'],
+						[
+							'data' => $filtered_array,
+						]
+					);
+
+					// Merge the base data attributes with the new combined data_item.
+					$d5_data_add = array_merge(
+						$base_data_attributes,
+						[
+							'data_item' => $d5_data_item,
+						]
+					);
+
+					// Add this to the D5 Frontend multi view script data.
+					\ET\Builder\FrontEnd\Module\ScriptData::add_data_item( $d5_data_add );
+				}
+			}
+
+			$data = array(
+				'schema' => $data,
+				'slug'   => $this->slug,
+			);
 
 			$data_attr_key = esc_attr( $this->data_attr_key );
 
@@ -1424,7 +1562,10 @@ class ET_Builder_Module_Helper_MultiViewOptions {
 			return new WP_Error();
 		}
 
-		$data = array();
+		// Ensure we have the module order class (but don't call it more than once).
+		if ( '' === $this->_module_order_class ) {
+			$this->_module_order_class = ET_Builder_Element::get_module_order_class( $this->slug );
+		}
 
 		if ( preg_match_all( $this->pattern, $content, $matches, PREG_SET_ORDER, 0 ) ) {
 			$replacements = array();
@@ -1502,7 +1643,10 @@ class ET_Builder_Module_Helper_MultiViewOptions {
 			return new WP_Error();
 		}
 
-		$data = array();
+		// Ensure we have the module order class (but don't call it more than once).
+		if ( '' === $this->_module_order_class ) {
+			$this->_module_order_class = ET_Builder_Element::get_module_order_class( $this->slug );
+		}
 
 		foreach ( $attrs as $attr_key => $attr_value ) {
 			if ( preg_match_all( $this->pattern, $attr_value, $matches, PREG_SET_ORDER, 0 ) ) {
@@ -1579,7 +1723,10 @@ class ET_Builder_Module_Helper_MultiViewOptions {
 			return new WP_Error();
 		}
 
-		$data = array();
+		// Ensure we have the module order class (but don't call it more than once).
+		if ( '' === $this->_module_order_class ) {
+			$this->_module_order_class = ET_Builder_Element::get_module_order_class( $this->slug );
+		}
 
 		foreach ( $styles as $style_key => $style_value ) {
 			if ( preg_match_all( $this->pattern, $style_value, $matches, PREG_SET_ORDER, 0 ) ) {
@@ -1651,7 +1798,10 @@ class ET_Builder_Module_Helper_MultiViewOptions {
 			return new WP_Error();
 		}
 
-		$data = array();
+		// Ensure we have the module order class (but don't call it more than once).
+		if ( '' === $this->_module_order_class ) {
+			$this->_module_order_class = ET_Builder_Element::get_module_order_class( $this->slug );
+		}
 
 		foreach ( self::get_modes() as $mode ) {
 			foreach ( $classes as $class_name => $conditionals ) {
@@ -1708,7 +1858,10 @@ class ET_Builder_Module_Helper_MultiViewOptions {
 			return new WP_Error();
 		}
 
-		$data = array();
+		// Ensure we have the module order class (but don't call it more than once).
+		if ( '' === $this->_module_order_class ) {
+			$this->_module_order_class = ET_Builder_Element::get_module_order_class( $this->slug );
+		}
 
 		foreach ( self::get_modes() as $mode ) {
 			if ( ! isset( $data[ $mode ] ) ) {
@@ -1839,8 +1992,6 @@ class ET_Builder_Module_Helper_MultiViewOptions {
 	 * @return array
 	 */
 	protected function filter_data( $data ) {
-		static $defaults = array( false, false, false, false );
-
 		// Inject the image srcset and sizes attributes data.
 		if ( ! empty( $data['attrs'] ) && et_is_responsive_images_enabled() ) {
 			foreach ( $data['attrs'] as $mode => $attrs ) {

@@ -184,6 +184,11 @@
 		$('#epanel input[safari]:checkbox:not(.yes_no_button)').checkbox({cls:'jquery-safari-checkbox'});
 		$('#epanel input:radio:not(.yes_no_button)').checkbox();
 
+		// Clear static CSS when the static CSS clear button is clicked.
+		$('.et_builder_clear_static_css').on('click', function() {
+			epanel_clear_static_css( false, true );
+		});
+
 		// Yes - No button UI
 		$('.yes_no_button').each(function() {
 			var $checkbox = $(this);
@@ -192,21 +197,6 @@
 			var $template = $($('#epanel-yes-no-button-template').html()).find('.et_pb_yes_no_button').addClass(state);
 
 			$checkbox.hide().after($template);
-
-			if ( 'et_pb_static_css_file' === $checkbox.attr( 'id' ) ) {
-				$checkbox
-					.parent()
-					.addClass( state )
-					.next()
-					.addClass( 'et_pb_clear_static_css' )
-					.on( 'click', function() {
-						epanel_clear_static_css( false, true );
-					});
-
-				if ( ! value ) {
-					$checkbox.parents('.et-epanel-box').next().hide();
-				}
-			}
 
 			if ( 'divi_dynamic_css' === $checkbox.attr( 'id' ) || 'extra_dynamic_css' === $checkbox.attr( 'id' ) ) {
 				if ( ! value ) {
@@ -245,16 +235,6 @@
 				$box_content = $click_area.closest('.et-box-content'),
 				$checkbox    = $box_content.find('input[type="checkbox"]'),
 				$state       = $box_content.find('.et_pb_yes_no_button');
-
-			if ( $state.parent().next().hasClass( 'et_pb_clear_static_css' ) ) {
-				$state = $state.add( $state.parent() );
-
-				if ( $checkbox.is( ':checked' ) ) {
-					$box_content.parent().next().hide();
-				} else {
-					$box_content.parent().next().show();
-				}
-			}
 
 			if ( 'divi_dynamic_css' === $checkbox.attr( 'id' ) || 'extra_dynamic_css' === $checkbox.attr( 'id' ) ) {
 				if ( $checkbox.is( ':checked' ) ) {
@@ -362,6 +342,7 @@
 				action: 'et_core_page_resource_clear',
 				et_owner: 'all',
 				et_post_id: 'all',
+				et_delete_files: 'true',
 				clear_page_resources_nonce: ePanelSettings.et_core_nonces.clear_page_resources_nonce,
 			};
 

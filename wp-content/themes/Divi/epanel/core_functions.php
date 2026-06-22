@@ -103,19 +103,31 @@ if ( ! function_exists( 'et_epanel_admin_js' ) ) {
 }
 /* --------------------------------------------- */
 
-/* Enabling CSSlint for codemirror */
-if ( ! function_exists( 'et_epanel_enable_css_lint' ) ) {
-	function et_epanel_enable_css_lint( $settings ){
+/* Disable CSSlint for codemirror to support modern CSS */
+if ( ! function_exists( 'et_epanel_disable_css_lint' ) ) {
+	/**
+	 * Disable WordPress default CSSLint for Theme Options CodeMirror.
+	 *
+	 * WordPress's default CSSLint rules are overly strict and don't support modern CSS
+	 * features like clamp(), CSS custom properties (variables), grid-template-columns, etc.
+	 * Disabling linting allows users to use modern CSS without false-positive errors.
+	 *
+	 * @since ??
+	 *
+	 * @param array $settings CodeMirror settings.
+	 * @return array Modified settings.
+	 */
+	function et_epanel_disable_css_lint( $settings ) {
 		$modes = array( 'text/css', 'css', 'text/x-scss', 'text/x-less', 'text/x-sass' );
 
 		if ( in_array( $settings['codemirror']['mode'], $modes, true ) ) {
-			$settings['codemirror']['lint'] = true;
-			$settings['codemirror']['gutters'] = array( 'CodeMirror-lint-markers' );
+			// Disable linting completely to support modern CSS.
+			$settings['codemirror']['lint'] = false;
 		}
 
 		return $settings;
 	}
-	add_filter( 'wp_code_editor_settings', 'et_epanel_enable_css_lint' );
+	add_filter( 'wp_code_editor_settings', 'et_epanel_disable_css_lint' );
 }
 
 /* Adds additional ePanel css */
@@ -287,8 +299,8 @@ if ( ! function_exists( 'et_build_epanel' ) ) {
 		}
 	?>
 
-		<div id="wrapper">
-		  <div id="panel-wrap">
+		<div id="epanel-wrapper-wrapper">
+			<div id="epanel-wrap">
 
 
 			<div id="epanel-top">
@@ -302,6 +314,7 @@ if ( ! function_exists( 'et_build_epanel' ) ) {
 							<div id="epanel-content">
 								<div id="epanel-header">
 									<h1 id="epanel-title"><?php printf( esc_html__( '%s Theme Options', $themename ), esc_html( $themename ) ); ?></h1>
+									<span class="et-button et_builder_clear_static_css"><?php echo esc_html__( 'Clear CSS Cache', 'Divi' ); ?></span>
 									<a href="#" class="et-defaults-button epanel-reset" title="<?php esc_attr_e( 'Reset to Defaults', $themename ); ?>"><span class="label"><?php esc_html_e( 'Reset to Defaults', $themename ); ?></span></a>
 									<?php
 									$portability_link = function_exists( 'et_builder_portability_link' )
@@ -469,7 +482,7 @@ if ( ! function_exists( 'et_build_epanel' ) ) {
 															// get the custom css value from WP custom CSS option if supported
 															if ( ( $shortname . '_custom_css' ) === $value['id'] && function_exists( 'wp_get_custom_css') ) {
 																$et_textarea_value = wp_get_custom_css();
-																$et_textarea_value = strip_tags( $et_textarea_value );
+																$et_textarea_value = et_core_sanitize_custom_css_meta_value( $et_textarea_value );
 															} else {
 																$et_textarea_value = et_get_option( $value['id'], '', '', false, $is_new_global_setting, $global_setting_main_name, $global_setting_sub_name );
 																$et_textarea_value = ! empty( $et_textarea_value ) ? $et_textarea_value : $value['std'];
@@ -655,9 +668,6 @@ if ( ! function_exists( 'et_build_epanel' ) ) {
 												<input type="checkbox" class="et-checkbox yes_no_button" name="<?php echo esc_attr( $value['id'] ); ?>" id="<?php echo esc_attr( $value['id'] );?>" <?php echo et_core_esc_previously( $checked ); ?> <?php echo et_core_esc_previously( $disabled );?>/>
 
 											</div> <!-- end et-box-content div -->
-											<?php if ( 'et_pb_static_css_file' === $value['id'] ) { ?>
-												<span class="et-button"><?php echo esc_html_x( 'Clear', 'clear static resources', $themename ); ?></span>
-											<?php } ?>
 											<span class="et-box-description"></span>
 										</div> <!-- end epanel-box-small div -->
 
@@ -793,9 +803,7 @@ if ( ! function_exists( 'et_build_epanel' ) ) {
 		<script type="text/template" id="epanel-yes-no-button-template">
 		<div class="et_pb_yes_no_button_wrapper">
 			<div class="et_pb_yes_no_button"><!-- .et_pb_on_state || .et_pb_off_state -->
-				<span class="et_pb_value_text et_pb_on_value"><?php esc_html_e( 'Enabled', $themename ); ?></span>
 				<span class="et_pb_button_slider"></span>
-				<span class="et_pb_value_text et_pb_off_value"><?php esc_html_e( 'Disabled', $themename ); ?></span>
 			</div>
 		</div>
 		</script>
@@ -982,10 +990,10 @@ if ( ! function_exists( 'epanel_save_data' ) ) {
 											if ( function_exists( 'wp_update_custom_css_post' ) ) {
 												// Data sent via AJAX is automatically escaped by browser, thus it needs
 												// to be unslashed befor being saved into custom CSS post
-												wp_update_custom_css_post( wp_unslash( wp_strip_all_tags( $_POST[ $value['id'] ] ) ) );
+												wp_update_custom_css_post( et_core_sanitize_custom_css_meta_value( wp_unslash( $_POST[ $value['id'] ] ) ) );
 											} else {
 												// don't strip slashes from custom css, it should be possible to use \ for icon fonts
-												$et_option_new_value = wp_strip_all_tags( $_POST[ $value['id'] ] );
+												$et_option_new_value = et_core_sanitize_custom_css_meta_value( $_POST[ $value['id'] ] );
 											}
 										} else {
 											$et_option_new_value = wp_strip_all_tags( stripslashes( $_POST[ $value['id'] ] ) );

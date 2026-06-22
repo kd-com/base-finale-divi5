@@ -123,7 +123,12 @@ class DiviExtension {
 
 		$this->name = $name;
 		if ( $this->name ) {
-			$this->_initialize();
+			// Check if extension is already registered to prevent duplicate initialization.
+			// This handles cases where divi_extensions_init fires multiple times in D4/D5 compatibility mode.
+			$existing_extension = DiviExtensions::get( $this->name );
+			if ( null === $existing_extension ) {
+				$this->_initialize();
+			}
 		}
 	}
 
@@ -208,6 +213,14 @@ class DiviExtension {
 			'builder'  => array( 'react-dom', "{$this->name}-frontend-bundle" ),
 			'frontend' => array( 'jquery', et_get_combined_script_handle() ),
 		);
+
+		// Some D4 3P plugins enqueue js deps in weird ways which work with D4 but not so much with D5,
+		// this is ugly but also the only safe way to address the issue.
+		switch ( $this->name ) {
+			case 'owl-countdown-extension':
+				$this->_bundle_dependencies['frontend'][] = 'react-dom';
+				break;
+		}
 	}
 
 	/**
@@ -272,7 +285,16 @@ class DiviExtension {
 		register_deactivation_hook( trailingslashit( $this->plugin_dir ) . $this->name . '.php', array( $this, 'wp_hook_deactivate' ) );
 
 		add_action( 'et_builder_ready', array( $this, 'hook_et_builder_ready' ), 9 );
-		add_action( 'wp_enqueue_scripts', array( $this, 'wp_hook_enqueue_scripts' ) );
+
+		// `wp_enqueue_scripts` will sometimes be already fired in this point.
+		// This is intentional and is caused by a shortcode lazy-loading. See more info:
+		// https://devalpha.elegantthemes.com/docs/explanations/module/adapting-to-shortcode-lazy-loading.
+		if ( did_action( 'wp_enqueue_scripts' ) ) {
+			$this->wp_hook_enqueue_scripts();
+		} else {
+			add_action( 'wp_enqueue_scripts', array( $this, 'wp_hook_enqueue_scripts' ), 101 );
+		}
+
 		add_action( 'admin_enqueue_scripts', array( $this, 'admin_hook_enqueue_scripts' ) );
 	}
 
@@ -311,6 +333,16 @@ class DiviExtension {
 			$styles_url = "{$this->plugin_dir_url}styles/{$styles}.min.css";
 
 			wp_enqueue_style( "{$this->name}-styles", $styles_url, array(), $this->version );
+
+			// phpcs:disable -- 🙄🙄🙄🙄🙄🙄🙄🙄🙄🙄🙄
+			add_filter( 'style_loader_tag', function ( $html, $handle ) {
+				if ( "{$this->name}-styles" === $handle ) {
+					$html = str_replace( "rel='stylesheet'", "rel='stylesheet' data-divi4-extension='{$this->name}'", $html );
+				}
+
+				return $html;
+			}, 10, 2 );
+			// phpcs:enable
 
 			$this->_enqueue_bundles();
 		}

@@ -9,7 +9,7 @@ The only dependancy is the common repo.
 
 It means Cloud Application can be mounted anywhere outside Divi and Visual Builder, for example on WP admin pages and can be extended to work with any type of items. It's not limited to work with Visual Builder layouts, items type is configurable.
 
-To mount the Cloud app you have to create a container with id='et-cloud-app' and trigger `et_cloud_container_ready` event with set of preferences. Cloud Application will be mounted into `et-cloud-app` container. 
+To mount the Cloud app you have to create a container with id='et-cloud-app' and trigger `et_cloud_container_ready` event with set of preferences. Cloud Application will be mounted into `et-cloud-app` container. Optionally pass a concrete DOM element as the fourth argument to the event handler (after `preferences` and `container` document) so the app mounts into that node when duplicate ids exist.
 
 Preferences format:
 ```

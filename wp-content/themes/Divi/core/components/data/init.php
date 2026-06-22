@@ -353,6 +353,39 @@ function et_core_sanitize_value_by_cap( $passthru, $sanitize_function = 'et_sani
 }
 endif;
 
+if ( ! function_exists( 'et_core_sanitize_custom_css_meta_value' ) ) :
+	/**
+	 * Sanitize Custom CSS meta value while preserving escape sequences.
+	 *
+	 * @since 5.0.0
+	 *
+	 * @param mixed $value Custom CSS meta value.
+	 *
+	 * @return mixed
+	 */
+	function et_core_sanitize_custom_css_meta_value( $value ) {
+		if ( current_user_can( 'unfiltered_html' ) ) {
+			return $value;
+		}
+
+		$sanitize_css_value = static function ( $css_value ) use ( &$sanitize_css_value ) {
+			if ( is_array( $css_value ) ) {
+				$sanitized_value = [];
+
+				foreach ( $css_value as $index => $nested_value ) {
+					$sanitized_value[ $index ] = $sanitize_css_value( $nested_value );
+				}
+
+				return $sanitized_value;
+			}
+
+			return is_string( $css_value ) ? wp_kses_post( $css_value ) : $css_value;
+		};
+
+		return $sanitize_css_value( $value );
+	}
+endif;
+
 /**
  * Pass thru semantical intentionally unsanitized acknowledgement
  *

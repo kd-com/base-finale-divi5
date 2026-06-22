@@ -11,6 +11,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 	die( 'Direct access forbidden.' );
 }
 
+
+
 /**
  * Class ET_Builder_Module_Helper_Woocommerce_Modules
  *
@@ -659,9 +661,9 @@ class ET_Builder_Module_Helper_Woocommerce_Modules {
 
 		if ( '' !== $custom_icon || '' !== $custom_icon_tablet || '' !== $custom_icon_phone ) {
 			$outer_wrapper_attrs['data-button-class']       = esc_attr( $this_class->get_button_classname() );
-			$outer_wrapper_attrs['data-button-icon']        = esc_attr( et_pb_process_font_icon( $custom_icon ) );
-			$outer_wrapper_attrs['data-button-icon-tablet'] = esc_attr( et_pb_process_font_icon( $custom_icon_tablet ) );
-			$outer_wrapper_attrs['data-button-icon-phone']  = esc_attr( et_pb_process_font_icon( $custom_icon_phone ) );
+			$outer_wrapper_attrs['data-button-icon']        = esc_attr( html_entity_decode( et_pb_process_font_icon( $custom_icon ), ENT_QUOTES, 'UTF-8' ) );
+			$outer_wrapper_attrs['data-button-icon-tablet'] = esc_attr( html_entity_decode( et_pb_process_font_icon( $custom_icon_tablet ), ENT_QUOTES, 'UTF-8' ) );
+			$outer_wrapper_attrs['data-button-icon-phone']  = esc_attr( html_entity_decode( et_pb_process_font_icon( $custom_icon_phone ), ENT_QUOTES, 'UTF-8' ) );
 		}
 
 		return $outer_wrapper_attrs;
@@ -690,7 +692,7 @@ class ET_Builder_Module_Helper_Woocommerce_Modules {
 
 		$page_layout = get_post_meta( $post_id, '_et_pb_page_layout', true );
 
-		if ( $page_layout && 'et_full_width_page' !== $page_layout && ! ET_Builder_Element::is_theme_builder_layout() ) {
+		if ( $page_layout && 'et_full_width_page' !== $page_layout && ! ET_Theme_Builder_Layout::is_theme_builder_layout() ) {
 			return '3'; // Set to 3 if page has sidebar.
 		}
 
@@ -970,7 +972,7 @@ class ET_Builder_Module_Helper_Woocommerce_Modules {
 	 * @return string
 	 */
 	public static function get_product_default_value() {
-		$post_id   = et_core_page_resource_get_the_ID();
+		$post_id   = et_builder_is_rest_api_request( '/module-data/shortcode-module' ) ? get_the_ID() : et_core_page_resource_get_the_ID();
 		$post_id   = $post_id ? $post_id : (int) et_()->array_get( $_POST, 'current_page.id' );
 		$post_type = get_post_type( $post_id );
 
@@ -1356,7 +1358,7 @@ class ET_Builder_Module_Helper_Woocommerce_Modules {
 				continue;
 			}
 
-			$attrs[ $attr_name ] = esc_attr( et_pb_process_font_icon( $attr_value ) );
+			$attrs[ $attr_name ] = esc_attr( html_entity_decode( et_pb_process_font_icon( $attr_value ), ENT_QUOTES, 'UTF-8' ) );
 		}
 
 		return $attrs;

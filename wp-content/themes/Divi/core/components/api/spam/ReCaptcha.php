@@ -1,5 +1,9 @@
 <?php
 
+use ET\Builder\FrontEnd\Assets\DynamicAssets;
+use ET\Builder\FrontEnd\Assets\DynamicAssetsUtils;
+use Feature\ContentRetriever\ET_Builder_Content_Retriever;
+
 /**
  * Wrapper for ProviderName's API.
  *
@@ -60,25 +64,25 @@ class ET_Core_API_Spam_ReCaptcha extends ET_Core_API_Spam_Provider {
 		wp_register_script( 'es6-promise', ET_CORE_URL . 'admin/js/es6-promise.auto.min.js', array(), ET_CORE_VERSION, true );
 
 		wp_enqueue_script( 'et-core-api-spam-recaptcha', ET_CORE_URL . 'admin/js/recaptcha.js', $deps, ET_CORE_VERSION, true );
-		wp_localize_script( 'et-core-api-spam-recaptcha', 'et_core_api_spam_recaptcha', array(
-			'site_key'    => empty( $this->data['site_key'] ) ? '' : $this->data['site_key'],
-			'page_action' => array( 'action' => $action ),
-		) );
+		wp_localize_script(
+			'et-core-api-spam-recaptcha',
+			'et_core_api_spam_recaptcha',
+			array(
+				'site_key'    => empty( $this->data['site_key'] ) ? '' : $this->data['site_key'],
+				'page_action' => array( 'action' => $action ),
+			)
+		);
 	}
 
 	public function is_enabled() {
 		$has_recaptcha_module = true;
 
-		if ( class_exists( 'ET_Dynamic_Assets' ) ) {
-			$et_dynamic_module_framework  = et_builder_dynamic_module_framework();
-			$is_dynamic_framework_enabled = et_builder_is_frontend() && 'on' === $et_dynamic_module_framework;
-			$is_dynamic_css_enabled       = et_builder_is_frontend() && et_use_dynamic_css();
+		// Dynamic Assets in D5/Blocks.
+		if ( class_exists( '\ET\Builder\FrontEnd\Assets\DynamicAssets' ) ) {
+			$is_dynamic_css_enabled = et_builder_is_frontend() && DynamicAssetsUtils::use_dynamic_assets();
 
-			if ( $is_dynamic_framework_enabled && $is_dynamic_css_enabled ) {
-				$et_dynamic_assets    = ET_Dynamic_Assets::init();
-				$saved_shortcodes     = $et_dynamic_assets->get_saved_page_shortcodes();
-				$recaptcha_modules    = array( 'et_pb_contact_form', 'et_pb_signup' );
-				$has_recaptcha_module = ! empty( array_intersect( $saved_shortcodes, $recaptcha_modules ) );
+			if ( $is_dynamic_css_enabled ) {
+				$has_recaptcha_module = $this->_has_recaptcha_enabled_module();
 			}
 		}
 
@@ -86,6 +90,34 @@ class ET_Core_API_Spam_ReCaptcha extends ET_Core_API_Spam_Provider {
 			&& et_()->all( array( $this->data['site_key'], $this->data['secret_key'] ) );
 
 		return $has_key && $has_recaptcha_module;
+	}
+
+	/**
+	 * Check if page content contains Contact Form or Signup modules with reCaptcha enabled.
+	 *
+	 * This method now leverages DynamicAssets' cached feature detection instead of performing
+	 * expensive content parsing, avoiding redundant work and improving performance.
+	 *
+	 * @since 5.0.0
+	 *
+	 * @return bool True if reCaptcha-enabled modules found, false otherwise.
+	 */
+	private function _has_recaptcha_enabled_module() {
+		// Dynamic Assets in D5/Blocks.
+		if ( class_exists( '\ET\Builder\FrontEnd\Assets\DynamicAssets' ) ) {
+			$dynamic_assets = DynamicAssets::get_instance();
+
+			// Check if DynamicAssets is using dynamic assets for this request.
+			$is_dynamic_css_enabled = et_builder_is_frontend() && DynamicAssetsUtils::use_dynamic_assets();
+
+			if ( $is_dynamic_css_enabled ) {
+				// Query DynamicAssets for cached reCaptcha detection result.
+				return $dynamic_assets->has_recaptcha_enabled();
+			}
+		}
+
+		// Fallback for non-D5 contexts or when dynamic assets are disabled.
+		return false;
 	}
 
 	/**

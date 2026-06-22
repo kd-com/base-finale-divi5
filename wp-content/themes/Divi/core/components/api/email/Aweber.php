@@ -214,7 +214,6 @@ class ET_Core_API_Email_Aweber extends ET_Core_API_Email_Provider {
 				return '';
 			}
 
-			$this->response->DATA = json_decode( $this->response->DATA, true );
 			return $this->get_error_message();
 		}
 

@@ -5,6 +5,9 @@
  * @package Builder.
  */
 
+use ET\Builder\FrontEnd\Assets\CriticalCSS;
+use ET\Builder\FrontEnd\Assets\StaticCSS;
+
 /**
  * Gets the Library Item name.
  *
@@ -345,40 +348,6 @@ function et_theme_builder_add_template_to_preset( $preset_id, $template_post_ids
 }
 
 /**
- * Retrieves an array of the terms in a given taxonomy in following format:
- *
- *   $terms = array(
- *       '1' => array(
- *           'id'    => 1,
- *           'name'  => 'Uncategorized',
- *           'slug'  => 'uncategorized',
- *           'count' => 10,
- *       ),
- *   );
- *
- * @param string $tax_name Taxonomy name.
- */
-function et_theme_builder_get_terms( $tax_name ) {
-	$terms       = get_terms( $tax_name, array( 'hide_empty' => false ) );
-	$terms_by_id = array();
-
-	if ( is_wp_error( $terms ) || empty( $terms ) ) {
-		return array();
-	}
-
-	foreach ( $terms as $term ) {
-		$term_id = $term->term_id;
-
-		$terms_by_id[ $term_id ]['id']    = $term_id;
-		$terms_by_id[ $term_id ]['name']  = $term->name;
-		$terms_by_id[ $term_id ]['slug']  = $term->slug;
-		$terms_by_id[ $term_id ]['count'] = $term->count;
-	}
-
-	return $terms_by_id;
-}
-
-/**
  * Retrieves the library item type attached with library item.
  *
  * @since 4.18.0
@@ -514,7 +483,7 @@ function et_theme_builder_create_layouts_from_library_template( $template_post, 
 		$post_id = et_theme_builder_insert_layout(
 			array(
 				'post_type'    => et_theme_builder_get_valid_layout_post_type( $layout_type ),
-				'post_content' => $layout_post_content,
+				'post_content' => wp_slash( $layout_post_content ),
 			)
 		);
 
@@ -776,22 +745,23 @@ function et_theme_builder_render_library_template_preview( $item_id ) {
 		et_theme_builder_frontend_render_common_wrappers( $layout_type, true );
 
 		$template_html .= et_builder_get_layout_opening_wrapper( $layout_post_type );
-		ET_Builder_Element::begin_theme_builder_layout( $layout_id );
+		ET_Theme_Builder_Layout::begin_theme_builder_layout( $layout_id );
 
 		$template_html .= et_core_intentionally_unescaped( et_builder_render_layout( $layout->post_content ), 'html' );
 
-		$result                                 = ET_Builder_Element::setup_advanced_styles_manager( $layout_id );
-		$advanced_styles_manager                = $result['manager'];
-		$advanced_styles_manager->forced_inline = true;
+		$result                        = StaticCSS::setup_styles_manager( $layout_id );
+		$styles_manager                = $result['manager'];
+		$styles_manager->forced_inline = true;
 
 		if ( isset( $result['deferred'] ) ) {
 			$deferred_styles_manager = $result['deferred'];
 		}
 
-		$is_critical_enabled = apply_filters( 'et_builder_critical_css_enabled', false );
-		$custom              = et_theme_builder_get_preview_custom_css( $layout_meta, $layout_type );
-		$critical            = $is_critical_enabled ? ET_Builder_Element::get_style( false, $layout_id, true ) . ET_Builder_Element::get_style( true, $layout_id, true ) : [];
-		$styles              = ET_Builder_Element::get_style( false, $layout_id ) . ET_Builder_Element::get_style( true, $layout_id );
+		$custom   = et_theme_builder_get_preview_custom_css( $layout_meta, $layout_type );
+		$critical = CriticalCSS::should_generate_critical_css()
+			? ET_Builder_Element::get_style( false, $layout_id, true ) . ET_Builder_Element::get_style( true, $layout_id, true )
+			: '';
+		$styles   = ET_Builder_Element::get_style( false, $layout_id ) . ET_Builder_Element::get_style( true, $layout_id );
 
 		if ( empty( $critical ) ) {
 			// No critical styles defined, just enqueue everything as usual.
@@ -800,35 +770,24 @@ function et_theme_builder_render_library_template_preview( $item_id ) {
 				if ( isset( $deferred_styles_manager ) ) {
 					$deferred_styles_manager->set_data( $styles, 40 );
 				} else {
-					$advanced_styles_manager->set_data( $styles, 40 );
+					$styles_manager->set_data( $styles, 40 );
 				}
 			}
 		} else {
 			// Add page css to the critical section.
 			$critical = $custom . $critical;
-			$advanced_styles_manager->set_data( $critical, 40 );
+			$styles_manager->set_data( $critical, 40 );
 			if ( ! empty( $styles ) ) {
 				// Defer everything else.
 				$deferred_styles_manager->set_data( $styles, 40 );
 			}
 		}
 
-		ET_Builder_Element::end_theme_builder_layout();
+		ET_Theme_Builder_Layout::end_theme_builder_layout();
 		$template_html .= et_builder_get_layout_closing_wrapper( $layout_post_type );
 	}
 
 	return $template_html;
-}
-
-/**
- * Check whether current page is library template preview page.
- *
- * @return bool
- */
-function is_et_theme_builder_template_preview() {
-	global $wp_query;
-	// phpcs:ignore WordPress.Security.NonceVerification -- This function does not change any state, and is therefore not susceptible to CSRF.
-	return ( 'true' === $wp_query->get( 'et_pb_preview' ) && isset( $_GET['et_pb_preview_nonce'] ) && isset( $_GET['item_id'] ) );
 }
 
 /**

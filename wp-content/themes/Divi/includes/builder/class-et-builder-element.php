@@ -7,6 +7,8 @@
  * @since 1.0
  */
 
+use ET\Builder\FrontEnd\Assets\StaticCSS;
+
 if ( ! defined( 'ET_BUILDER_OPTIMIZE_TEMPLATES' ) ) {
 	define( 'ET_BUILDER_OPTIMIZE_TEMPLATES', true );
 }
@@ -27,13 +29,6 @@ class ET_Builder_Element {
 	 * @var string
 	 */
 	public $name;
-
-	/**
-	 * Legacy template name (Extra).
-	 *
-	 * @var string
-	 */
-	public $template_name;
 
 	/**
 	 * Module plural name.
@@ -141,13 +136,6 @@ class ET_Builder_Element {
 	 * @var array
 	 */
 	public $defaults;
-
-	/**
-	 * Legacy fields defaults.
-	 *
-	 * @var array
-	 */
-	public $fields_defaults;
 
 	/**
 	 * Additional shortcode slugs.
@@ -616,22 +604,6 @@ class ET_Builder_Element {
 	private static $parent_motion_effects = array();
 
 	/**
-	 * A stack of the current active theme builder layout post type.
-	 *
-	 * @var string[]
-	 */
-	protected static $theme_builder_layout = array();
-
-	/**
-	 * A stack of the current active WP Editor template post type such as:
-	 * - wp_template
-	 * - wp_template_part
-	 *
-	 * @var array[]
-	 */
-	public static $wp_editor_template = array();
-
-	/**
 	 * Compile list of modules that has rich editor option.
 	 *
 	 * @var array
@@ -651,27 +623,6 @@ class ET_Builder_Element {
 	 * @var ET_Core_Data_Utils
 	 */
 	protected static $_ = null;
-
-	/**
-	 * `ET_Core_PageResource` class instance.
-	 *
-	 * @var ET_Core_PageResource
-	 */
-	public static $advanced_styles_manager = null;
-
-	/**
-	 * `ET_Core_PageResource` class instance.
-	 *
-	 * @var ET_Core_PageResource
-	 */
-	public static $deferred_styles_manager = null;
-
-	/**
-	 * Whether to force inline styles.
-	 *
-	 * @var bool
-	 */
-	public static $forced_inline_styles = false;
 
 	/**
 	 * `ET_Core_Data_Utils` instance.
@@ -827,6 +778,16 @@ class ET_Builder_Element {
 	 */
 	public static $all_module_slugs = array();
 
+
+	/**
+	 * List of third party modules.
+	 *
+	 * @since 5.0.0
+	 *
+	 * @var array
+	 */
+	protected static $_third_party_modules = array();
+
 	/**
 	 * Whether current module uses unique ID or not.
 	 *
@@ -839,6 +800,15 @@ class ET_Builder_Element {
 	protected $_use_unique_id = false;
 
 	/**
+	 * Collection of shortcode module definition.
+	 *
+	 * @since 5.0.0
+	 *
+	 * @var array
+	 */
+	private static $_shortcode_module_definitions = array();
+
+	/**
 	 * Whether WordPress lazy load is disabled or not.
 	 *
 	 * @since 4.21.1
@@ -846,6 +816,15 @@ class ET_Builder_Element {
 	 * @var boolean
 	 */
 	public static $is_wp_lazy_load_disabled = false;
+
+	/**
+	 * Path to the custom icon.
+	 *
+	 * @since 5.0.0
+	 *
+	 * @var string
+	 */
+	public $icon_path;
 
 	/**
 	 * ET_Builder_Element constructor.
@@ -889,25 +868,6 @@ class ET_Builder_Element {
 			if ( ! ( $current_module_index >= $start_from && $current_module_index < ( ET_BUILDER_AJAX_TEMPLATES_AMOUNT + $start_from ) ) ) {
 				return;
 			}
-		}
-
-		if ( null === self::$advanced_styles_manager && ! is_admin() && ! et_fb_is_enabled() ) {
-			$result                        = self::setup_advanced_styles_manager();
-			self::$advanced_styles_manager = $result['manager'];
-			if ( isset( $result['deferred'] ) ) {
-				self::$deferred_styles_manager = $result['deferred'];
-			}
-
-			if ( $result['add_hooks'] ) {
-				// Schedule callback to run in the footer so we can pass the module design styles to the page resource.
-				add_action( 'wp_footer', array( 'ET_Builder_Element', 'set_advanced_styles' ), 19 );
-
-				// Add filter for the resource data so we can prevent theme customizer css from being
-				// included with the builder css inline on first-load (since its in the head already).
-				add_filter( 'et_core_page_resource_get_data', array( 'ET_Builder_Element', 'filter_page_resource_data' ), 10, 3 );
-			}
-
-			add_action( 'wp_footer', array( 'ET_Builder_Element', 'maybe_force_inline_styles' ), 19 );
 		}
 
 		if ( null === self::$data_utils ) {
@@ -957,6 +917,16 @@ class ET_Builder_Element {
 
 		$this->_additional_fields_options = array();
 		$slug                             = $this->slug;
+
+		// Populate list of third party modules.
+		if ( ! $this->_is_official_module ) {
+
+			// NOTE: Add more property if needed.
+			self::$_third_party_modules[ $slug ] = array(
+				'name' => $this->name,
+				'slug' => $slug,
+			);
+		}
 
 		// Use module cache compression only when we sure we can also decompress.
 		$use_compression = function_exists( 'gzinflate' ) && function_exists( 'gzdeflate' );
@@ -1249,6 +1219,98 @@ class ET_Builder_Element {
 			self::$has_content_modules[] = $this->slug;
 		}
 
+		if ( et_builder_d5_enabled() && ! has_action( 'divi_visual_builder_before_get_shortcode_module_definitions', array( $this, 'set_shortcode_module_definitions' ) ) ) {
+			add_action( 'divi_visual_builder_before_get_shortcode_module_definitions', array( $this, 'set_shortcode_module_definitions' ) );
+		}
+	}
+
+	/**
+	 * Get collection of shortcode module definitions.
+	 *
+	 * @since 5.0.0
+	 *
+	 * @return array
+	 */
+	public static function get_shortcode_module_definitions() {
+		return self::$_shortcode_module_definitions;
+	}
+
+	/**
+	 * Populate module properties as module definition for backward compatibility in D5.
+	 *
+	 * @since 5.0.0
+	 *
+	 * @return void
+	 */
+	public function set_shortcode_module_definitions() {
+		// Get all toggles.
+		// `$this->settings_modal_toggles` doesn't have custom toggles added via `et_builder_get_child_modules` hook.
+		// To maintain the compatibility with Divi 4 modules in Divi 5, we need to get the toggles.
+		$all_toggles = self::get_toggles( $this->get_post_type() );
+		$custom_tabs = self::get_tabs();
+
+		// Apply `et_pb_all_fields_unprocessed_{$this->slug}` here
+		// so we can get the fields added via hook by third-purty Divi plugins as well.
+		$all_fields = apply_filters( "et_pb_all_fields_unprocessed_{$this->slug}", $this->get_fields() );
+
+		// Ensure all custom tabs with fields assigned to them have at least one toggle defined.
+		foreach ( $custom_tabs[ $this->slug ] as $tab_slug => $tab_data ) {
+			$has_fields_in_tab = in_array( $tab_slug, array_column( $all_fields, 'tab_slug' ), true );
+
+			if ( $has_fields_in_tab && empty( $all_toggles[ $this->slug ][ $tab_slug ]['toggles'] ) ) {
+				et_()->array_set( $all_toggles[ $this->slug ], "{$tab_slug}.toggles", array() );
+				et_()->array_set( $all_toggles[ $this->slug ], "{$tab_slug}.toggles.custom_tab_default", array( 'title' => $tab_data['name'] ) );
+			}
+		}
+
+		self::$_shortcode_module_definitions[ $this->slug ] = array(
+			'name'       => $this->name,
+			'plural'     => $this->plural,
+			'slug'       => $this->slug,
+			'helpVideos' => $this->help_videos,
+			'selector'   => $this->main_css_element,
+			'folder'     => isset( $this->folder_name ) ? $this->folder_name : '',
+			'icon'       => array(
+				'name' => isset( $this->icon ) ? $this->icon : '',
+				'path' => isset( $this->icon_path ) ? $this->icon_path : '',
+			),
+			'fields'     => array(
+				'module'   => $all_fields,
+				'advanced' => $this->advanced_fields,
+				'css'      => $this->custom_css_fields,
+				'defaults' => isset( $this->fields_defaults ) ? $this->fields_defaults : array(),
+			),
+			'is'         => array(
+				'child'      => 'child' === $this->type,
+				'parent'     => ! is_null( $this->child_slug ),
+				'official'   => $this->_is_official_module,
+				'vbSupport'  => 'on' === $this->vb_support,
+				'fullwidth'  => isset( $this->fullwidth ) ? true === $this->fullwidth : false,
+				'uniqueId'   => true === $this->_use_unique_id,
+				'rawContent' => true === $this->use_raw_content,
+			),
+			'child'      => array(
+				'slug'             => $this->child_slug,
+				'itemText'         => isset( $this->child_item_text ) ? $this->child_item_text : '',
+				'titleText'        => isset( $this->advanced_setting_title_text ) ? $this->advanced_setting_title_text : '',
+				'titleVar'         => $this->child_title_var,
+				'titleFallbackVar' => $this->child_title_fallback_var,
+			),
+			'settings'   => array(
+				'group' => $all_toggles[ $this->slug ],
+				'tabs'  => $custom_tabs[ $this->slug ],
+			),
+			'render'     => array(
+				'wrapper' => $this->wrapper_settings,
+			),
+		);
+
+		$icon_path = self::$_shortcode_module_definitions[ $this->slug ]['icon']['path'];
+
+		// @phpcs:disable WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- Irrelevant for this context.
+		if ( str_ends_with( $icon_path, '.svg' ) && file_exists( $icon_path ) ) {
+			self::$_shortcode_module_definitions[ $this->slug ]['icon']['svg'] = file_get_contents( $icon_path );
+		}
 	}
 
 	/**
@@ -1506,9 +1568,7 @@ class ET_Builder_Element {
 	 * @return boolean
 	 */
 	protected static function _should_respect_post_interference() {
-		$post = ET_Post_Stack::get();
-
-		return null !== $post && get_the_ID() !== $post->ID;
+		return et_core_should_respect_post_interference();
 	}
 
 	/**
@@ -1520,11 +1580,7 @@ class ET_Builder_Element {
 	 * @return integer|boolean
 	 */
 	protected static function _get_main_post_id() {
-		if ( self::_should_respect_post_interference() ) {
-			return get_the_ID();
-		}
-
-		return ET_Post_Stack::get_main_post_id();
+		return et_core_get_main_post_id();
 	}
 
 	/**
@@ -1539,22 +1595,7 @@ class ET_Builder_Element {
 	 * @return int|bool
 	 */
 	public static function get_current_post_id() {
-		// Getting correct post id in computed_callback request.
-		// phpcs:disable WordPress.Security.NonceVerification -- This function does not change any state, and is therefore not susceptible to CSRF.
-		if ( wp_doing_ajax() && self::$_->array_get( $_POST, 'current_page.id' ) ) {
-			return absint( self::$_->array_get( $_POST, 'current_page.id' ) );
-		}
-
-		if ( wp_doing_ajax() && isset( $_POST['et_post_id'] ) ) {
-			return absint( $_POST['et_post_id'] );
-		}
-
-		if ( isset( $_POST['post'] ) ) {
-			return absint( $_POST['post'] );
-		}
-
-		return self::_get_main_post_id();
-		// phpcs:enable
+		return et_core_get_current_post_id();
 	}
 
 	/**
@@ -1598,210 +1639,11 @@ class ET_Builder_Element {
 	}
 
 	/**
-	 * Setup the advanced styles manager
+	 * Placeholder for the module's init() method.
 	 *
-	 * @param int $post_id Post id.
-	 *
-	 * @return array
-	 * @since 4.0 Made public.
-	 *
-	 * {@internal
-	 *   Before the styles manager was implemented, the advanced styles were output inline in the footer.
-	 *   That resulted in them being the last styles parsed by the browser, thus giving them higher
-	 *   priority than other styles on the page. With the styles manager, the advanced styles are
-	 *   enqueued at the very end of the <head>. This is for backwards compatibility (to maintain
-	 *   the same priority for the styles as before).}}
+	 * @since 5.0.0
 	 */
-	public static function setup_advanced_styles_manager( $post_id = 0 ) {
-		if ( 0 === $post_id && et_core_page_resource_is_singular() ) {
-			// It doesn't matter if post id is 0 because we're going to force inline styles.
-			$post_id = et_core_page_resource_get_the_ID();
-		}
-
-		/** This filter is documented in frontend-builder/theme-builder/frontend.php */
-		$is_critical_enabled = apply_filters( 'et_builder_critical_css_enabled', false );
-		$deferred            = false;
-		$is_preview          = is_preview() || is_et_pb_preview();
-		$forced_in_footer    = $post_id && et_builder_setting_is_on( 'et_pb_css_in_footer', $post_id );
-		$forced_inline       = ! $post_id || $is_preview || $forced_in_footer || et_builder_setting_is_off( 'et_pb_static_css_file', $post_id ) || et_core_is_safe_mode_active() || ET_GB_Block_Layout::is_layout_block_preview();
-		$unified_styles      = ! $forced_inline && ! $forced_in_footer;
-
-		$resource_owner = $unified_styles ? 'core' : 'builder';
-		$resource_slug  = $unified_styles ? 'unified' : 'module-design';
-
-		$resource_slug .= $unified_styles && et_builder_post_is_of_custom_post_type( $post_id ) ? '-cpt' : '';
-
-		// Temporarily keep resource slug before TB slug processing.
-		$temp_resource_slug = $resource_slug;
-
-		$resource_slug = et_theme_builder_decorate_page_resource_slug( $post_id, $resource_slug );
-
-		// TB should be prioritized over WP Editor. If resource slug is not changed, it is
-		// not for TB. Ensure current module is one of WP Editor template before checking.
-		if ( $temp_resource_slug === $resource_slug && self::is_wp_editor_template() ) {
-			$resource_slug = et_builder_wp_editor_decorate_page_resource_slug( $post_id, $resource_slug );
-		}
-
-		// If the post is password protected and a password has not been provided yet,
-		// no content (including any custom style) will be printed.
-		// When static css file option is enabled this will result in missing styles.
-		if ( ! $forced_inline && post_password_required( $post_id ? $post_id : null ) ) {
-			$forced_inline = true;
-		}
-
-		if ( $is_preview ) {
-			// Don't let previews cause existing saved static css files to be modified.
-			$resource_slug .= '-preview';
-		}
-
-		$manager  = et_core_page_resource_get( $resource_owner, $resource_slug, $post_id, 40 );
-		$has_file = $manager->has_file();
-
-		$manager_data = [
-			'manager'   => $manager,
-			'add_hooks' => true,
-		];
-
-		if ( $is_critical_enabled ) {
-			$deferred                 = et_core_page_resource_get( $resource_owner, $resource_slug . '-deferred', $post_id, 40 );
-			$has_file                 = $has_file && $deferred->has_file();
-			$manager_data['deferred'] = $deferred;
-		}
-
-		if ( ! $forced_inline && ! $forced_in_footer && $has_file ) {
-			// This post currently has a fully configured styles manager.
-			$manager_data['add_hooks'] = false;
-			/**
-			 * Filters the Style Managers used to output Critical/Deferred Builder CSS.
-			 *
-			 * @since 4.10.0
-			 *
-			 * @param array $manager_data Style Managers.
-			 */
-			$manager_data = apply_filters( 'et_builder_module_style_manager', $manager_data );
-
-			return $manager_data;
-		}
-
-		$manager->forced_inline       = $forced_inline;
-		$manager->write_file_location = 'footer';
-
-		if ( $deferred ) {
-			$deferred->forced_inline       = $forced_inline;
-			$deferred->write_file_location = 'footer';
-		}
-
-		if ( $forced_in_footer || $forced_inline ) {
-			// Restore legacy behavior--output inline styles in the footer.
-			$manager->set_output_location( 'footer' );
-			if ( $deferred ) {
-				$deferred->set_output_location( 'footer' );
-			}
-		}
-
-		/** This filter is documented in class-et-builder-element.php */
-		$manager_data = apply_filters( 'et_builder_module_style_manager', $manager_data );
-
-		return $manager_data;
-	}
-
-	/**
-	 * Passes the module design styles for the current page to the advanced styles manager.
-	 * {@see 'wp_footer' (19) Must run before the style manager's footer callback}
-	 */
-	public static function set_advanced_styles() {
-		$styles = '';
-		$custom = '';
-
-		if ( et_core_is_builder_used_on_current_request() ) {
-			$custom = et_pb_get_page_custom_css();
-		}
-
-		// Pass styles to page resource which will handle their output.
-		/** This filter is documented in frontend-builder/theme-builder/frontend.php */
-		$is_critical_enabled = apply_filters( 'et_builder_critical_css_enabled', false );
-
-		$critical = $is_critical_enabled ? self::get_style( false, 0, true ) . self::get_style( true, 0, true ) : [];
-		$styles   = self::get_style() . self::get_style( true );
-
-		if ( empty( $critical ) ) {
-			// No critical styles defined, just enqueue everything as usual.
-			$styles = $custom . $styles;
-			if ( ! empty( $styles ) ) {
-				if ( isset( self::$deferred_styles_manager ) ) {
-					self::$deferred_styles_manager->set_data( $styles, 40 );
-				} else {
-					self::$advanced_styles_manager->set_data( $styles, 40 );
-				}
-			}
-		} else {
-			// Add page css to the critical section.
-			$critical = $custom . $critical;
-			self::$advanced_styles_manager->set_data( $critical, 40 );
-			if ( ! empty( $styles ) ) {
-				// Defer everything else.
-				self::$deferred_styles_manager->set_data( $styles, 40 );
-			}
-		}
-	}
-
-	/**
-	 * Set {@see ET_Builder_Element::$advanced_styles_manager} to force inline styles.
-	 */
-	public static function maybe_force_inline_styles() {
-		if ( et_core_is_fb_enabled() || self::$advanced_styles_manager->forced_inline || ! self::$forced_inline_styles ) {
-			return;
-		}
-
-		self::$advanced_styles_manager->forced_inline       = true;
-		self::$advanced_styles_manager->write_file_location = 'footer';
-		self::$advanced_styles_manager->set_output_location( 'footer' );
-
-		if ( isset( self::$deferred_styles_manager ) ) {
-			self::$deferred_styles_manager->forced_inline       = true;
-			self::$deferred_styles_manager->write_file_location = 'footer';
-			self::$deferred_styles_manager->set_output_location( 'footer' );
-		}
-	}
-
-	/**
-	 * Filters the unified page resource data. The data is an array of arrays of strings keyed by
-	 * priority. The builder's styles are set with a priority of 40. Here we want to make sure
-	 * only the builder's styles are output in the footer on first-page load so we aren't
-	 * duplicating the customizer and custom css styles which are already in the <head>.
-	 * {@see 'et_core_page_resource_get_data'}
-	 *
-	 * @param array[]              $data {
-	 *     Arrays of strings keyed by priority.
-	 *
-	 *     @type string[] $priority Resource data.
-	 *     ...
-	 * }.
-	 * @param string               $context  Where the data will be used. Accepts 'inline', 'file'.
-	 * @param ET_Core_PageResource $resource The resource instance.
-	 * @return array
-	 */
-	public static function filter_page_resource_data( $data, $context, $resource ) {
-		global $wp_current_filter;
-
-		if ( 'inline' !== $context || ! in_array( 'wp_footer', $wp_current_filter, true ) ) {
-			return $data;
-		}
-
-		if ( false === strpos( $resource->slug, 'unified' ) ) {
-			return $data;
-		}
-
-		if ( 'footer' !== $resource->location ) {
-			// This is the first load of a page that doesn't currently have a unified static css file.
-			// The theme customizer and custom css have already been inlined in the <head> using the
-			// unified resource's ID. It's invalid HTML to have duplicated IDs on the page so we'll
-			// fix that here since it only applies to this page load anyway.
-			$resource->slug = $resource->slug . '-2';
-		}
-
-		return isset( $data[40] ) ? array( 40 => $data[40] ) : array();
-	}
+	public function init() {}
 
 	/**
 	 * Get the slugs for all current builder modules.
@@ -2241,7 +2083,7 @@ class ET_Builder_Element {
 		$shortcode_attributes      = array();
 		$font_icon_options         = et_pb_get_font_icon_field_names();
 		$font_icon_options_as_keys = array_flip( $font_icon_options );
-		$url_options               = array( 'url', 'button_link', 'button_url' );
+		$url_options               = array( 'url', 'button_link', 'button_url', 'redirect_url' );
 		$url_options_as_keys       = array_flip( $url_options );
 
 		foreach ( $this->props as $attribute_key => $attribute_value ) {
@@ -2365,22 +2207,33 @@ class ET_Builder_Element {
 	 *
 	 * @since 4.0
 	 * @since 4.14.8 Add WP Editor template check.
+	 * @since 5.0.0 Use ET_Builder_Module_Order for index management.
 	 *
 	 * @param string $key The path in the array.
 	 *
 	 * @return mixed
 	 */
 	protected static function _get_index( $key ) {
-		$theme_builder_group = self::get_theme_builder_layout_type();
+		$theme_builder_group = ET_Theme_Builder_Layout::get_theme_builder_layout_type();
 
 		// TB should be prioritized over WP Editor.
 		if ( 'default' === $theme_builder_group ) {
-			$theme_builder_group = self::get_wp_editor_template_type( true );
+			$theme_builder_group = StaticCSS::get_wp_editor_template_type( true );
 		}
 
 		$key = array_merge( array( $theme_builder_group ), (array) $key );
 
-		return et_()->array_get( self::$_indices, $key, -1 );
+		if ( count( $key ) > 1 ) {
+			// Handle array keys (for module_order and inner_module_order).
+			$index_type  = $key[1]; // Skip the theme builder group.
+			$module_slug = $key[2] ?? null;
+
+			return ET_Builder_Module_Order::get_index( $index_type, $module_slug, $theme_builder_group );
+		} else {
+			// Handle scalar keys (section, row, etc.).
+			// This should not happen as $key is always an array after array_merge.
+			return ET_Builder_Module_Order::get_index( $key[0], null, $theme_builder_group );
+		}
 	}
 
 	/**
@@ -2388,6 +2241,7 @@ class ET_Builder_Element {
 	 *
 	 * @since 4.0
 	 * @since 4.14.8 Add WP Editor template check.
+	 * @since 5.0.0 Use ET_Builder_Module_Order for index management.
 	 *
 	 * @param string $key The path in the array.
 	 * @param mixed  $index The value to set.
@@ -2395,16 +2249,26 @@ class ET_Builder_Element {
 	 * @return void
 	 */
 	protected static function _set_index( $key, $index ) {
-		$theme_builder_group = self::get_theme_builder_layout_type();
+		$theme_builder_group = ET_Theme_Builder_Layout::get_theme_builder_layout_type();
 
 		// TB should be prioritized over WP Editor.
 		if ( 'default' === $theme_builder_group ) {
-			$theme_builder_group = self::get_wp_editor_template_type( true );
+			$theme_builder_group = StaticCSS::get_wp_editor_template_type( true );
 		}
 
 		$key = array_merge( array( $theme_builder_group ), (array) $key );
 
-		et_()->array_set( self::$_indices, $key, $index );
+		if ( count( $key ) > 1 ) {
+			// Handle array keys (for module_order and inner_module_order).
+			$index_type  = $key[1]; // Skip the theme builder group.
+			$module_slug = $key[2] ?? null;
+
+			ET_Builder_Module_Order::set_index( $index_type, $module_slug, $index, $theme_builder_group );
+		} else {
+			// Handle scalar keys (section, row, etc.).
+			// This should not happen as $key is always an array after array_merge.
+			ET_Builder_Module_Order::set_index( $key[0], null, $index, $theme_builder_group );
+		}
 	}
 
 	/**
@@ -2439,19 +2303,8 @@ class ET_Builder_Element {
 			}
 		}
 
-		self::_set_index( self::INDEX_SECTION, -1 );
-		self::_set_index( self::INDEX_ROW, -1 );
-		self::_set_index( self::INDEX_ROW_INNER, -1 );
-		self::_set_index( self::INDEX_COLUMN, -1 );
-		self::_set_index( self::INDEX_COLUMN_INNER, -1 );
-		self::_set_index( self::INDEX_MODULE, -1 );
-		self::_set_index( self::INDEX_MODULE_ITEM, -1 );
-
-		if ( $force ) {
-			// Reset module order classes.
-			self::_set_index( self::INDEX_MODULE_ORDER, array() );
-			self::_set_index( self::INDEX_INNER_MODULE_ORDER, array() );
-		}
+		// Use the central utility class to reset all indexes.
+		ET_Builder_Module_Order::reset_indexes();
 
 		return $content;
 	}
@@ -3164,6 +3017,7 @@ class ET_Builder_Element {
 		$this->add_classname(
 			array(
 				'et_pb_module',
+				'et_d4_element',
 				$render_slug,
 				self::get_module_order_class( $render_slug ),
 			)
@@ -3331,6 +3185,15 @@ class ET_Builder_Element {
 					}
 
 					et_builder_handle_animation_data( $animation_data );
+
+					// Add front-end script data used by D5.
+					ET\Builder\FrontEnd\Module\ScriptData::add_data_item(
+						[
+							'data_name'    => 'animation',
+							'data_item_id' => null,
+							'data_item'    => $animation_data,
+						]
+					);
 				}
 
 				// Try to apply old method for plugins without vb support.
@@ -3380,12 +3243,20 @@ class ET_Builder_Element {
 			$module_class = self::get_module_order_class( $render_slug );
 
 			if ( $module_class ) {
-				et_builder_handle_link_options_data(
-					array(
-						'class'  => trim( $module_class ),
-						'url'    => esc_url_raw( $link_option_url ),
-						'target' => 'on' === $link_option_url_new_window ? '_blank' : '_self',
-					)
+				$data = array(
+					'class'  => trim( $module_class ),
+					'url'    => esc_url_raw( $link_option_url ),
+					'target' => 'on' === $link_option_url_new_window ? '_blank' : '_self',
+				);
+
+				et_builder_handle_link_options_data( $data );
+
+				\ET\Builder\FrontEnd\Module\ScriptData::add_data_item(
+					[
+						'data_name'    => 'link',
+						'data_item_id' => null,
+						'data_item'    => $data,
+					]
 				);
 			}
 
@@ -3437,8 +3308,29 @@ class ET_Builder_Element {
 		$this->is_rendering = true;
 		$render_method      = $et_fb_processing_shortcode_object ? 'render_as_builder_data' : 'render';
 
+		/**
+		 * Fired before module render method is called.
+		 *
+		 * @since 5.0.0
+		 *
+		 * @param ET_Builder_Element $this          The current instance of ET_Builder_Element.
+		 * @param string             $render_method The render method used to render the module.
+		 */
+		do_action( 'et_module_before_render_output_' . $render_slug, $this, $render_method );
+
 		// Render the module as we normally would.
 		$output = $this->{$render_method}( $attrs, $content, $render_slug, $parent_address, $global_parent, $global_parent_type, $parent_type, $theme_builder_area );
+
+		/**
+		 * Fired after module render method is called.
+		 *
+		 * @since 5.0.0
+		 *
+		 * @param ET_Builder_Element $this          The current instance of ET_Builder_Element.
+		 * @param string             $render_method The render method used to render the module.
+		 * @param string             $output        HTML output of the rendered module.
+		 */
+		do_action( 'et_module_after_render_output_' . $render_slug, $this, $render_method, $output );
 
 		/**
 		 * Filters every rendered module output for processing "Display Conditions" option group.
@@ -4264,12 +4156,18 @@ class ET_Builder_Element {
 	 * @return array
 	 */
 	protected function _maybe_add_global_presets_settings( $attrs, $render_slug ) {
-		if ( ( et_fb_is_enabled() || et_builder_bfb_enabled() ) && ! self::is_theme_builder_layout() ) {
+		if ( ( et_fb_is_enabled() || et_builder_bfb_enabled() ) && ! ET_Theme_Builder_Layout::is_theme_builder_layout() ) {
 			return $attrs;
 		}
 
 		$render_slug            = self::$global_presets_manager->maybe_convert_module_type( $render_slug, $attrs );
-		$module_preset_settings = self::$global_presets_manager->get_module_presets_settings( $render_slug, $attrs );
+
+		// Ignore module preset settings if it is disabled.
+		if ( isset( $attrs['_module_preset'] ) && '__ET_DISABLED_PRESET__' === $attrs['_module_preset'] ) {
+			$module_preset_settings = [];
+		} else {
+			$module_preset_settings = self::$global_presets_manager->get_module_presets_settings( $render_slug, $attrs );
+		}
 
 		if ( is_array( $attrs ) ) {
 			// We need a special handler for social media child items module background color setting
@@ -9557,7 +9455,7 @@ class ET_Builder_Element {
 		if ( is_a( $post, 'WP_POST' ) && ( is_admin() || ! isset( $et_builder_post_type ) ) ) {
 			return $post->post_type;
 		} else {
-			$layout_type = self::get_theme_builder_layout_type();
+			$layout_type = ET_Theme_Builder_Layout::get_theme_builder_layout_type();
 
 			if ( $layout_type ) {
 				return $layout_type;
@@ -12601,7 +12499,7 @@ class ET_Builder_Element {
 
 		// Sort fields within tabs by priority.
 		foreach ( $tabs_fields as $tab_fields ) {
-			uasort( $tab_fields, array( 'ET_Builder_Element', 'compare_by_priority' ) );
+			uasort( $tab_fields, array( 'self', 'compare_by_priority' ) );
 			$sorted_fields = array_merge( $sorted_fields, $tab_fields );
 		}
 
@@ -17761,7 +17659,7 @@ class ET_Builder_Element {
 			do_action(
 				'et_builder_after_free_form_css_processed',
 				$final_css_string,
-				self::setup_advanced_styles_manager()
+				StaticCSS::setup_styles_manager()
 			);
 		}
 	}
@@ -18276,7 +18174,7 @@ class ET_Builder_Element {
 			 */
 			$sorted_modules = $parent_modules;
 
-			uasort( $sorted_modules, array( 'ET_Builder_Element', 'compare_by_name' ) );
+			uasort( $sorted_modules, array( 'self', 'compare_by_name' ) );
 
 			foreach ( $sorted_modules as $module ) {
 				/**
@@ -18676,6 +18574,17 @@ class ET_Builder_Element {
 	}
 
 	/**
+	 * Get list of populated third party modules.
+	 *
+	 * @since 5.0.0
+	 *
+	 * @return array
+	 */
+	public static function get_third_party_modules() {
+		return self::$_third_party_modules;
+	}
+
+	/**
 	 * Get modules by fallback post type for disabled post type.
 	 *
 	 * @param string $type Module type.
@@ -18802,7 +18711,7 @@ class ET_Builder_Element {
 		$parent_modules = self::get_parent_modules( $post_type );
 		$child_modules  = self::get_child_modules( $post_type );
 
-		return array_merge( $parent_modules, $child_modules );
+		return array_merge_recursive( $parent_modules, $child_modules );
 	}
 
 	/**
@@ -18866,14 +18775,34 @@ class ET_Builder_Element {
 	 *
 	 * @return array
 	 */
-	public static function get_toggles( $post_type ) {
-		static $toggles_array = array();
+	public static function get_toggles( $post_type = '' ) {
+		static $cache = array();
 
-		if ( $toggles_array ) {
-			return $toggles_array;
+		// Use the post_type as cache key, or “__all__” when empty.
+		$cache_key = $post_type ?: '__all__';
+
+		if ( isset( $cache[ $cache_key ] ) ) {
+			return $cache[ $cache_key ];
 		}
 
-		$modules        = self::get_parent_and_child_modules( $post_type );
+		$modules = self::get_parent_and_child_modules( $post_type );
+
+		if ( ! $post_type ) {
+			// Flatten only when no post_type is specified.
+			$flat = array();
+
+			foreach ( $modules as $_post_type => $post_type_modules ) {
+				foreach ( $post_type_modules as $module_slug => $module ) {
+					if ( ! isset( $flat[ $module_slug ] ) ) {
+						$flat[ $module_slug ] = $module;
+					}
+				}
+			}
+
+			$modules = $flat;
+		}
+
+		$toggles_array  = array();
 		$custom_modules = array();
 
 		foreach ( $modules as $module_slug => $module ) {
@@ -18881,59 +18810,65 @@ class ET_Builder_Element {
 				$custom_modules[ $module_slug ] = $module;
 			}
 
-			foreach ( $module->settings_modal_toggles as $tab_slug => &$tab_data ) {
-				if ( ! isset( $tab_data['toggles'] ) ) {
-					continue;
-				}
+			if ( isset( $module->settings_modal_toggles['gerneral']['toggles'] ) ) {
+				// Fix typo
+				$module->settings_modal_toggles['general']['toggles'] = array_merge(
+					$module->settings_modal_toggles['gerneral']['toggles'],
+					$module->settings_modal_toggles['general']['toggles']
+				);
 
-				$tab_data['toggles'] = self::et_pb_order_toggles_by_priority( $tab_data['toggles'] );
+				unset( $module->settings_modal_toggles['gerneral'] );
+			}
+
+			foreach ( $module->settings_modal_toggles as $tab_slug => &$tab_data ) {
+				if ( isset( $tab_data['toggles'] ) ) {
+					$tab_data['toggles'] = self::et_pb_order_toggles_by_priority( $tab_data['toggles'] );
+				}
 			}
 
 			$toggles_array[ $module_slug ] = $module->settings_modal_toggles;
 		}
 
-		if ( $custom_modules ) {
-			// Add missing toggle definitions for any existing toggles used in custom modules.
-			foreach ( $custom_modules as $module_slug => $module ) {
-				foreach ( $module->get_complete_fields() as $field_name => $field_info ) {
-					$tab_slug    = self::$_->array_get( $field_info, 'tab_slug' );
-					$tab_slug    = empty( $tab_slug ) ? 'general' : $tab_slug;
-					$toggle_slug = self::$_->array_get( $field_info, 'toggle_slug' );
+		// Add missing toggle definitions for any existing toggles used in custom modules.
+		foreach ( $custom_modules as $module_slug => $module ) {
+			foreach ( $module->get_complete_fields() as $field_info ) {
+				$tab_slug    = self::$_->array_get( $field_info, 'tab_slug', 'general' );
+				$tab_slug    = $tab_slug ?: 'general';
+				$toggle_slug = self::$_->array_get( $field_info, 'toggle_slug' );
 
-					if ( ! $toggle_slug || isset( $toggles_array[ $module_slug ][ $tab_slug ]['toggles'][ $toggle_slug ] ) ) {
-						continue;
-					}
+				if ( ! $toggle_slug || isset( $toggles_array[ $module_slug ][ $tab_slug ]['toggles'][ $toggle_slug ] ) ) {
+					continue;
+				}
 
-					// Find existing definition.
-					foreach ( $toggles_array as $_module_slug => $tabs ) {
-						foreach ( $tabs as $tab => $toggles ) {
-							if ( isset( $toggles['toggles'][ $toggle_slug ] ) ) {
-								self::$_->array_set(
-									$toggles_array,
-									"{$module_slug}.{$tab_slug}.toggles.{$toggle_slug}",
-									$toggles['toggles'][ $toggle_slug ]
-								);
+				// Find existing definition.
+				foreach ( $toggles_array as $_slug => $tabs ) {
+					foreach ( $tabs as $tab => $data ) {
+						if ( isset( $data['toggles'][ $toggle_slug ] ) ) {
+							self::$_->array_set(
+								$toggles_array,
+								"$module_slug.$tab_slug.toggles.$toggle_slug",
+								$data['toggles'][ $toggle_slug ]
+							);
 
-								$toggles_array[ $module_slug ][ $tab_slug ]['toggles'] = self::et_pb_order_toggles_by_priority( $toggles_array[ $module_slug ][ $tab_slug ]['toggles'] );
+							$toggles_array[ $module_slug ][ $tab_slug ]['toggles'] = self::et_pb_order_toggles_by_priority( $toggles_array[ $module_slug ][ $tab_slug ]['toggles'] );
 
-								break 2;
-							}
+							break 2;
 						}
 					}
+				}
 
-					// Add missing unregistered toggles to the list.
-					if ( ! isset( $toggles_array[ $module_slug ][ $tab_slug ]['toggles'][ $toggle_slug ] ) ) {
-						if ( ! isset( $toggles_array[ $module_slug ][ $tab_slug ] ) ) {
-							$toggles_array[ $module_slug ][ $tab_slug ] = array( 'toggles' => array( $toggle_slug ) );
-						} else {
-							$toggles_array[ $module_slug ][ $tab_slug ]['toggles'][] = $toggle_slug;
-						}
+				// Add missing unregistered toggles
+				if ( ! isset( $toggles_array[ $module_slug ][ $tab_slug ]['toggles'][ $toggle_slug ] ) ) {
+					if ( ! isset( $toggles_array[ $module_slug ][ $tab_slug ] ) ) {
+						$toggles_array[ $module_slug ][ $module_slug ] = array( 'toggles' => array( $toggle_slug ) );
+					} else {
+						$toggles_array[ $module_slug ][ $module_slug ]['toggles'][] = $toggle_slug;
 					}
 				}
 			}
 		}
 
-		return $toggles_array;
+		return $cache[ $cache_key ] = $toggles_array;
 	}
 
 	/**
@@ -19707,7 +19642,7 @@ class ET_Builder_Element {
 	 * @return int|string
 	 */
 	public static function get_style_key() {
-		if ( self::is_theme_builder_layout() || self::is_wp_editor_template() ) {
+		if ( ET_Theme_Builder_Layout::is_theme_builder_layout() || StaticCSS::is_wp_editor_template() ) {
 			return self::get_layout_id();
 		}
 
@@ -20047,6 +19982,15 @@ class ET_Builder_Element {
 	 * @param array  $style Style array.
 	 */
 	public static function set_style( $function_name, $style ) {
+		// Bail if not inline style and already enqueued.
+		if (
+			'object' === gettype( StaticCSS::$styles_manager ) &&
+			! StaticCSS::$styles_manager->forced_inline &&
+			StaticCSS::$styles_manager->enqueued
+		) {
+			return;
+		}
+
 		$selectors = is_array( $style['selector'] ) ? $style['selector'] : array( $style['selector'] );
 		foreach ( $selectors as $item ) {
 			foreach ( self::$_->sanitize_css_placeholders( $item ) as $selector ) {
@@ -20110,6 +20054,15 @@ class ET_Builder_Element {
 	 * @return void
 	 */
 	public function generate_styles( $args = array() ) {
+		// Bail if not inline style and already enqueued.
+		if (
+			'object' === gettype( StaticCSS::$styles_manager ) &&
+			! StaticCSS::$styles_manager->forced_inline &&
+			StaticCSS::$styles_manager->enqueued
+		) {
+			return;
+		}
+
 		$defaults       = array(
 			'mode'                            => 'sticky',
 			'render_slug'                     => '',
@@ -20788,6 +20741,17 @@ class ET_Builder_Element {
 			wp_enqueue_style( 'wp-mediaelement' );
 			wp_enqueue_script( 'wp-mediaelement' );
 			$this->add_classname( array( 'et_pb_section_video', 'et_pb_preload' ) );
+
+			// Add front-end script data used by D5.
+			\ET\Builder\FrontEnd\Module\ScriptData::add_data_item(
+				[
+					'data_name'    => 'background_video',
+					'data_item_id' => null,
+					'data_item'    => [
+						'selector' => str_replace( '%%order_class%%', '.' . self::get_module_order_class( $this->slug ), $this->main_css_element ),
+					],
+				]
+			);
 		}
 
 		return $video_background;
@@ -20824,6 +20788,9 @@ class ET_Builder_Element {
 			$featured_image_src_obj = wp_get_attachment_image_src( get_post_thumbnail_id( self::_get_main_post_id() ), 'full' );
 			$featured_image_src     = isset( $featured_image_src_obj[0] ) ? $featured_image_src_obj[0] : '';
 		}
+
+		// D5 Script data container.
+		$d5_parallax_data = array();
 
 		// Parallax Gradient.
 		$background_options = et_pb_background_options();
@@ -20936,6 +20903,9 @@ class ET_Builder_Element {
 					$parallax_gradient_classname[] = "et_parallax_gradient{$suffix}";
 				}
 
+				// For D5 script-data.
+				$parallax_classname[] = "et_parallax_bg{$suffix}--" . self::get_module_order_class( $this->slug );
+
 				$background_gradient_image = sprintf(
 					'background-image: %1$s;',
 					esc_html( $background_gradient_style )
@@ -20957,7 +20927,7 @@ class ET_Builder_Element {
 				);
 
 				$parallax_background .= sprintf(
-					'<span class="et_parallax_bg_wrap"><span
+					'<span class="et_parallax_bg_wrap et-pb-parallax-wrapper"><span
 						class="%1$s"
 						style="background-image: url(%2$s);"
 					></span>%3$s</span>',
@@ -20973,6 +20943,25 @@ class ET_Builder_Element {
 
 				// set `.et_parallax_bg_wrap` border-radius.
 				et_set_parallax_bg_wrap_border_radius( $props, $this->slug, $this->main_css_element );
+			}
+
+			if ( 'on' === $parallax ) {
+				$state = 'value';
+
+				if ( $is_hover ) {
+					$state = 'hover';
+				} elseif ( $is_sticky ) {
+					$state = 'sticky';
+				}
+
+				$d5_parallax_data[] = [
+					'uniqueSelector' => ".et_parallax_bg{$suffix}--" . self::get_module_order_class( $this->slug ),
+					'breakpoint'     => '' === $suffix || in_array( $suffix, [ $hover_suffix, $sticky_suffix ], true ) === $suffix ? 'desktop' : str_replace( '_', '', $suffix ),
+					'state'          => $state,
+					'enabled'        => 'on' === $parallax,
+					'trueParallax'   => 'on' === $parallax_method,
+					'imageUrl'       => esc_url( $background_image ),
+				];
 			}
 
 			// C.3. Hover parallax class.
@@ -20991,6 +20980,20 @@ class ET_Builder_Element {
 		// Added classname for module wrapper.
 		if ( '' !== $parallax_background ) {
 			$this->add_classname( 'et_pb_section_parallax' );
+
+			// Add D5 parallax script data.
+			if ( ! empty( $d5_parallax_data ) ) {
+				ET\Builder\FrontEnd\Module\ScriptData::add_data_item(
+					[
+						'data_name'    => 'background_parallax',
+						'data_item_id' => null,
+						'data_item'    => [
+							'selector' => str_replace( '%%order_class%%', '.' . self::get_module_order_class( $this->slug ), $this->main_css_element ),
+							'data'     => $d5_parallax_data,
+						],
+					]
+				);
+			}
 		}
 
 		return $parallax_background;
@@ -21647,7 +21650,7 @@ class ET_Builder_Element {
 		}
 		$data_icon = $use_data_icon ? sprintf(
 			' data-icon="%1$s"',
-			esc_attr( et_pb_process_font_icon( $args['custom_icon'] ) )
+			esc_attr( html_entity_decode( et_pb_process_font_icon( $args['custom_icon'] ), ENT_QUOTES, 'UTF-8' ) )
 		) : '';
 
 		$use_data_icon_tablet = '' !== $args['custom_icon_tablet'] && 'on' === $args['button_custom'];
@@ -21656,7 +21659,7 @@ class ET_Builder_Element {
 		}
 		$data_icon_tablet = $use_data_icon_tablet ? sprintf(
 			' data-icon-tablet="%1$s"',
-			esc_attr( et_pb_process_font_icon( $args['custom_icon_tablet'] ) )
+			esc_attr( html_entity_decode( et_pb_process_font_icon( $args['custom_icon_tablet'] ), ENT_QUOTES, 'UTF-8' ) )
 		) : '';
 
 		$use_data_icon_phone = '' !== $args['custom_icon_phone'] && 'on' === $args['button_custom'];
@@ -21665,7 +21668,7 @@ class ET_Builder_Element {
 		}
 		$data_icon_phone = $use_data_icon_phone ? sprintf(
 			' data-icon-phone="%1$s"',
-			esc_attr( et_pb_process_font_icon( $args['custom_icon_phone'] ) )
+			esc_attr( html_entity_decode( et_pb_process_font_icon( $args['custom_icon_phone'] ), ENT_QUOTES, 'UTF-8' ) )
 		) : '';
 
 		// Render button.
@@ -21940,13 +21943,13 @@ class ET_Builder_Element {
 	 */
 	public static function get_layout_id() {
 		// TB Layout ID.
-		$layout_id = self::get_theme_builder_layout_id();
+		$layout_id = ET_Theme_Builder_Layout::get_theme_builder_layout_id();
 		if ( $layout_id ) {
 			return $layout_id;
 		}
 
 		// WP Template ID.
-		$template_id = self::get_wp_editor_template_id();
+		$template_id = StaticCSS::get_wp_editor_template_id();
 		if ( $template_id ) {
 			return $template_id;
 		}
@@ -21955,85 +21958,6 @@ class ET_Builder_Element {
 		return self::get_current_post_id_reverse();
 	}
 
-	/**
-	 * Get the current theme builder layout.
-	 * Returns 'default' if no layout has been started.
-	 *
-	 * @since 4.0
-	 *
-	 * @return string
-	 */
-	public static function get_theme_builder_layout_type() {
-		$count = count( self::$theme_builder_layout );
-
-		if ( $count > 0 ) {
-			return self::$theme_builder_layout[ $count - 1 ]['type'];
-		}
-
-		return 'default';
-	}
-
-	/**
-	 * Check if a module is rendered as normal post content or theme builder layout.
-	 *
-	 * @since 4.0
-	 *
-	 * @return bool
-	 */
-	public static function is_theme_builder_layout() {
-		return 'default' !== self::get_theme_builder_layout_type();
-	}
-
-	/**
-	 * Get the current theme builder layout id.
-	 * Returns 0 if no layout has been started.
-	 *
-	 * @since 4.0
-	 *
-	 * @return integer
-	 */
-	public static function get_theme_builder_layout_id() {
-		$count = count( self::$theme_builder_layout );
-
-		if ( $count > 0 ) {
-			return self::$theme_builder_layout[ $count - 1 ]['id'];
-		}
-
-		return 0;
-	}
-
-	/**
-	 * Begin a theme builder layout.
-	 *
-	 * @since 4.0
-	 *
-	 * @param integer $layout_id Layout post id.
-	 *
-	 * @return void
-	 */
-	public static function begin_theme_builder_layout( $layout_id ) {
-		$type = get_post_type( $layout_id );
-
-		if ( ! et_theme_builder_is_layout_post_type( $type ) ) {
-			$type = 'default';
-		}
-
-		self::$theme_builder_layout[] = array(
-			'id'   => (int) $layout_id,
-			'type' => $type,
-		);
-	}
-
-	/**
-	 * End the current theme builder layout.
-	 *
-	 * @since 4.0
-	 *
-	 * @return void
-	 */
-	public static function end_theme_builder_layout() {
-		array_pop( self::$theme_builder_layout );
-	}
 
 	/**
 	 * Get the order class suffix for the current theme builder layout, if any.
@@ -22043,7 +21967,7 @@ class ET_Builder_Element {
 	 * @return string
 	 */
 	protected static function _get_theme_builder_order_class_suffix() {
-		$layout_type = self::get_theme_builder_layout_type();
+		$layout_type = ET_Theme_Builder_Layout::get_theme_builder_layout_type();
 		$type_map    = array(
 			ET_THEME_BUILDER_HEADER_LAYOUT_POST_TYPE => '_tb_header',
 			ET_THEME_BUILDER_BODY_LAYOUT_POST_TYPE   => '_tb_body',
@@ -22058,107 +21982,6 @@ class ET_Builder_Element {
 	}
 
 	/**
-	 * Begin Divi Builder block output on WP Editor template.
-	 *
-	 * As identifier od Divi Builder block render template location and the template ID.
-	 * Introduced to handle Divi Layout block render on WP Template outside Post Content.
-	 * WP Editor templates:
-	 * - wp_template
-	 * - wp_template_part
-	 *
-	 * @since 4.14.8
-	 *
-	 * @param array $template_id Template post ID.
-	 *
-	 * @return void
-	 */
-	public static function begin_wp_editor_template( $template_id ) {
-		$type = get_post_type( $template_id );
-
-		if ( ! et_builder_is_wp_editor_template_post_type( $type ) ) {
-			$type = 'default';
-		}
-
-		self::$wp_editor_template[] = array(
-			'id'   => (int) $template_id,
-			'type' => $type,
-		);
-	}
-
-	/**
-	 * End Divi Builder block output on WP Editor template.
-	 *
-	 * @since 4.14.8
-	 *
-	 * @return void
-	 */
-	public static function end_wp_editor_template() {
-		array_pop( self::$wp_editor_template );
-	}
-
-	/**
-	 * Whether a module is rendered in WP Editor template or not.
-	 *
-	 * @since 4.14.8
-	 *
-	 * @return bool WP Editor template status.
-	 */
-	public static function is_wp_editor_template() {
-		return 'default' !== self::get_wp_editor_template_type();
-	}
-
-	/**
-	 * Get the current WP Editor template id.
-	 *
-	 * Returns 0 if no template has been started.
-	 *
-	 * @since 4.14.8
-	 *
-	 * @return integer Template post ID (wp_id).
-	 */
-	public static function get_wp_editor_template_id() {
-		$count = count( self::$wp_editor_template );
-		$id    = 0;
-
-		if ( $count > 0 ) {
-			$id = et_()->array_get( self::$wp_editor_template, array( $count - 1, 'id' ), 0 );
-		}
-
-		// Just want to be safe to not return any unexpected result.
-		return is_int( $id ) ? $id : 0;
-	}
-
-	/**
-	 * Get the current WP Editor template type.
-	 *
-	 * Returns 'default' if no template has been started.
-	 *
-	 * @since 4.14.8
-	 *
-	 * @param boolean $is_id_needed Whether template ID is needed or not.
-	 *
-	 * @return string Template type.
-	 */
-	public static function get_wp_editor_template_type( $is_id_needed = false ) {
-		$count = count( self::$wp_editor_template );
-		$type  = '';
-
-		if ( $count > 0 ) {
-			$type = et_()->array_get( self::$wp_editor_template, array( $count - 1, 'type' ) );
-
-			// Page may have more than one template parts. So, the wp_id is needed in certain
-			// situation as unique identifier.
-			if ( $is_id_needed && ET_WP_EDITOR_TEMPLATE_PART_POST_TYPE === $type ) {
-				$id    = self::get_wp_editor_template_id();
-				$type .= "-{$id}";
-			}
-		}
-
-		// Just want to be safe to not return any unexpected result.
-		return ! empty( $type ) && is_string( $type ) ? $type : 'default';
-	}
-
-	/**
 	 * Get the order class suffix for the current WP Editor template, if any.
 	 *
 	 * @since 4.14.8
@@ -22166,7 +21989,7 @@ class ET_Builder_Element {
 	 * @return string Order class suffix.
 	 */
 	protected static function _get_wp_editor_order_class_suffix() {
-		$template_type = self::get_wp_editor_template_type();
+		$template_type = StaticCSS::get_wp_editor_template_type();
 		$type_map      = array(
 			ET_WP_EDITOR_TEMPLATE_POST_TYPE      => '_wp_template',
 			ET_WP_EDITOR_TEMPLATE_PART_POST_TYPE => '_wp_template_part',
@@ -22180,7 +22003,7 @@ class ET_Builder_Element {
 
 		// Page may have more than one template parts. So, the wp_id is needed identifier.
 		if ( ET_WP_EDITOR_TEMPLATE_PART_POST_TYPE === $template_type ) {
-			$id      = self::get_wp_editor_template_id();
+			$id      = StaticCSS::get_wp_editor_template_id();
 			$suffix .= "-{$id}";
 		}
 
@@ -22999,6 +22822,31 @@ class ET_Builder_Element {
 		);
 
 		return $processed_components;
+	}
+
+	/**
+	 * Proxy for Divi 4 plugin compatibility.
+	 *
+	 * @since 4.0
+	 *
+	 * @param integer $layout_id Layout post id.
+	 *
+	 * @return void
+	 */
+	public static function begin_theme_builder_layout( $layout_id ) {
+		return ET_Theme_Builder_Layout::begin_theme_builder_layout( $layout_id );
+	}
+
+	/**
+	 * Proxy for Divi 4 plugin compatibility.
+	 *
+	 * This method is called by some third-party plugins that expect it to exist here.
+	 *
+	 * @since 4.0
+	 * @return void
+	 */
+	public static function end_theme_builder_layout() {
+		return ET_Theme_Builder_Layout::end_theme_builder_layout();
 	}
 
 	/**

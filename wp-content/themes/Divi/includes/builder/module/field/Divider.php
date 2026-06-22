@@ -331,16 +331,17 @@ class ET_Builder_Module_Field_Divider extends ET_Builder_Module_Field_Base {
 		$next_section     = ! empty( $atts['next_background_color'] ) ? $atts['next_background_color'] : '#ffffff';
 
 		// set a default based on whether it is the top or bottom divider.
-		$default_color = ( 'top' === $placement ) ? $previous_section : $next_section;
-		$color         = ! empty( $atts[ "{$placement}_divider_color" ] ) ? $atts[ "{$placement}_divider_color" ] : $default_color;
-		$height        = ! empty( $atts[ "{$placement}_divider_height" ] ) ? $atts[ "{$placement}_divider_height" ] : '100px';
-		$height_hover  = et_pb_hover_options()->get_value( "{$placement}_divider_height", $atts, false );
-		$repeat        = ! empty( $atts[ "{$placement}_divider_repeat" ] ) ? floatval( $atts[ "{$placement}_divider_repeat" ] ) : 1;
-		$flip          = ( '' !== $atts[ "{$placement}_divider_flip" ] ) ? explode( '|', $atts[ "{$placement}_divider_flip" ] ) : array();
-		$arrangement   = ! empty( $atts[ "{$placement}_divider_arrangement" ] ) ? $atts[ "{$placement}_divider_arrangement" ] : 'below_content';
-		$divider_style = et_pb_responsive_options()->get_any_value( $atts, "{$placement}_divider_style", '', true, $breakpoint );
-		$style         = $divider_style . "-{$placement}";
-		$fullwidth     = $atts['fullwidth'];
+		$default_color  = ( 'top' === $placement ) ? $previous_section : $next_section;
+		$color          = ! empty( $atts[ "{$placement}_divider_color" ] ) ? $atts[ "{$placement}_divider_color" ] : $default_color;
+		$default_height = '100px';
+		$height         = ! empty( $atts[ "{$placement}_divider_height" ] ) ? $atts[ "{$placement}_divider_height" ] : $default_height;
+		$height_hover   = et_pb_hover_options()->get_value( "{$placement}_divider_height", $atts, false );
+		$repeat         = ! empty( $atts[ "{$placement}_divider_repeat" ] ) ? floatval( $atts[ "{$placement}_divider_repeat" ] ) : 1;
+		$flip           = ( '' !== $atts[ "{$placement}_divider_flip" ] ) ? explode( '|', $atts[ "{$placement}_divider_flip" ] ) : array();
+		$arrangement    = ! empty( $atts[ "{$placement}_divider_arrangement" ] ) ? $atts[ "{$placement}_divider_arrangement" ] : 'below_content';
+		$divider_style  = et_pb_responsive_options()->get_any_value( $atts, "{$placement}_divider_style", '', true, $breakpoint );
+		$style          = $divider_style . "-{$placement}";
+		$fullwidth      = $atts['fullwidth'];
 
 		// Apply adjustment for responsive styling
 		if ( '' !== $breakpoint ) {
@@ -413,7 +414,7 @@ class ET_Builder_Module_Field_Divider extends ET_Builder_Module_Field_Base {
 
 		$divider_style = isset( $this->dividers[ $style ] ) ? $this->dividers[ $style ] : '';
 
-		$svg = sprintf( $svg_markup, $height, $color, $divider_style );
+		$svg = sprintf( $svg_markup, $default_height, $color, $divider_style );
 
 		// encode the SVG so we can use it as data for background-image.
 		$this->svg = base64_encode( $svg ); // phpcs:ignore

@@ -246,6 +246,10 @@ class ET_Builder_JQuery_Body {
 			// but still uses it inside its inlined content (before/after).
 			foreach ( $queue as $handle ) {
 				if ( ! $this->has_jquery_dep( $handle ) ) {
+					if ( ! isset( $registered[ $handle ] ) ) {
+						continue;
+					}
+
 					$script = $registered[ $handle ];
 					$data   = '';
 

@@ -10,6 +10,10 @@
 /**
  * Define required constants.
  */
+
+use ET\Builder\Packages\WooCommerce\WooCommerceHooks;
+use ET\Builder\Packages\WooCommerce\WooCommerceUtils;
+
 if ( ! defined( 'ET_BUILDER_WC_PRODUCT_LONG_DESC_META_KEY' ) ) {
 	// Post meta key to retrieve/save Long description metabox content.
 	define( 'ET_BUILDER_WC_PRODUCT_LONG_DESC_META_KEY', '_et_pb_old_content' );
@@ -1283,7 +1287,7 @@ function et_builder_wc_relocate_single_product_summary() {
 	$tb_body_layout    = ET_THEME_BUILDER_BODY_LAYOUT_POST_TYPE;
 	$tb_body_override  = et_theme_builder_overrides_layout( $tb_body_layout );
 	$tb_layouts        = et_theme_builder_get_template_layouts();
-	$tb_body_layout_id = $tb_body_override ? $tb_layouts[$tb_body_layout]['id'] : false;
+	$tb_body_layout_id = $tb_body_override ? $tb_layouts[ $tb_body_layout ]['id'] : false;
 	$tb_body_content   = $tb_body_layout_id ? get_post_field( 'post_content', $tb_body_layout_id ) : '';
 	$has_wc_module     = et_builder_has_woocommerce_module( $post->post_content );
 	$has_wc_module_tb  = et_builder_has_woocommerce_module( $tb_body_content );
@@ -1293,7 +1297,7 @@ function et_builder_wc_relocate_single_product_summary() {
 	// if there is no WooCommerce module in the content of current page and TB body layout.
 	if (
 		( ! $has_wc_module && ! $has_wc_module_tb )
-		|| empty( $hook->callbacks ) 
+		|| empty( $hook->callbacks )
 	) {
 		return;
 	}
@@ -1321,7 +1325,7 @@ function et_builder_wc_relocate_single_product_summary() {
 		|| et_builder_tb_enabled()
 		|| et_core_is_fb_enabled()
 		|| et_fb_is_before_after_components_callback_ajax()
-		|| et_builder_wc_is_non_product_post_type()
+		|| WooCommerceUtils::is_non_product_post_type()
 	) {
 		$is_copy_needed = true;
 	}
@@ -1802,93 +1806,6 @@ function et_builder_wc_skip_initial_content( $flag, $post ) {
 }
 
 /**
- * Determine whether given content has WooCommerce module inside it or not
- *
- * @since 4.0 Added ET_Builder_Element class exists check.
- * @since 3.29
- *
- * @param string $content Content.
- *
- * @return bool
- */
-function et_builder_has_woocommerce_module( $content = '' ) {
-	if ( ! class_exists( 'ET_Builder_Element' ) ) {
-		return false;
-	}
-
-	$has_woocommerce_module = false;
-	$woocommerce_modules    = ET_Builder_Element::get_woocommerce_modules();
-
-	foreach ( $woocommerce_modules as $module ) {
-		if ( has_shortcode( $content, $module ) ) {
-			$has_woocommerce_module = true;
-
-			// Stop the loop once any shortcode is found.
-			break;
-		}
-	}
-
-	return apply_filters( 'et_builder_has_woocommerce_module', $has_woocommerce_module );
-}
-
-/**
- * Check if current global $post uses builder / layout block, not `product` CPT, and contains
- * WooCommerce module inside it. This check is needed because WooCommerce by default only adds
- * scripts and style to `product` CPT while WooCommerce Modules can be used at any CPT
- *
- * @since 3.29
- * @since 4.1.0 check if layout block is used instead of builder
- *
- * @since bool
- */
-function et_builder_wc_is_non_product_post_type() {
-	if ( wp_doing_ajax() ) {
-		return false;
-	}
-
-	global $post;
-
-	if ( $post && 'product' === $post->post_type ) {
-		return false;
-	}
-
-	$types   = et_theme_builder_get_layout_post_types();
-	$layouts = et_theme_builder_get_template_layouts();
-
-	foreach ( $types as $type ) {
-		if ( ! isset( $layouts[ $type ] ) ) {
-			continue;
-		}
-
-		if ( $layouts[ $type ]['override'] && et_builder_has_woocommerce_module( get_post_field( 'post_content', $layouts[ $type ]['id'] ) ) ) {
-			return true;
-		}
-	}
-
-	// If no post found, bail early.
-	if ( ! $post ) {
-		return false;
-	}
-
-	$is_builder_used      = et_pb_is_pagebuilder_used( $post->ID );
-	$is_layout_block_used = has_block( 'divi/layout', $post->post_content );
-
-	// If no builder or layout block used, bail early.
-	if ( ! $is_builder_used && ! $is_layout_block_used ) {
-		return false;
-	}
-
-	$has_wc_module = et_builder_has_woocommerce_module( $post->post_content );
-
-	if ( ( $is_builder_used || $is_layout_block_used ) && $has_wc_module ) {
-		return true;
-	}
-
-	return false;
-}
-
-
-/**
  * Load WooCommerce related scripts. This function basically redo what
  * `WC_Frontend_Scripts::load_scripts()` does without the `product` CPT limitation.
  *
@@ -1912,7 +1829,7 @@ function et_builder_wc_load_scripts() {
 	$is_product_tag      = function_exists( 'is_product_tag' ) && is_product_tag();
 
 	// If current page is not non-`product` CPT which using builder, stop early.
-	if ( ( ! et_builder_wc_is_non_product_post_type()
+	if ( ( ! WooCommerceUtils::is_non_product_post_type()
 		|| ! class_exists( 'WC_Frontend_Scripts' ) )
 		&& function_exists( 'et_fb_enabled' )
 		&& ! et_core_is_fb_enabled()
@@ -1978,91 +1895,6 @@ function et_builder_wc_load_scripts() {
 
 		wp_enqueue_style( $style_handle, $wc_style['src'], $wc_style['deps'], $wc_style['version'], $wc_style['media'], $wc_style['has_rtl'] );
 	}
-}
-/**
- * Add WooCommerce body class name on non `product` CPT builder page
- *
- * @param array $classes CSS class names.
- *
- * @return array
- * @since 3.29
- */
-function et_builder_wc_add_body_class( $classes ) {
-	if ( et_builder_wc_is_non_product_post_type() || is_et_pb_preview() ) {
-		$classes[] = 'woocommerce';
-		$classes[] = 'woocommerce-page';
-	}
-
-	return $classes;
-}
-
-/**
- * Add product class name on inner content wrapper page on non `product` CPT builder page with woocommerce modules
- * And on Product posts
- *
- * @param array $classes Product class names.
- *
- * @return array
- * @since 3.29
- */
-function et_builder_wc_add_inner_content_class( $classes ) {
-	// The class is required on any post with woocommerce modules and on product pages.
-	if ( et_builder_wc_is_non_product_post_type() || is_product() || is_et_pb_preview() ) {
-		$classes[] = 'product';
-	}
-
-	return $classes;
-}
-
-/**
- * Add WooCommerce class names on Divi Shop Page (not WooCommerce Shop).
- *
- * @since 4.0.7
- *
- * @param array $classes Array of Classes.
- *
- * @return array
- */
-function et_builder_wc_add_outer_content_class( $classes ) {
-	$body_classes = get_body_class();
-
-	// Add Class only to WooCommerce Shop page if built using Divi (i.e. Divi Shop page).
-	if ( ! ( function_exists( 'is_shop' ) && is_shop() ) ) {
-		return $classes;
-	}
-
-	// Add Class only when the WooCommerce Shop page is built using Divi.
-	if ( ! et_builder_wc_is_non_product_post_type() ) {
-		return $classes;
-	}
-
-	// Precautionary check: $body_classes should always be an array.
-	if ( ! is_array( $body_classes ) ) {
-		return $classes;
-	}
-
-	// Add Class only when the <body> tag does not contain them.
-	$woocommerce_classes = array( 'woocommerce', 'woocommerce-page' );
-	$common_classes      = array_intersect(
-		$body_classes,
-		array(
-			'woocommerce',
-			'woocommerce-page',
-		)
-	);
-	if ( is_array( $common_classes ) && count( $woocommerce_classes ) === count( $common_classes ) ) {
-		return $classes;
-	}
-
-	// Precautionary check: $classes should always be an array.
-	if ( ! is_array( $classes ) ) {
-		return $classes;
-	}
-
-	$classes[] = 'woocommerce';
-	$classes[] = 'woocommerce-page';
-
-	return $classes;
 }
 
 /**
@@ -2285,23 +2117,6 @@ function et_builder_wc_delete_post_meta( $post ) {
 }
 
 /**
- * Adds the Preview class to the wrapper.
- *
- * @param string $maybe_class_string Classnames string.
- * @return string
- */
-function et_builder_wc_add_preview_wrap_class( $maybe_class_string ) {
-	if ( ! is_string( $maybe_class_string ) ) {
-		return $maybe_class_string;
-	}
-
-	$classes   = explode( ' ', $maybe_class_string );
-	$classes[] = 'product';
-
-	return implode( ' ', $classes );
-}
-
-/**
  * Entry point for the woocommerce-modules.php file.
  *
  * @since 3.29
@@ -2311,10 +2126,10 @@ function et_builder_wc_init() {
 	add_action( 'wp', 'et_builder_wc_override_default_layout' );
 
 	// Add WooCommerce class names on non-`product` CPT which uses builder.
-	add_filter( 'body_class', 'et_builder_wc_add_body_class' );
-	add_filter( 'et_builder_inner_content_class', 'et_builder_wc_add_inner_content_class' );
-	add_filter( 'et_pb_preview_wrap_class', 'et_builder_wc_add_preview_wrap_class' );
-	add_filter( 'et_builder_outer_content_class', 'et_builder_wc_add_outer_content_class' );
+	add_filter( 'body_class', [ WooCommerceHooks::class, 'add_body_class' ] );
+	add_filter( 'et_builder_inner_content_class', [ WooCommerceHooks::class, 'add_inner_content_class' ] );
+	add_filter( 'et_pb_preview_wrap_class', [ WooCommerceHooks::class, 'add_preview_wrap_class' ] );
+	add_filter( 'et_builder_outer_content_class', [ WooCommerceHooks::class, 'add_outer_content_class' ] );
 
 	// Load WooCommerce related scripts.
 	add_action( 'wp_enqueue_scripts', 'et_builder_wc_load_scripts', 15 );
@@ -2415,9 +2230,18 @@ function et_builder_wc_init() {
 
 	/*
 	 * In the case of dynamic module framework's shortcode manager
-	 * we need to fire this hook on its own,
+	 * we need to fire these hooks on its own, we also don't need to
+	 * fire these hooks on the admin side.
 	 */
-	if ( ! et_builder_should_load_all_module_data() ) {
+	$request_uri = esc_url_raw( wp_unslash( $_SERVER['REQUEST_URI'] ?? '' ) );
+
+	/*
+	 * The REST_REQUEST constant is defined in `parse_request` action only, which is why we're looking into
+	 * REQUEST_URI as the fallback checks.
+	 */
+	$is_rest_api_request = defined( 'REST_REQUEST' ) && REST_REQUEST || 0 === strpos( $request_uri, '/' . rest_get_url_prefix() ) || false !== strpos( $request_uri, '?rest_route=/' );
+
+	if ( ! et_builder_should_load_all_module_data() && ! is_admin() && ! $is_rest_api_request ) {
 		add_action(
 			'et_builder_module_lazy_shortcodes_registered',
 			[

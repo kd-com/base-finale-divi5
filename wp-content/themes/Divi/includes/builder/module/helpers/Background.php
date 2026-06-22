@@ -6,6 +6,8 @@
  * @subpackage Builder
  */
 
+use ET\Builder\FrontEnd\Assets\StaticCSS;
+
 if ( ! defined( 'ABSPATH' ) ) {
 	die( 'Direct access forbidden.' );
 }
@@ -676,11 +678,11 @@ class ET_Builder_Module_Helper_Background {
 				$parallax = $responsive->get_any_value( $props, "parallax{$suffix}", 'off' );
 
 				// Determine whether force inline styles.
-				if ( ! ET_Builder_Element::$forced_inline_styles ) {
+				if ( ! StaticCSS::$forced_inline_styles ) {
 					$background_image_field = $responsive->get_field_name( "{$base_prop_name}_image", $device );
 					$raw                    = isset( $attrs_unprocessed[ $background_image_field ] ) ? $attrs_unprocessed[ $background_image_field ] : '';
 					if ( $this->_is_dynamic_value( $background_image_field, $raw, $dynamic_attributes ) ) {
-						ET_Builder_Element::$forced_inline_styles = true;
+						StaticCSS::$forced_inline_styles = true;
 					}
 				}
 
@@ -1292,10 +1294,10 @@ class ET_Builder_Module_Helper_Background {
 					$parallax_mode = $helper->get_raw_value( 'parallax', $props );
 
 					// Determine whether force inline styles.
-					if ( ! ET_Builder_Element::$forced_inline_styles ) {
+					if ( ! StaticCSS::$forced_inline_styles ) {
 						$raw = isset( $attrs_unprocessed[ $background_image_field ] ) ? $attrs_unprocessed[ $background_image_field ] : '';
 						if ( $this->_is_dynamic_value( $background_image_field, $raw, $dynamic_attributes ) ) {
-							ET_Builder_Element::$forced_inline_styles = true;
+							StaticCSS::$forced_inline_styles = true;
 						}
 					}
 

@@ -1,4 +1,8 @@
 <?php
+
+use ET\Builder\FrontEnd\Assets\StaticCSS;
+use ET\Builder\ThemeBuilder\Layout;
+
 /**
  * Remove the admin bar from the VB when used from the Theme Builder.
  *
@@ -74,41 +78,39 @@ add_filter( 'body_class', 'et_theme_builder_frontend_add_body_classes', 9 );
  * @return string
  */
 function et_theme_builder_frontend_override_template( $template ) {
-	$layouts           = et_theme_builder_get_template_layouts();
-	$page_template     = locate_template( 'page.php' );
+	$layouts       = et_theme_builder_get_template_layouts();
+	$page_template = locate_template( 'page.php' );
+
+	if ( is_et_theme_builder_live_preview() ) {
+		// We are previewing live demo of a theme builder template in FE.
+		remove_action( 'wp_body_open', 'wp_admin_bar_render', 0 );
+
+		add_action( 'get_header', 'et_theme_builder_frontend_override_header' );
+		add_action( 'get_footer', 'et_theme_builder_frontend_override_footer' );
+
+		return $page_template;
+	}
+
 	$override_header   = et_theme_builder_overrides_layout( ET_THEME_BUILDER_HEADER_LAYOUT_POST_TYPE );
 	$override_body     = et_theme_builder_overrides_layout( ET_THEME_BUILDER_BODY_LAYOUT_POST_TYPE );
 	$override_footer   = et_theme_builder_overrides_layout( ET_THEME_BUILDER_FOOTER_LAYOUT_POST_TYPE );
-	$is_visual_builder = isset( $_GET['et_fb'] ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Value is not used
+	$is_visual_builder = et_core_is_fb_enabled();
 	$is_theme_builder  = et_builder_tb_enabled();
 
-	if ( ( $override_header || $override_body || $override_footer ) && et_core_is_fb_enabled() ) {
-		// When cached assets/definitions do not exist, a VB/BFB page will generate them inline.
-		// This would normally happen later but not in the case of TB because, due to early
-		// `the_content()` calls, `maybe_rebuild_option_template()` would be invoked before
-		// saving definitions/assets resulting in them including resolved option templates instead
-		// of placeholders.
-		$post_type = get_post_type();
-		et_fb_get_dynamic_asset( 'helpers', $post_type );
-		et_fb_get_dynamic_asset( 'definitions', $post_type );
-	}
-
 	if ( $override_header || $override_footer ) {
-		// wp-version >= 5.2
+		// wp-version >= 5.2.
 		remove_action( 'wp_body_open', 'wp_admin_bar_render', 0 );
 
 		add_action( 'get_header', 'et_theme_builder_frontend_override_header' );
 		add_action( 'get_footer', 'et_theme_builder_frontend_override_footer' );
 	}
 
-	et_theme_builder_frontend_enqueue_styles( $layouts );
-
 	// For other themes than Divi, use 'frontend-body-template.php'.
 	if ( $override_body && ! function_exists( 'et_divi_fonts_url' ) ) {
 		return ET_THEME_BUILDER_DIR . 'frontend-body-template.php';
 	}
 
-	if ( $override_body && ( $is_theme_builder || ! $is_visual_builder || ! $layouts['et_template'] || ! et_pb_is_allowed( 'theme_builder' ) ) ) {
+	if ( $override_body && ( $is_theme_builder || ! $is_visual_builder || ! $layouts['et_template'] ) ) {
 		return ET_THEME_BUILDER_DIR . 'frontend-body-template.php';
 	}
 
@@ -121,45 +123,6 @@ function et_theme_builder_frontend_override_template( $template ) {
 // Priority of 98 so it can be overridden by BFB.
 add_filter( 'template_include', 'et_theme_builder_frontend_override_template', 98 );
 
-/**
- * Enqueue any necessary TB layout styles.
- *
- * @since 4.0
- *
- * @param array $layouts
- *
- * @return void
- */
-function et_theme_builder_frontend_enqueue_styles( $layouts ) {
-	if ( empty( $layouts ) ) {
-		return;
-	}
-
-	if ( ! is_singular() && ! et_core_is_fb_enabled() ) {
-		// Create styles managers so they can enqueue styles early enough.
-		// What styles are created and how they are enqueued:
-		// - In FE, singular post view:
-		// -> TB + Post Styles are combined into et-*-tb-{HEADER_ID}-tb-{BODY_ID}-tb-{FOOTER_ID}-{POST_ID}-*.css
-		//
-		// - In FE, non-singular post view:
-		// -> TB styles are separate with the usual filename: et-*-{LAYOUT_ID}-*.css
-		//
-		// - In FE, singular post view in VB so post-specific DC works:
-		// -> TB styles are separate with the current post ID prepended: et-*-tb-for-{POST_ID}-{LAYOUT_ID}-*.css.
-
-		if ( $layouts[ ET_THEME_BUILDER_HEADER_LAYOUT_POST_TYPE ]['override'] ) {
-			ET_Builder_Element::setup_advanced_styles_manager( $layouts[ ET_THEME_BUILDER_HEADER_LAYOUT_POST_TYPE ]['id'] );
-		}
-
-		if ( $layouts[ ET_THEME_BUILDER_BODY_LAYOUT_POST_TYPE ]['override'] ) {
-			ET_Builder_Element::setup_advanced_styles_manager( $layouts[ ET_THEME_BUILDER_BODY_LAYOUT_POST_TYPE ]['id'] );
-		}
-
-		if ( $layouts[ ET_THEME_BUILDER_FOOTER_LAYOUT_POST_TYPE ]['override'] ) {
-			ET_Builder_Element::setup_advanced_styles_manager( $layouts[ ET_THEME_BUILDER_FOOTER_LAYOUT_POST_TYPE ]['id'] );
-		}
-	}
-}
 
 /**
  * Render a custom partial overriding the original one.
@@ -284,141 +247,29 @@ function et_theme_builder_frontend_filter_add_outer_content_wrap( $wrap ) {
 add_filter( 'et_builder_add_outer_content_wrap', 'et_theme_builder_frontend_filter_add_outer_content_wrap' );
 
 /**
- * Render a template builder layout.
+ * Get all dynamic content fields in a given string.
  *
- * Wrapper cases:
- * 1. Header/Footer are replaced.
- *   => Common is open and closed. Header/Footer do not get opened/closed because
- *      Common is opened before them.
+ * @since 5.0.0
  *
- * 2. Body is replaced.
- *   => Common is NOT opened/closed. Body is open/closed.
+ * @param string $content Value content.
  *
- * 3. Header/Body/Footer are replaced.
- *   => Common is open and closed. Header/Body/Footer do not get opened/closed because
- *      Common is opened before them.
- *
- * @since 4.0
- *
- * @param string  $layout_type Layout Type.
- * @param integer $layout_id   Layout ID.
- *
- * @return void
+ * @return array
  */
-function et_theme_builder_frontend_render_layout( $layout_type, $layout_id ) {
-	if ( $layout_id <= 0 ) {
-		return;
+function et_builder_frontend_get_dynamic_contents( $content ) {
+	$pattern                = ET_THEME_BUILDER_DYNAMIC_CONTENT_REGEX;
+	$maybe_gutenberg_format = false !== strpos( $content, '<!-- wp:' );
+
+	if ( $maybe_gutenberg_format ) {
+		$pattern = ET_THEME_BUILDER_DYNAMIC_CONTENT_REGEX_D5;
 	}
 
-	$layout = get_post( $layout_id );
+	$is_matched = preg_match_all( $pattern, $content, $matches );
 
-	if ( null === $layout || $layout->post_type !== $layout_type ) {
-		return;
+	if ( ! $is_matched ) {
+		return array();
 	}
 
-	et_theme_builder_frontend_render_common_wrappers( $layout_type, true );
-
-	/**
-	 * Fires after Theme Builder layout opening wrappers have been output but before any
-	 * other processing has been done (e.g. replacing the current post).
-	 *
-	 * @since 4.0.10
-	 *
-	 * @param string $layout_type
-	 * @param integer $layout_id
-	 */
-	do_action( 'et_theme_builder_after_layout_opening_wrappers', $layout_type, $layout_id );
-
-	ET_Builder_Element::begin_theme_builder_layout( $layout_id );
-
-	ET_Post_Stack::replace( $layout );
-
-	$is_visual_builder     = isset( $_GET['et_fb'] ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Value is not used
-	$theme_builder_layouts = array( 'et_header_layout', 'et_footer_layout' );
-
-	// Do not pass header and footer content here if visual builder is loaded,
-	// they will be loaded inside the builder itself.
-	if ( et_pb_is_allowed( 'theme_builder' ) && $is_visual_builder && in_array( $layout_type, $theme_builder_layouts, true ) ) {
-		$post_content = '';
-	} else {
-		$post_content = get_the_content();
-	}
-
-	echo et_core_intentionally_unescaped( et_builder_render_layout( $post_content ), 'html' );
-
-	// Get dynamic content.
-	$has_dynamic_content = et_builder_get_dynamic_contents( get_the_content() );
-
-	// Handle style output.
-	if ( is_singular() && ! et_core_is_fb_enabled() ) {
-		$result = ET_Builder_Element::setup_advanced_styles_manager( ET_Post_Stack::get_main_post_id() );
-	} elseif ( is_tax() && ! empty( $has_dynamic_content ) ) {
-		// Set post id to 0 if its a taxonomy page.
-		// This is because of the dynamic content not working properly,
-		// With the theme builder cache.
-		$result = ET_Builder_Element::setup_advanced_styles_manager( 0 );
-	} else {
-		$result = ET_Builder_Element::setup_advanced_styles_manager( $layout->ID );
-	}
-
-	$advanced_styles_manager = $result['manager'];
-	if ( isset( $result['deferred'] ) ) {
-		$deferred_styles_manager = $result['deferred'];
-	}
-
-	// Pass styles to page resource which will handle their output.
-	/**
-	 * Filters whether Critical CSS feature is enabled or not.
-	 *
-	 * @since 4.10.0
-	 *
-	 * @param bool $enabled Critical CSS enabled value.
-	 */
-	$is_critical_enabled = apply_filters( 'et_builder_critical_css_enabled', false );
-
-	if ( ET_Builder_Element::$forced_inline_styles || ! $advanced_styles_manager->has_file() || $advanced_styles_manager->forced_inline ) {
-		$custom = et_pb_get_page_custom_css( $layout->ID );
-
-		$critical = $is_critical_enabled ? ET_Builder_Element::get_style( false, $layout->ID, true ) . ET_Builder_Element::get_style( true, $layout->ID, true ) : [];
-		$styles   = ET_Builder_Element::get_style( false, $layout->ID ) . ET_Builder_Element::get_style( true, $layout->ID );
-
-		if ( empty( $critical ) ) {
-			// No critical styles defined, just enqueue everything as usual.
-			$styles = $custom . $styles;
-			if ( ! empty( $styles ) ) {
-				if ( isset( $deferred_styles_manager ) ) {
-					$deferred_styles_manager->set_data( $styles, 40 );
-				} else {
-					$advanced_styles_manager->set_data( $styles, 40 );
-				}
-			}
-		} else {
-			// Add page css to the critical section.
-			$critical = $custom . $critical;
-			$advanced_styles_manager->set_data( $critical, 40 );
-			if ( ! empty( $styles ) ) {
-				// Defer everything else.
-				$deferred_styles_manager->set_data( $styles, 40 );
-			}
-		}
-	}
-
-	ET_Post_Stack::restore();
-
-	ET_Builder_Element::end_theme_builder_layout();
-
-	/**
-	 * Fires before Theme Builder layout closing wrappers have been output and after any
-	 * other processing has been done (e.g. replacing the current post).
-	 *
-	 * @since 4.0.10
-	 *
-	 * @param string $layout_type
-	 * @param integer $layout_id
-	 */
-	do_action( 'et_theme_builder_before_layout_closing_wrappers', $layout_type, $layout_id );
-
-	et_theme_builder_frontend_render_common_wrappers( $layout_type, false );
+	return $matches[0];
 }
 
 /**
@@ -460,7 +311,7 @@ function et_theme_builder_frontend_render_header( $layout_id, $layout_enabled, $
 	do_action( 'et_theme_builder_template_before_header', $layout_id, $layout_enabled, $template_id );
 
 	if ( $layout_enabled ) {
-		et_theme_builder_frontend_render_layout( ET_THEME_BUILDER_HEADER_LAYOUT_POST_TYPE, $layout_id );
+		Layout::render( ET_THEME_BUILDER_HEADER_LAYOUT_POST_TYPE, $layout_id );
 	}
 
 	/**
@@ -503,7 +354,7 @@ function et_theme_builder_frontend_render_body( $layout_id, $layout_enabled, $te
 	do_action( 'et_theme_builder_template_before_body', $layout_id, $layout_enabled, $template_id );
 
 	if ( $layout_enabled ) {
-		et_theme_builder_frontend_render_layout( ET_THEME_BUILDER_BODY_LAYOUT_POST_TYPE, $layout_id );
+		Layout::render( ET_THEME_BUILDER_BODY_LAYOUT_POST_TYPE, $layout_id );
 	}
 
 	/**
@@ -548,7 +399,7 @@ function et_theme_builder_frontend_render_footer( $layout_id, $layout_enabled, $
 	do_action( 'et_theme_builder_template_before_footer', $layout_id, $layout_enabled, $template_id );
 
 	if ( $layout_enabled ) {
-		et_theme_builder_frontend_render_layout( ET_THEME_BUILDER_FOOTER_LAYOUT_POST_TYPE, $layout_id );
+		Layout::render( ET_THEME_BUILDER_FOOTER_LAYOUT_POST_TYPE, $layout_id );
 	}
 
 	/**
@@ -623,7 +474,7 @@ function et_theme_builder_frontend_render_post_content() {
 		return et_theme_builder_get_post_content_placeholder();
 	}
 
-	if ( ET_Builder_Element::get_theme_builder_layout_type() !== ET_THEME_BUILDER_BODY_LAYOUT_POST_TYPE ) {
+	if ( ET_Theme_Builder_Layout::get_theme_builder_layout_type() !== ET_THEME_BUILDER_BODY_LAYOUT_POST_TYPE ) {
 		// Prevent usage on non-body layouts.
 		return '';
 	}
@@ -652,13 +503,30 @@ function et_theme_builder_frontend_render_post_content() {
 	if ( $buffered ) {
 		ET_Post_Stack::replace( $main_query_post );
 
-		ET_Builder_Element::begin_theme_builder_layout( get_the_ID() );
+		ET_Theme_Builder_Layout::begin_theme_builder_layout( get_the_ID() );
 
 		do_action_ref_array( 'loop_start', array( &$wp_query ) );
+
+		/**
+		 * Fires before the_content() is called within et_theme_builder_frontend_render_post_content().
+		 * This allows filters to detect when the_content() is being called from the Post Content Module.
+		 *
+		 * @since 5.0.0
+		 */
+		do_action( 'et_theme_builder_before_render_post_content' );
+
 		the_content();
+
+		/**
+		 * Fires after the_content() is called within et_theme_builder_frontend_render_post_content().
+		 *
+		 * @since 5.0.0
+		 */
+		do_action( 'et_theme_builder_after_render_post_content' );
+
 		do_action_ref_array( 'loop_end', array( &$wp_query ) );
 
-		ET_Builder_Element::end_theme_builder_layout();
+		ET_Theme_Builder_Layout::end_theme_builder_layout();
 
 		ET_Post_Stack::restore();
 
@@ -669,3 +537,51 @@ function et_theme_builder_frontend_render_post_content() {
 
 	return $html;
 }
+
+/**
+ * Global flag to track if we're currently rendering post content via et_theme_builder_frontend_render_post_content().
+ *
+ * @var bool
+ */
+global $et_theme_builder_rendering_post_content;
+$et_theme_builder_rendering_post_content = false;
+
+/**
+ * Checks if the_content() is currently being called from within et_theme_builder_frontend_render_post_content().
+ *
+ * This is used to determine if the_content() is being called from the Post Content Module
+ * versus from the default WooCommerce content rendering location.
+ *
+ * @since 5.0.0
+ *
+ * @return bool True if rendering post content, false otherwise.
+ */
+function et_theme_builder_is_rendering_post_content() {
+	global $et_theme_builder_rendering_post_content;
+
+	// Check if we're currently inside the post content rendering action.
+	return $et_theme_builder_rendering_post_content || doing_action( 'et_theme_builder_before_render_post_content' ) || doing_action( 'et_theme_builder_after_render_post_content' );
+}
+
+/**
+ * Set the global flag to indicate that we're currently rendering post content.
+ *
+ * @return void
+ */
+function set_et_theme_builder_rendering_post_content_flag() {
+	global $et_theme_builder_rendering_post_content;
+	$et_theme_builder_rendering_post_content = true;
+}
+
+/**
+ * Clear the global flag to indicate that we're no longer rendering post content.
+ *
+ * @return void
+ */
+function clear_et_theme_builder_rendering_post_content_flag() {
+	global $et_theme_builder_rendering_post_content;
+	$et_theme_builder_rendering_post_content = false;
+}
+
+add_action( 'et_theme_builder_before_render_post_content', 'set_et_theme_builder_rendering_post_content_flag' );
+add_action( 'et_theme_builder_after_render_post_content', 'clear_et_theme_builder_rendering_post_content_flag' );

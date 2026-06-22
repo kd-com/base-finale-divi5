@@ -55,18 +55,23 @@ trait PageContentRetriever {
 
 		// Return empty string on failure because the return value is mostly used along with
 		// PHP PCRE or String functions that require non-nullable value.
-		if ( ! $wp_post ) {
+		// However, allow processing Theme Builder templates for non-singular pages (like 404) even with null post
+		if ( ! $wp_post && is_singular() ) {
 			return '';
 		}
 
 		/**
 		 * Core mechanics for retrieving content.
 		 */
-		if ( $this->_cache && isset( $this->_cache[ $wp_post->ID ] ) ) {
+		if ( $this->_cache && ! empty( $wp_post ) && isset( $this->_cache[ $wp_post->ID ] ) ) {
 			return $this->_cache[ $wp_post->ID ];
 		}
 
-		if ( $is_using_global_post ) {
+		/*
+		 * Use current context for archive pages and global post scenarios.
+		 * Use post-specific context only for specific singular posts.
+		 */
+		if ( ! is_singular() || $is_using_global_post || empty( $wp_post ) ) {
 			$layouts = et_theme_builder_get_template_layouts();
 		} else {
 			$layouts = et_theme_builder_get_template_layouts( \ET_Theme_Builder_Request::from_post( $wp_post->ID ) );
@@ -98,14 +103,25 @@ trait PageContentRetriever {
 		 */
 		foreach ( $enabled_layout_ids as $key => $layout_id ) {
 			if ( 'content' === $layout_id ) {
-				$entire_page_content .= $wp_post->post_content;
+				// NEW: Check if $wp_post is valid before accessing post_content
+				// For 404 pages and other cases where $wp_post is invalid, skip adding post content
+				// but continue processing Theme Builder layouts
+				if ( ! empty( $wp_post ) && isset( $wp_post->post_content ) ) {
+					$entire_page_content .= $wp_post->post_content;
+				}
 			} else {
 				$layout               = get_post( $layout_id );
-				$entire_page_content .= $layout->post_content;
+				if ( ! empty( $layout ) ) {
+					$entire_page_content .= $layout->post_content;
+				}
 			}
 		}
 
-		$this->_cache = array_replace( $this->_cache, [ $wp_post->ID => $entire_page_content ] );
+		// Only cache if we have a valid post ID
+		if ( ! empty( $wp_post ) && isset( $wp_post->ID ) ) {
+			$this->_cache = array_replace( $this->_cache, [ $wp_post->ID => $entire_page_content ] );
+		}
+
 
 		return $entire_page_content;
 	}

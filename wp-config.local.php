@@ -56,14 +56,6 @@ $table_prefix = getenv('WORDPRESS_TABLE_PREFIX') ?: 'wp_';
 // 🔐 Clés d'authentification uniques
 // ============================================
 // Ces clés seront remplacées par le script 03_init-wp.sh
-define('AUTH_KEY',         'put your unique phrase here');
-define('SECURE_AUTH_KEY',  'put your unique phrase here');
-define('LOGGED_IN_KEY',    'put your unique phrase here');
-define('NONCE_KEY',        'put your unique phrase here');
-define('AUTH_SALT',        'put your unique phrase here');
-define('SECURE_AUTH_SALT', 'put your unique phrase here');
-define('LOGGED_IN_SALT',   'put your unique phrase here');
-define('NONCE_SALT',       'put your unique phrase here');
 
 // ============================================
 // 🛠️ Configuration Développement

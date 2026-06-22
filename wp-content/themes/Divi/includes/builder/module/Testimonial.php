@@ -647,6 +647,8 @@ class ET_Builder_Module_Testimonial extends ET_Builder_Module {
 		$background_layout_class_names = et_pb_background_layout_options()->get_background_layout_class( $this->props );
 		$this->add_classname( $background_layout_class_names );
 
+		$this->add_classname( 'et_block_module' );
+
 		if ( ! $multi_view->has_value( 'quote_icon', 'on', 'desktop' ) ) {
 			$this->add_classname( 'et_pb_icon_off' );
 		}

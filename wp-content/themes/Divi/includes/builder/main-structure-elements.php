@@ -536,6 +536,9 @@ class ET_Builder_Section extends ET_Builder_Structure_Element {
 			$featured_image_src     = isset( $featured_image_src_obj[0] ) ? $featured_image_src_obj[0] : '';
 		}
 
+		// D5 Script data container.
+		$d5_parallax_data = [];
+
 		// Parallax Gradient.
 		$background_options = et_pb_background_options();
 		$is_gradient_on     = false;
@@ -647,6 +650,9 @@ class ET_Builder_Section extends ET_Builder_Structure_Element {
 					$parallax_gradient_classname[] = "et_parallax_gradient{$suffix}";
 				}
 
+				// For D5 script-data.
+				$parallax_classname[] = "et_parallax_bg{$suffix}--" . self::get_module_order_class( $this->slug );
+
 				$background_gradient_image = sprintf(
 					'background-image: %1$s;',
 					esc_attr( $background_gradient_style )
@@ -668,7 +674,7 @@ class ET_Builder_Section extends ET_Builder_Structure_Element {
 				);
 
 				$parallax_background .= sprintf(
-					'<span class="et_parallax_bg_wrap"><span
+					'<span class="et_parallax_bg_wrap et-pb-parallax-wrapper"><span
 						class="%1$s"
 						style="background-image: url(%2$s);"
 					></span>%3$s</span>',
@@ -684,6 +690,25 @@ class ET_Builder_Section extends ET_Builder_Structure_Element {
 
 				// set `.et_parallax_bg_wrap` border-radius.
 				et_set_parallax_bg_wrap_border_radius( $props, $this->slug, '%%order_class%%' );
+			}
+
+			if ( 'on' === $parallax ) {
+				$state = 'value';
+
+				if ( $is_hover ) {
+					$state = 'hover';
+				} elseif ( $is_sticky ) {
+					$state = 'sticky';
+				}
+
+				$d5_parallax_data[] = [
+					'uniqueSelector' => ".et_parallax_bg{$suffix}--" . self::get_module_order_class( $this->slug ),
+					'breakpoint'     => '' === $suffix || in_array( $suffix, [ $hover_suffix, $sticky_suffix ], true ) === $suffix ? 'desktop' : str_replace( '_', '', $suffix ),
+					'state'          => $state,
+					'enabled'        => 'on' === $parallax,
+					'trueParallax'   => 'on' === $parallax_method,
+					'imageUrl'       => esc_url( $background_image ),
+				];
 			}
 
 			// C.3. Hover parallax class.
@@ -702,6 +727,20 @@ class ET_Builder_Section extends ET_Builder_Structure_Element {
 		// Added classname for module wrapper.
 		if ( '' !== $parallax_background ) {
 			$this->add_classname( 'et_pb_section_parallax' );
+
+			// Add D5 parallax script data.
+			if ( ! empty( $d5_parallax_data ) ) {
+				ET\Builder\FrontEnd\Module\ScriptData::add_data_item(
+					[
+						'data_name'    => 'background_parallax',
+						'data_item_id' => null,
+						'data_item'    => [
+							'selector' => str_replace( '%%order_class%%', '.' . self::get_module_order_class( $this->slug ), $this->main_css_element ),
+							'data'     => $d5_parallax_data,
+						],
+					]
+				);
+			}
 		}
 
 		return $parallax_background;
@@ -1587,6 +1626,9 @@ class ET_Builder_Section extends ET_Builder_Structure_Element {
 			$this->add_classname( 'et_pb_section--with-menu' );
 		}
 
+		// Add et_block_section class for PHP frontend output.
+		$this->add_classname( 'et_block_section' );
+
 		// Save module classes into variable BEFORE processing the content with `do_shortcode()`
 		// Otherwise order classes messed up with internal sections if exist.
 		$module_classes = $this->module_classname( $function_name );
@@ -1608,7 +1650,7 @@ class ET_Builder_Section extends ET_Builder_Structure_Element {
 			$module_classes, // 3
 			$this->module_id(), // 4
 			( 'on' === $specialty ?
-				sprintf( '<div class="et_pb_row%1$s"%2$s>', $gutter_class, et_core_esc_previously( $gutter_hover_data ) )
+				sprintf( '<div class="et_pb_row et_block_row et_d4_element%1$s"%2$s>', $gutter_class, et_core_esc_previously( $gutter_hover_data ) )
 				: '' ), // 5
 			( 'on' === $specialty ? '</div>' : '' ), // 6
 			$parallax_image, // 7
@@ -1768,6 +1810,7 @@ class ET_Builder_Row extends ET_Builder_Structure_Element {
 			'max_width'       => array(
 				'css'             => array(
 					'module_alignment' => '%%order_class%%.et_pb_row',
+					'important'        => true,
 				),
 				'options'         => array(
 					'width'            => array(
@@ -2266,6 +2309,9 @@ class ET_Builder_Row extends ET_Builder_Structure_Element {
 			$this->add_classname( 'et_pb_row--with-menu' );
 		}
 
+		// Add et_block_row class for PHP frontend output.
+		$this->add_classname( 'et_block_row' );
+
 		// Save module classes into variable BEFORE processing the content with `do_shortcode()`
 		// Otherwise order classes messed up with internal rows if exist.
 		$module_classes = $this->module_classname( $function_name );
@@ -2342,7 +2388,8 @@ class ET_Builder_Row_Inner extends ET_Builder_Structure_Element {
 			),
 			'max_width'       => array(
 				'css'     => array(
-					'main' => '%%order_class%%.et_pb_row_inner',
+					'main'      => '%%order_class%%.et_pb_row_inner',
+					'important' => true,
 				),
 				'options' => array(
 					'module_alignment' => array(
@@ -2781,6 +2828,9 @@ class ET_Builder_Row_Inner extends ET_Builder_Structure_Element {
 			$this->add_classname( 'et_pb_row--with-menu' );
 		}
 
+		// Add et_block_row class for PHP frontend output.
+		$this->add_classname( 'et_block_row' );
+
 		// Save module classes into variable BEFORE processing the content with `do_shortcode()`
 		// Otherwise order classes messed up with internal rows if exist.
 		$module_classes = $this->module_classname( $function_name );
@@ -2920,6 +2970,55 @@ class ET_Builder_Column extends ET_Builder_Structure_Element {
 	}
 
 	/**
+	 * Remove HTML entity quotes from specialty section column type attribute values.
+	 *
+	 * WordPress shortcode parsing can result in specialty section column type values being wrapped
+	 * with HTML entity quotes. This method specifically unwraps valid column type values that are
+	 * wrapped with `&#8221;` (right double quotation mark) at the start and `&#8243;` (double prime)
+	 * at the end.
+	 *
+	 * This fixes an issue where specialty section column type values like `&#8221;1_2&#8243;` were
+	 * causing incorrect CSS class generation in backward compatibility mode.
+	 *
+	 * For security purposes, this method only unwraps a specific whitelist of valid specialty
+	 * section column type values.
+	 *
+	 * @since 5.0.0
+	 *
+	 * @param array $attrs Shortcode attributes with potentially wrapped values.
+	 *
+	 * @return array Attributes with HTML entity quotes removed from whitelisted column type values.
+	 */
+	private function _unwrap_encoded_column_attrs( $attrs ) {
+		// Whitelist of valid specialty section column types that should be unwrapped.
+		$valid_column_types = [
+			'&#8221;4_4&#8243;' => '4_4',
+			'&#8221;3_4&#8243;' => '3_4',
+			'&#8221;2_3&#8243;' => '2_3',
+			'&#8221;1_2&#8243;' => '1_2',
+			'&#8221;1_3&#8243;' => '1_3',
+			'&#8221;1_4&#8243;' => '1_4',
+			'&#8221;1_5&#8243;' => '1_5',
+			'&#8221;2_5&#8243;' => '2_5',
+			'&#8221;3_5&#8243;' => '3_5',
+			'&#8221;1_6&#8243;' => '1_6',
+		];
+
+		$unwraped = [];
+
+		foreach ( $attrs as $key => $value ) {
+			// Only process string values and only replace if they match the whitelist.
+			if ( is_string( $value ) && isset( $valid_column_types[ $value ] ) ) {
+				$unwraped[ $key ] = $valid_column_types[ $value ];
+			} else {
+				$unwraped[ $key ] = $value;
+			}
+		}
+
+		return $unwraped;
+	}
+
+	/**
 	 * Generates the structure module's HTML output based on {@see ET_Builder_Column::$props}.
 	 *
 	 * @param array  $atts       List of unprocessed attributes.
@@ -2929,6 +3028,11 @@ class ET_Builder_Column extends ET_Builder_Structure_Element {
 	 * @return string The module's HTML output.
 	 */
 	public function render( $atts, $content, $function_name ) {
+		if ( 'et_pb_column_inner' === $function_name ) {
+			$this->props = $this->_unwrap_encoded_column_attrs( $this->props );
+			$atts        = $this->_unwrap_encoded_column_attrs( $atts );
+		}
+
 		$type                        = $this->props['type'];
 		$specialty_columns           = $this->props['specialty_columns'];
 		$saved_specialty_column_type = $this->props['saved_specialty_column_type'];
@@ -3775,6 +3879,9 @@ class ET_Builder_Column extends ET_Builder_Structure_Element {
 			$this->add_classname( 'et_pb_column--with-menu' );
 		}
 
+		// Add et_block_column class for PHP frontend output.
+		$this->add_classname( 'et_block_column' );
+
 		// Module classname in column has to be contained in variable BEFORE content is being parsed
 		// as shortcode because column and column inner use the same ET_Builder_Column's render
 		// classname doesn't work in nested situation because each called module doesn't have its own class init.
@@ -3837,7 +3944,6 @@ class ET_Builder_Column extends ET_Builder_Structure_Element {
 		return $output;
 
 	}
-
 }
 new ET_Builder_Column();
 

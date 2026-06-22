@@ -17,6 +17,21 @@
 /*-----------------------------------------------------------------------------
   1.0 - Base
 ------------------------------------------------------------------------------*/
+:root {
+	--app-color: #326bff;
+	--app-color-dark: #1959ff;
+	--app-background: #fff;
+	--gray: #586892;
+	--medium-gray: #a2acc7;
+	--light-gray: #d2d7e4;
+	--feather-gray: #f2f3f7;
+	--dark-gray: #222c39;
+	--semidark-gray: #354559;
+	--black: #222c39;
+	--shadow-color: rgba(34, 44, 57, 0.08);
+	--window-background: #f2f3f7;
+}
+
 .et-core-clearfix {
 	clear: both;
 }
@@ -86,9 +101,6 @@
 .et-core-form textarea {
 	border: none;
 	box-shadow: none;
-	-webkit-transition: background .5s;
-	-moz-transition: background .5s;
-	transition: background .5s;
 	background: none;
 }
 
@@ -110,36 +122,67 @@
 .et-core-form select,
 .et-core-form textarea {
 	border-radius: 3px;
-	background: #f1f5f9;
+	background: transparent;
 	padding: 7px 10px;
-	color: #4c5866;
+	color: var(--dark-gray);
 	height: 30px;
-	font-family: 'Open Sans', sans-serif;
-	font-size: 13px;
+	font-family: 'Inter', system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", "Noto Sans", "Liberation Sans", Arial, sans-serif !important;
+	font-size: 12px;
 	width: 100%;
+	border: 1px solid var(--light-gray);
+}
+
+.et-core-form input,
+.et-core-form select {
+	height: 28px;
+	min-height: 28px;
+	max-height: 28px;
 }
 
 .et-core-form textarea {
 	height: auto;
 }
 
+.et-core-form input[type]:hover {
+	border-color: var(--medium-gray);
+}
+
 .et-core-form input[type]:focus {
-	background: #e6ecf2;
+	border-color: var(--app-color);
 }
 
 .et-core-form input[type=checkbox] {
 	float: none;
-	margin-right: 6px;
+	margin-right: 8px;
 	margin-top: -3px;
-	width: 25px;
-	height: 25px;
+	width: 20px;
+	height: 20px;
+	min-height: 20px;
+	max-height: 20px;
+	position: relative;
+}
+
+.et-core-form input[type=checkbox]:checked {
+	background-color: var(--app-color);
+	border-color: var(--app-color);
+}
+
+.et-core-form input[type=checkbox]:checked:hover {
+	border-color: var(--app-color-dark);
 }
 
 .et-core-form input[type=checkbox]:checked:before {
-	color: #00c3aa;
-	float: left;
-	margin-top: 2px;
-	margin-left: 2px;
+content: "\f147";
+    display: inline-block;
+    position: absolute;
+    margin: 0 0 0 -1px;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: #FFFFFF;
+    font: 400 21px / 1 dashicons;
+    height: auto;
+    width: auto;
 }
 
 .et-core-form label {
@@ -152,14 +195,15 @@ body button.et-core-button {
 	float: left;
 	box-sizing: border-box;
 	color: #FFF;
-	background-color: #4c5866;
-	padding: 0 20px;
+	background-color: var(--feather-gray);
+	border: 1px solid var(--feather-gray);
+	color: var(--dark-gray);
+	padding: 0 12px;
 	margin: 0;
 	font-size: 12px !important;
-	font-weight: 700;
-	font-family: inherit;
-	line-height: 30px;
-	height: 30px;
+	font-weight: 600;
+	line-height: 26px;
+	height: 28px;
 	margin-right: 0;
 	margin-left: 7px;
 	cursor: pointer;
@@ -168,14 +212,9 @@ body button.et-core-button {
 	-webkit-border-radius: 3px;
 	-moz-border-radius: 3px;
 	border-radius: 3px;
-	border: none;
 	text-align: center;
 	text-shadow: none;
-	text-transform: uppercase;
-	-webkit-transition: background .5s;
-	-moz-transition: background .5s;
-	transition: background .5s;
-	font-family: 'Open Sans', sans-serif !important;
+	font-family: 'Inter', system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", "Noto Sans", "Liberation Sans", Arial, sans-serif !important;
 }
 
 body.rtl.et-db:not(.et-fb-no-rtl) .et-core-button,
@@ -187,18 +226,17 @@ body.rtl.et-db:not(.et-fb-no-rtl) button.et-core-button {
 .et-core-button:focus,
 .et-core-button:hover,
 .et-core-button:active {
-	background: #4D565F;
-	outline: 0;
+	border-color: var(--light-gray);
 }
 
 .et-core-button-danger {
-	background: #E7401A !important;
+	background: #ff0000 !important;
 }
 
 .et-core-button-danger:focus,
 .et-core-button-danger:hover,
 .et-core-button-danger:active {
-	background: #D22902 !important;
+	border-color: #ff0000 !important;
 }
 
 .et-core-button-secondary {
@@ -209,12 +247,12 @@ body.rtl.et-db:not(.et-fb-no-rtl) button.et-core-button {
 .et-safe-mode-indicator,
 .et-safe-mode-indicator:hover,
 .et-safe-mode-indicator:focus {
-	box-shadow: 0 5px 10px rgba(41,196,169,.15);
-	background: #29C4A9;
+	box-shadow: 0 8px 24px 0px rgba(34, 44, 57, 0.08);
+	background: #326BFF;
 	color: #ffffff;
-	font-size: 14px;
+	font-size: 12px;
 	font-weight: 600;
-	padding:12px;
+	padding: 6px 12px;
 	line-height: 16px;
 	border-radius: 3px;
 	position: fixed;
@@ -222,10 +260,16 @@ body.rtl.et-db:not(.et-fb-no-rtl) button.et-core-button {
 	right: 30px;
 	z-index: 999999;
 	text-decoration: none;
-	font-family: "Open Sans", sans-serif;
+	font-family: 'Inter', system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", "Noto Sans", "Liberation Sans", Arial, sans-serif;
 	-webkit-font-smoothing: antialiased;
 	-moz-osx-font-smoothing: grayscale;
+	border: 1px solid #326BFF;
 }
+
+.et-safe-mode-indicator:hover {
+	border-color: #1959ff;
+}
+
 /* Padding for Safe Mode Indicator */
 .wp-admin.et-safe-mode-active #wpcontent {
 	padding-bottom: 90px;
@@ -235,28 +279,19 @@ body.rtl.et-db:not(.et-fb-no-rtl) button.et-core-button {
   4.0 - Modal
 ------------------------------------------------------------------------------*/
 .et-core-modal-overlay {
-	font-family: 'Open Sans', sans-serif;
 	opacity: 0;
 	position: fixed;
 	top: 0;
 	left: -9999px;
 	width: 100%;
 	height: 100%;
-	background: rgba(255,255,255,0.7);
-	background: -moz-radial-gradient(center, ellipse cover, rgba(255,255,255,1) 20%, rgba(255,255,255,0.7) 100%);
-	background: -webkit-radial-gradient(center, ellipse cover, rgba(255,255,255,1) 20%,rgba(255,255,255,0.7) 100%);
-	background: radial-gradient(ellipse at center, rgba(255,255,255,1) 20%,rgba(255,255,255,0.7) 100%);
-	filter: progid:DXImageTransform.Microsoft.gradient( startColorstr='#ffffff', endColorstr='#ffffff',GradientType=1 );
+	background: radial-gradient(ellipse at center, rgba(255, 255, 255, 0.9) 20%, rgba(255, 255, 255, 0) 70%);
 	z-index: 10000000;
-	-moz-transition: opacity .5s .2s;
-	-webkit-transition: opacity .5s .2s;
-	transition: opacity .5s .2s;
 }
 
 .et-core-modal-overlay--library {
 	/* 100025 = Library Modal z-index */
 	z-index: 100024;
-	animation: et-core-fade-in .5s linear;
 }
 
 .et-core-modal-overlay.et-core-active {
@@ -277,40 +312,36 @@ body.rtl.et-db:not(.et-fb-no-rtl) button.et-core-button {
 	top: 20%;
 	bottom: 20%;
 	left: 50%;
-	max-width: 400px;
+	max-width: 320px;
 	width: 100%;
-	background: rgb(255, 255, 255);
+	background: var(--app-background);
 	-moz-transform: translateX(-50%);
 	-webkit-transform: translateX(-50%);
 	transform: translateX(-50%);
-	color: #32373c;
+	color: var(--dark-gray);
 	box-sizing: border-box;
 	-moz-box-sizing: border-box;
 	-webkit-box-sizing: border-box;
-	box-shadow: 0 0 100px rgba(0, 160, 210, 0.20);
-	-moz-box-shadow: 0 0 100px rgba(0, 160, 210, 0.20);
-	-webkit-box-shadow: 0 0 100px rgba(0, 160, 210, 0.20);
+	box-shadow: 0 8px 24px 0px var(--shadow-color);
 	border-radius: 3px;
 	-moz-border-radius: 3px;
 	-webkit-border-radius: 3px;
+	border: 1px solid var(--light-gray);
 }
 
 .et-core-modal,
 .et-core-modal * {
 	-webkit-font-smoothing: antialiased;
 	-moz-osx-font-smoothing: grayscale;
+	font-family: 'Inter', system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", "Noto Sans", "Liberation Sans", Arial, sans-serif;
 }
 
 .et-core-modal-overlay.et-core-active .et-core-modal {
 	display: block;
-	-webkit-animation: et-core-fade-in-scale-center .5s 1 cubic-bezier(0.77,0,.175,1);
-	animation: et-core-fade-in-scale-center .5s 1 cubic-bezier(0.77,0,.175,1);
 }
 
 .et-core-modal-overlay.et-core-closing .et-core-modal {
 	opacity: 0;
-	-webkit-animation: et-core-fade-out-scale-center .5s 1 cubic-bezier(0.77,0,.175,1);
-	animation: et-core-fade-out-scale-center .5s 1 cubic-bezier(0.77,0,.175,1);
 }
 
 .et-core-modal-overlay--transparent {
@@ -320,24 +351,25 @@ body.rtl.et-db:not(.et-fb-no-rtl) button.et-core-button {
 }
 
 .et-core-modal-header {
-	background-color: #6c2eb9;
+	background-color: var(--app-background);
+	color: var(--dark-gray);
 	margin: 0;
-	padding: 21px 40px 20px 26px;
+	padding: 14px;
 	box-sizing: border-box;
 	display: block;
+	border-bottom: 1px solid var(--light-gray);
 }
 
 .et-core-modal .et-core-modal-title {
 	font-weight: 600;
-	font-size: 18px;
-	line-height: 17px;
-	color: rgb(255, 255, 255);
+	font-size: 12px;
+	line-height: 16px;
+	color: var(--dark-gray);
 	margin: 0;
-	padding: 0 25px 0 0;
+	padding: 0 32px 0 0;
 	text-transform: none;
 	text-decoration: none;
 	font-style: normal;
-	font-family: 'Open Sans', Helvetica, Roboto, Arial, sans-serif;
 	letter-spacing: 0;
 }
 
@@ -352,7 +384,7 @@ body.rtl.et-db:not(.et-fb-no-rtl) button.et-core-button {
 	top: 0;
 	right: 0;
 	z-index: 10;
-	padding: 17px 17px 18px
+	padding: 10px 10px 9px
 }
 
 body.rtl .et-core-modal-close,
@@ -374,10 +406,10 @@ body.rtl.et-db:not(.et-fb-no-rtl) .et-core-modal-close {
 
 .et-core-modal-close:before {
 	font-family: 'ETmodules';
-	font-weight: 800;
+	font-weight: 700;
 	content: '\4d';
 	speak: none;
-	color: #fff;
+	color: var(--dark-gray);
 	font-variant: normal;
 	text-transform: none;
 	line-height: 1;
@@ -387,17 +419,18 @@ body.rtl.et-db:not(.et-fb-no-rtl) .et-core-modal-close {
 
 .et-core-modal-temp-content,
 .et-core-modal-content {
-	padding: 30px;
+	padding: 16px;
 	overflow: scroll;
 	position: absolute;
 	top: 58px;
 	bottom: 25px;
 	width: 100%;
 	box-sizing: border-box;
-	color: #4c5866;
-	font-weight: 600;
-	font-size: 13px;
+	color: var(--dark-gray);
+	font-weight: 500;
+	font-size: 12px;
 	line-height: 1.5em;
+	border-top: 1px solid var(--light-gray);
 }
 
 .et-core-modal-temp-content p:first-of-type,
@@ -435,19 +468,18 @@ body.rtl.et-db:not(.et-fb-no-rtl) .et-core-modal-close {
 }
 
 .et-core-modal-content::-webkit-scrollbar {
-	width: 5px !important;
+  width: 12px;
+  cursor: initial;
 }
-.et-core-modal-content::-webkit-scrollbar-track {
-	-webkit-box-shadow: inset 0 0 0 rgba(0,0,0,0.3) !important;
-	width: 20px !important;
-}
+
 .et-core-modal-content::-webkit-scrollbar-thumb {
-	-webkit-border-radius: 0 !important;
-	border-radius: 0 !important;
-	background: #32373C !important;
+  background: var(--dark-gray) !important;
+  border-radius: 12px;
+  border: 4px solid var(--app-background);
 }
-.et-core-modal-content::-webkit-scrollbar-thumb:window-inactive {
-	background: #fff !important;
+
+.et-core-modal-content::-webkit-scrollbar-thumb:hover {
+  background: var(--app-color) !important;
 }
 
 .et_builder_modal_action_button {
@@ -492,7 +524,6 @@ body.rtl.et-db:not(.et-fb-no-rtl) .et-core-modal-close {
 
 .et_pb_modal_closing .et_pb_prompt_modal {
 	opacity: 0;
-	-webkit-animation: et_pb_fade_out_scale .5s 1 cubic-bezier(0.77,0,.175,1);
 }
 
 .et_pb_prompt_buttons {
@@ -522,8 +553,9 @@ body.rtl.et-db:not(.et-fb-no-rtl) .et-core-modal-two-buttons .et-core-modal-acti
 
 .et-core-modal-temp-content h3,
 .et-core-modal-content h3 {
-	color: #32373c;
-	font-size: 14px;
+	color: var(--gray);
+	font-size: 12px;
+	font-weight: 500;
 }
 
 .et-core-modal-remove-temp-content,
@@ -536,35 +568,37 @@ body.rtl.et-db:not(.et-fb-no-rtl) .et-core-modal-two-buttons .et-core-modal-acti
 .et-core-modal-action {
 	display: block;
 	color: white;
-	font-size: 14px;
-	line-height: 40px;
+	font-size: 12px;
+	line-height: 26px;
 	width: 100%;
 	border: none;
-	font-family: 'Open Sans', sans-serif;
-	font-weight: 700;
+	font-weight: 600;
 	box-sizing: border-box;
 	text-align: center;
 	margin: 0;
 	padding: 0;
 	cursor: pointer;
-	transition: background .5s;
-	background: #008BDA;
 	text-decoration: none;
+	background: var(--app-color);
+	border: 1px solid transparent;
 	color: #fff !important;
 	position: absolute;
 	bottom: 0;
+	border-radius: 3px;
 }
 
 .et-core-modal-action-secondary,
 .et-core-modal-action.et-core-button-secondary {
-	background: #00c3aa;
+	background: var(--feather-gray);
+	border-color: var(--feather-gray);
+	color: var(--dark-gray) !important;
 }
 
 .et-core-modal-action:hover,
 .et-core-modal-action:focus,
 .et-core-modal-action:active {
-	background: #007cc3;
 	box-shadow: none;
+	border-color: var(--app-color-dark);
 }
 
 .et-core-modal-action-secondary:hover,
@@ -573,11 +607,18 @@ body.rtl.et-db:not(.et-fb-no-rtl) .et-core-modal-two-buttons .et-core-modal-acti
 .et-core-modal-action.et-core-button-secondary:hover,
 .et-core-modal-action.et-core-button-secondary:focus,
 .et-core-modal-action.et-core-button-secondary:active {
-	background: #00bba3;
+	border-color: var(--light-gray);
 }
 
 .et-core-action-buttons-container {
 	display: flex;
+	padding: 16px;
+	box-sizing: border-box;
+}
+
+.et-core-import-container {
+	padding: 16px;
+	box-sizing: border-box;
 }
 
 .et-core-action-buttons-container .et-core-modal-action {
@@ -596,6 +637,10 @@ body.rtl.et-db:not(.et-fb-no-rtl) .et-core-modal-two-buttons .et-core-modal-acti
 	width: 100%;
 }
 
+.et-core-action-buttons-container .et-core-modal-action:nth-of-type(2n) {
+	margin-left: 16px;
+}
+
 .et-core-confirmation-dialog-overlay {
 	background: rgba(255,255,255,0.7);
 	position: absolute;
@@ -603,7 +648,6 @@ body.rtl.et-db:not(.et-fb-no-rtl) .et-core-modal-two-buttons .et-core-modal-acti
 	right: auto;
 	bottom: 0;
 	left: -9999px;
-	transition: opacity .5s .2s;
 	opacity: 0;
 	z-index: 10000000;
 }
@@ -621,12 +665,11 @@ body.rtl.et-db:not(.et-fb-no-rtl) .et-core-modal-two-buttons .et-core-modal-acti
 .et-core-confirmation-dialog {
 	display: none;
 	background: #FFF;
-	box-shadow: 0 5px 30px 0 rgba(43, 135, 218, 0.2);
+	box-shadow: 0 8px 24px 0px var(--shadow-color);
 	position: absolute;
 	bottom: 0;
 	right: 0;
 	width: 85%;
-	animation: et-core-fade-in-scale .5s 1 cubic-bezier(0.77, 0, 0.175, 1);
 }
 
 .et-core-confirmation-dialog-overlay.et-core-active .et-core-confirmation-dialog {
@@ -648,8 +691,8 @@ body.rtl.et-db:not(.et-fb-no-rtl) .et-core-modal-two-buttons .et-core-modal-acti
 
 .et-core-confirmation-dialog-content {
 	color: #5c6978;
-	font-size: 13px;
-	font-weight: 600;
+	font-size: 12px;
+	font-weight: 500;
 	line-height: 1.4em;
 	padding: 0 24px 24px;
 }
@@ -670,22 +713,17 @@ body.rtl.et-db:not(.et-fb-no-rtl) .et-core-modal-two-buttons .et-core-modal-acti
 	font-size: inherit;
 }
 
-.et-core-tabs-transition {
-	-webkit-animation: et-core-fade-in .5s 1 cubic-bezier(0.77, 0, 0.175, 1);
-	-moz-animation: et-core-fade-in .5s 1 cubic-bezier(0.77, 0, 0.175, 1);
-	-o-animation: et-core-fade-in .5s 1 cubic-bezier(0.77, 0, 0.175, 1);
-	animation: et-core-fade-in .5s 1 cubic-bezier(0.77, 0, 0.175, 1);
-}
-
 .et-core-tabs,
 .et-core-tabs.ui-widget-header {
-	background: #7e3bd0;
+	background: transparent;
 	display: block;
 	width: 100%;
 	overflow: hidden;
 	position: relative;
 	margin: 0;
-	border: none;
+	margin-bottom: -1px;
+	z-index: 2;
+	padding: 0 7px;
 }
 
 .et-core-tabs.ui-corner-all {
@@ -696,8 +734,7 @@ body.rtl.et-db:not(.et-fb-no-rtl) .et-core-modal-two-buttons .et-core-modal-acti
 .et-core-tabs li.ui-state-default {
 	float: left;
 	display: inline-block;
-	font-family: 'Open Sans', sans-serif;
-	font-size: 14px;
+	font-size: 12px;
 	font-weight: 600;
 	margin: 0;
 	border: none;
@@ -711,25 +748,28 @@ body.rtl.et-db:not(.et-fb-no-rtl) .et-core-tabs li.ui-state-default {
 
 .et-core-tabs li a,
 .et-core-tabs li.ui-state-default a {
-	color: #fff;
+	color: var(--gray);
+	border-bottom: 3px solid transparent;
+}
+
+.et-core-tabs a:hover,
+.et-core-tabs li.ui-state-default a:hover {
+	color: var(--dark-gray);
 }
 
 .et-core-tabs li.ui-state-active a {
-	background-color: #8F42ED;
-}
-
-.et-core-tabs a:hover {
-	background-color: #7435c1;
+	border-color: var(--app-color-dark);
+	color: var(--app-color-dark);
 }
 
 .et-core-tabs a {
 	box-sizing: border-box;
 	color: white;
-	padding: 11px 26px;
+	padding: 10px 12px;
 	display: inline-block;
-	transition: all 0.3s;
 	text-decoration: none;
 	box-shadow: none;
+	font-weight: 600;
 }
 
 .ui-tabs-hide {
@@ -742,7 +782,7 @@ body.rtl.et-db:not(.et-fb-no-rtl) .et-core-tabs li.ui-state-default {
 }
 
 .et-core-tabs-secondary li {
-	font-size: 14px;
+	font-size: 12px;
 	font-weight: 600;
 	text-transform: uppercase;
 	letter-spacing: 0.5px;
@@ -760,23 +800,53 @@ body.rtl.et-db:not(.et-fb-no-rtl) .et-core-tabs li.ui-state-default {
 /*-----------------------------------------------------------------------------
   6.0 - Loader
 ------------------------------------------------------------------------------*/
-.et-core-loader {
-	background: transparent url("../images/loader.gif") 8px 9px no-repeat;
-	transition: background, box-shadow 0.3s;
-	height: 50px;
-	width: 50px;
-	color: #fff;
-	border-radius: 50px;
-	text-align: center;
-	box-shadow: rgba( 0, 139, 219, 0.25 ) 0 0 60px;
+// Preloader created by Temani Afif https://github.com/Afif13/
+@keyframes et-loader {
+  0%   {background-size: 0    4px,4px 0   ,0    4px,4px 0   }
+  12.5%{background-size: 100% 4px,4px 0   ,0    4px,4px 0   }
+  25%  {background-size: 100% 4px,4px 100%,0    4px,4px 0   }
+  37.5%{background-size: 100% 4px,4px 100%,100% 4px,4px 0   }
+  45%,
+  55%  {background-size: 100% 4px,4px 100%,100% 4px,4px 100%}
+  62.5%{background-size: 0    4px,4px 100%,100% 4px,4px 100%}
+  75%  {background-size: 0    4px,4px 0   ,100% 4px,4px 100%}
+  87.5%{background-size: 0    4px,4px 0   ,0    4px,4px 100%}
+  100% {background-size: 0    4px,4px 0   ,0    4px,4px 0   }
+}
+
+@keyframes et-loader-2 {
+  0%,49.9%{background-position: 0 0   ,100% 0   ,100% 100%,0 100%}
+  50%,100%{background-position: 100% 0,100% 100%,0    100%,0 0   }
+}
+
+.et-core-loader:not(.et-core-loader-success, .et-core-loader-fail) {
+  content: '';
+  position: absolute;
+  left: calc(50% - 17px);
+  top: calc(50% - 41px);
+  display: block;
+  width: 35px;
+  aspect-ratio: 1;
+  background:
+  no-repeat linear-gradient( var(--app-color) 0 0) 0 0,
+  no-repeat linear-gradient( var(--app-color) 0 0) 100% 0,
+  no-repeat linear-gradient( var(--app-color) 0 0) 100% 100%,
+  no-repeat linear-gradient( var(--app-color) 0 0) 0 100%;
+  animation: 
+  et-loader 2s infinite,
+  et-loader-2 2s infinite;
 }
 
 .et-core-loader-success,
 .et-core-loader-fail {
 	opacity: 0;
 	animation: et-core-bounce-in 1s;
-	animation-delay: 0.3s;
 	animation-fill-mode: forwards;
+	height: 50px;
+	width: 50px;
+	color: #fff;
+	border-radius: 50px;
+	text-align: center;
 }
 
 .et-core-loader-success:before,
@@ -791,7 +861,6 @@ body.rtl.et-db:not(.et-fb-no-rtl) .et-core-tabs li.ui-state-default {
 
 .et-core-loader-success {
 	background: rgb( 169, 233, 0 );
-	box-shadow: rgba( 169, 233, 0, .25 ) 0 0 60px;
 }
 
 .et-core-loader-success:before {
@@ -800,7 +869,6 @@ body.rtl.et-db:not(.et-fb-no-rtl) .et-core-tabs li.ui-state-default {
 
 .et-core-loader-fail {
 	background: #FF5600;
-	box-shadow: rgba(255, 86, 0, 0.25) 0 0 60px;
 }
 
 .et-core-loader-fail:before {
@@ -814,7 +882,7 @@ body.rtl.et-db:not(.et-fb-no-rtl) .et-core-tabs li.ui-state-default {
 	box-sizing: border-box;
 	height: 20px;
 	margin-bottom: 15px;
-	background: #F1F5F9;
+	background: var(--feather-gray);
 	line-height: 20px;
 	border-radius: 3px;
 }
@@ -824,14 +892,14 @@ body.rtl.et-db:not(.et-fb-no-rtl) .et-core-tabs li.ui-state-default {
 }
 
 .et-core-progress-subtext {
-	font-size: 13px;
-	color: #A0A9B2;
+	font-size: 12px;
+	color: var(--gray);
 	display: block;
 	text-align: center;
 	width: 100%;
 	clear: both;
 	padding-top: 10px;
-	font-weight: 400;
+	font-weight: 500;
 }
 
 .et-core-progress-bar {
@@ -847,7 +915,7 @@ body.rtl.et-db:not(.et-fb-no-rtl) .et-core-tabs li.ui-state-default {
 	color: #fff;
 	text-align: center;
 	border-radius: 3px;
-	background: #00c3aa;
+	background: var(--app-color);
 }
 
 .et-core-progress-striped .et-core-progress-bar {
@@ -884,8 +952,7 @@ body.rtl.et-db:not(.et-fb-no-rtl) .et-core-tabs li.ui-state-default {
 ------------------------------------------------------------------------------*/
 #et-ajax-saving {
 	display: none;
-	transition: background, box-shadow 0.3s;
-	box-shadow: rgba(0, 139, 219, 0.247059) 0 0 60px;
+	box-shadow: 0 6px 18px 0px var(--shadow-color);
 	position: fixed;
 	top: 50%;
 	left: 50%;
@@ -904,7 +971,7 @@ body.rtl.et-db:not(.et-fb-no-rtl) .et-core-tabs li.ui-state-default {
 
 #et-ajax-saving.success-animation {
 	background-color: rgb(169, 233, 0);
-	box-shadow: rgba(0, 0, 0, 0) 0 0 40px;
+	box-shadow: 0 6px 18px 0px var(--shadow-color);
 	opacity: 1;
 	animation: et-core-bounce-in 1s;
 }

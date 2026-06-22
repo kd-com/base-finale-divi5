@@ -333,12 +333,12 @@ class ET_Builder_Module_Login extends ET_Builder_Module {
 				),
 				'' !== $custom_icon && 'on' === $button_custom ? sprintf(
 					' data-icon="%1$s"',
-					esc_attr( et_pb_process_font_icon( $custom_icon ) )
+					esc_attr( html_entity_decode( et_pb_process_font_icon( $custom_icon ), ENT_QUOTES, 'UTF-8' ) )
 				) : '', // #10
 				// Prevent an accidental "duplicate ID" error if there's more than one instance of this module
 				( '' !== $module_id ? esc_attr( $module_id ) : uniqid() ),
-				'' !== $custom_icon_tablet && 'on' === $button_custom ? sprintf( ' data-icon-tablet="%1$s"', esc_attr( et_pb_process_font_icon( $custom_icon_tablet ) ) ) : '',
-				'' !== $custom_icon_phone && 'on' === $button_custom ? sprintf( ' data-icon-phone="%1$s"', esc_attr( et_pb_process_font_icon( $custom_icon_phone ) ) ) : ''
+				'' !== $custom_icon_tablet && 'on' === $button_custom ? sprintf( ' data-icon-tablet="%1$s"', esc_attr( html_entity_decode( et_pb_process_font_icon( $custom_icon_tablet ), ENT_QUOTES, 'UTF-8' ) ) ) : '',
+				'' !== $custom_icon_phone && 'on' === $button_custom ? sprintf( ' data-icon-phone="%1$s"', esc_attr( html_entity_decode( et_pb_process_font_icon( $custom_icon_phone ), ENT_QUOTES, 'UTF-8' ) ) ) : ''
 			);
 		}
 

@@ -1,4 +1,13 @@
 <?php
+/**
+ * HTTP interface class.
+ *
+ * @package ET\Core\HTTP
+ */
+
+ // @phpcs:disable ET.Sniffs.ValidVariableName.PropertyNotSnakeCase -- Use uppercase to be consistent with existing code.
+ // @phpcs:disable WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase -- No need to change prop name.
+ // @phpcs:disable WordPress.PHP.DevelopmentFunctions.error_log_print_r -- We are purposefully logging the object for debugging purposes.
 
 /**
  * Simple object to hold HTTP request details.
@@ -10,59 +19,102 @@
 class ET_Core_HTTPRequest {
 
 	/**
+	 * The request arguments.
+	 *
 	 * @var array
 	 */
 	public $ARGS;
 
 	/**
+	 * Whether the request should block.
+	 *
 	 * @var bool
 	 */
 	public $BLOCKING = true;
 
 	/**
+	 * The request body.
+	 *
 	 * @var null|array
 	 */
 	public $BODY = null;
 
 	/**
+	 * Whether the request is complete.
+	 *
 	 * @var bool
 	 */
 	public $COMPLETE = false;
 
 	/**
+	 * The request cookies.
+	 *
 	 * @var array
 	 */
 	public $COOKIES = array();
 
 	/**
+	 * The request headers.
+	 *
 	 * @var array
 	 */
 	public $HEADERS = array();
 
 	/**
+	 * Whether the request is authentication-related.
+	 *
 	 * @var bool
 	 */
 	public $IS_AUTH = false;
 
 	/**
+	 * The request method.
+	 *
 	 * @var string
 	 */
 	public $METHOD = 'GET';
 
 	/**
+	 * The name of the owner of this request instance.
+	 *
 	 * @var string
 	 */
 	public $OWNER;
 
 	/**
+	 * The request URL.
+	 *
 	 * @var string
 	 */
 	public $URL;
 
 	/**
+	 * The user agent string.
+	 *
 	 * @var string
 	 */
 	public $USER_AGENT;
+
+	/**
+	 * The data format.
+	 *
+	 * @var string|null
+	 */
+	public $data_format;
+
+	/**
+	 * Whether the request body is JSON.
+	 *
+	 * @var bool
+	 */
+	public $JSON_BODY; // phpcs:ignore -- No need to change the class property.
+
+	/**
+	 * Whether to verify SSL certificate.
+	 *
+	 * @var bool
+	 */
+	public $SSL_VERIFY; // phpcs:ignore -- No need to change the class property.
 
 	/**
 	 * ET_Core_HTTP_Request constructor.
@@ -72,7 +124,10 @@ class ET_Core_HTTPRequest {
 	 * @param string $owner        The name of the owner of this request instance. Default is 'ET_Core'.
 	 * @param bool   $is_auth      Whether or not this request is auth-related. Cache disabled if `true`. Default is `false`.
 	 * @param array  $body         The request body. Default is `null`.
-	 * @param bool   $is_json_body
+	 * @param bool   $is_json_body Whether or not the request body is JSON. Default is `false`.
+	 * @param bool   $ssl_verify Whether or not to verify the SSL certificate. Default is `true`.
+	 *
+	 * @return void
 	 */
 	public function __construct( $url, $method = 'GET', $owner = 'ET_Core', $is_auth = false, $body = null, $is_json_body = false, $ssl_verify = true ) {
 		$this->URL         = esc_url_raw( $url );
@@ -144,6 +199,10 @@ class ET_Core_HTTPRequest {
 	}
 }
 
+
+ // @phpcs:disable ET.Sniffs.ValidVariableName.PropertyNotSnakeCase -- Use uppercase to be consistent with existing code.
+ // @phpcs:disable WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase -- No need to change prop name.
+ // @phpcs:disable WordPress.PHP.DevelopmentFunctions.error_log_print_r -- We are purposefully logging the object for debugging purposes.
 /**
  * Simple object to hold HTTP response details.
  *
@@ -151,19 +210,25 @@ class ET_Core_HTTPRequest {
  *
  * @package ET\Core\HTTP
  */
-class ET_Core_HTTPResponse {
+class ET_Core_HTTPResponse { // phpcs:ignore -- Legacy file, no need to rename this class.
 
 	/**
+	 * The response cookies.
+	 *
 	 * @var array
 	 */
 	public $COOKIES;
 
 	/**
+	 * The response data.
+	 *
 	 * @var string|array
 	 */
 	public $DATA;
 
 	/**
+	 * Whether the response is an error.
+	 *
 	 * @var bool
 	 */
 	public $ERROR = false;
@@ -176,16 +241,22 @@ class ET_Core_HTTPResponse {
 	public $ERROR_MESSAGE;
 
 	/**
+	 * The response headers.
+	 *
 	 * @var array
 	 */
 	public $HEADERS;
 
 	/**
+	 * The raw response.
+	 *
 	 * @var array|WP_Error
 	 */
 	public $RAW_RESPONSE;
 
 	/**
+	 * The request object.
+	 *
 	 * @var ET_Core_HTTPRequest
 	 */
 	public $REQUEST;
@@ -198,6 +269,8 @@ class ET_Core_HTTPResponse {
 	public $STATUS_CODE;
 
 	/**
+	 * The response status message.
+	 *
 	 * @var string
 	 */
 	public $STATUS_MESSAGE;
@@ -205,8 +278,10 @@ class ET_Core_HTTPResponse {
 	/**
 	 * ET_Core_HTTP_Response constructor.
 	 *
-	 * @param ET_Core_HTTPRequest $request
-	 * @param array|WP_Error      $response
+	 * @param ET_Core_HTTPRequest $request The request object.
+	 * @param array|WP_Error      $response The response data.
+	 *
+	 * @return void
 	 */
 	public function __construct( $request, $response ) {
 		$this->REQUEST      = $request;
@@ -217,6 +292,8 @@ class ET_Core_HTTPResponse {
 
 	/**
 	 * Parse response and save relevant details.
+	 *
+	 * @return void
 	 */
 	private function _parse_response() {
 		if ( is_wp_error( $this->RAW_RESPONSE ) ) {
@@ -273,21 +350,25 @@ class ET_Core_HTTPResponse {
  *
  * @package ET\Core\HTTP
  */
-class ET_Core_HTTPInterface {
+class ET_Core_HTTPInterface { // phpcs:ignore -- Legacy file, no need to rename this class.
 	/**
 	 * How much time responses are cached (in seconds).
 	 *
 	 * @since 1.1.0
 	 * @var   int
 	 */
-	protected $cache_timeout;
+	protected $_cache_timeout;
 
 	/**
+	 * The request object.
+	 *
 	 * @var ET_Core_HTTPRequest
 	 */
 	public $request;
 
 	/**
+	 * The response object.
+	 *
 	 * @var ET_Core_HTTPResponse
 	 */
 	public $response;
@@ -314,11 +395,13 @@ class ET_Core_HTTPInterface {
 	 * @param string $owner           The name of the theme/plugin that created this class instance. Default: 'ET_Core'.
 	 * @param array  $request_details Array of config values for the request. Optional.
 	 * @param bool   $json            Whether or not json responses are expected to be received. Default is `true`.
+	 *
+	 * @return void
 	 */
 	public function __construct( $owner = 'ET_Core', $request_details = array(), $json = true ) {
-		$this->expects_json  = $json;
-		$this->cache_timeout = 15 * MINUTE_IN_SECONDS;
-		$this->owner         = $owner;
+		$this->expects_json   = $json;
+		$this->_cache_timeout = 15 * MINUTE_IN_SECONDS;
+		$this->owner          = $owner;
 
 		if ( ! empty( $request_details ) ) {
 			list( $url, $method, $is_auth, $body ) = $request_details;
@@ -329,7 +412,7 @@ class ET_Core_HTTPInterface {
 	/**
 	 * Only include necessary properties when printing this object using {@link var_dump}.
 	 *
-	 * @return array
+	 * @return array Debug info.
 	 */
 	public function __debugInfo() {
 		return array(
@@ -363,7 +446,7 @@ class ET_Core_HTTPInterface {
 		if ( is_array( $body ) ) {
 			$url .= json_encode( $body );
 
-		} else if ( ! empty( $body ) ) {
+		} elseif ( ! empty( $body ) ) {
 			$url .= $body;
 		}
 
@@ -375,6 +458,8 @@ class ET_Core_HTTPInterface {
 	 *
 	 * @internal
 	 * @since    1.1.0
+	 *
+	 * @return void
 	 */
 	protected function _log_failed_request() {
 		$details    = print_r( $this, true );
@@ -382,19 +467,53 @@ class ET_Core_HTTPInterface {
 		$msg_part   = "{$class_name} ERROR :: Remote request failed...\n\n";
 		$msg        = "{$msg_part}Details: {$details}";
 
-		$max_len = @ini_get( 'log_errors_max_len' );
+		$max_len = @ini_get( 'log_errors_max_len' ); // phpcs:ignore -- We are purposefully getting the ini setting for debugging purposes.
 
-		@ini_set( 'log_errors_max_len', 0 );
+		@ini_set( 'log_errors_max_len', 0 ); // phpcs:ignore -- We are purposefully getting the ini setting for debugging purposes.
 
 		ET_Core_Logger::error( $msg );
 
 		if ( $max_len ) {
-			@ini_set( 'log_errors_max_len', $max_len );
+			@ini_set( 'log_errors_max_len', $max_len ); // phpcs:ignore -- We are purposefully getting the ini setting for debugging purposes.
+		}
+	}
+
+	/**
+	 * Logs HTTP requests (for debugging purposes when ET_DEBUG is enabled).
+	 * Logs both successful and failed requests with appropriate status indicators.
+	 *
+	 * @since 5.5.0
+	 *
+	 * @return void
+	 */
+	protected function _log_request() {
+		$details     = print_r( $this, true );
+		$class_name  = get_class( $this );
+		$is_error    = $this->response->ERROR;
+		$status      = $is_error ? 'ERROR' : 'SUCCESS';
+		$status_code = isset( $this->response->STATUS_CODE ) ? $this->response->STATUS_CODE : 'N/A';
+		$msg_part    = "{$class_name} {$status} :: Remote request completed (Status: {$status_code})...\n\n";
+		$msg         = "{$msg_part}Details: {$details}";
+
+		$max_len = @ini_get( 'log_errors_max_len' ); // phpcs:ignore -- We are purposefully getting the ini setting for debugging purposes.
+
+		@ini_set( 'log_errors_max_len', 0 ); // phpcs:ignore -- We are purposefully getting the ini setting for debugging purposes.
+
+		if ( $is_error ) {
+			ET_Core_Logger::error( $msg ); // phpcs:ignore -- We are purposefully getting the ini setting for debugging purposes.
+		} else {
+			ET_Core_Logger::debug( $msg ); // phpcs:ignore -- We are purposefully getting the ini setting for debugging purposes.
+		}
+
+		if ( $max_len ) {
+			@ini_set( 'log_errors_max_len', $max_len ); // phpcs:ignore -- We are purposefully getting the ini setting for debugging purposes.
 		}
 	}
 
 	/**
 	 * Prepares request to send JSON data.
+	 *
+	 * @return void
 	 */
 	protected function _setup_json_request() {
 		$this->request->HEADERS['Accept'] = 'application/json';
@@ -413,13 +532,15 @@ class ET_Core_HTTPInterface {
 	}
 
 	/**
-	 * Performs a remote HTTP request. Responses are cached for {@see self::$cache_timeout} seconds using
+	 * Performs a remote HTTP request. Responses are cached for {@see self::$_cache_timeout} seconds using
 	 * the {@link https://goo.gl/c0FSMH WP Transients API}.
 	 *
 	 * @since    1.1.0
+	 *
+	 * @return void
 	 */
 	public function make_remote_request() {
-		$response  = null;
+		$response = null;
 
 		if ( $this->expects_json && ! isset( $this->request->HEADERS['Content-Type'] ) ) {
 			$this->_setup_json_request();
@@ -431,10 +552,10 @@ class ET_Core_HTTPInterface {
 		if ( 'POST' === $this->request->METHOD ) {
 			$response = wp_remote_post( $this->request->URL, $this->request->ARGS );
 
-		} else if ( 'GET' === $this->request->METHOD && null === $this->request->data_format ) {
+		} elseif ( 'GET' === $this->request->METHOD && null === $this->request->data_format ) {
 			$response = wp_remote_get( $this->request->URL, $this->request->ARGS );
 
-		} else if ( 'GET' === $this->request->METHOD && null !== $this->request->data_format ) {
+		} elseif ( 'GET' === $this->request->METHOD && null !== $this->request->data_format ) {
 			// WordPress sends data as query args for GET and HEAD requests and provides no way
 			// to alter that behavior. Thus, we need to monkey patch it for now. See the mp'd class
 			// for more details.
@@ -443,19 +564,27 @@ class ET_Core_HTTPInterface {
 			$this->request->ARGS['data_format'] = $this->request->data_format;
 			$response                           = $wp_http->request( $this->request->URL, $this->request->ARGS );
 
-		} else if ( 'PUT' === $this->request->METHOD ) {
+		} elseif ( 'PUT' === $this->request->METHOD ) {
 			$this->request->ARGS['method'] = 'PUT';
 			$response = wp_remote_request( $this->request->URL, $this->request->ARGS );
 		}
 
-		$this->response = $response = new ET_Core_HTTPResponse( $this->request, $response );
+		$this->response = new ET_Core_HTTPResponse( $this->request, $response );
+		$response       = new ET_Core_HTTPResponse( $this->request, $response );
 
-		if ( $response->ERROR || defined( 'ET_DEBUG' ) ) {
+		if ( defined( 'ET_DEBUG' ) ) {
+			$this->_log_request();
+		} elseif ( $response->ERROR ) {
 			$this->_log_failed_request();
 		}
 
 		if ( $this->expects_json ) {
 			$response->DATA = json_decode( $response->DATA, true );
+			// Update $this->response->DATA as well since it's used by the caller.
+			// Both objects are created from the same raw response, so both need decoding.
+			if ( is_string( $this->response->DATA ) ) {
+				$this->response->DATA = json_decode( $this->response->DATA, true );
+			}
 		}
 
 		$this->request->COMPLETE = true;
@@ -464,12 +593,14 @@ class ET_Core_HTTPInterface {
 	/**
 	 * Replaces the current request object with a new instance.
 	 *
-	 * @param string $url
-	 * @param string $method
-	 * @param bool   $is_auth
-	 * @param mixed? $body
-	 * @param bool   $json_body
-	 * @param bool   $ssl_verify
+	 * @param string $url The request URL.
+	 * @param string $method The HTTP request method.
+	 * @param bool   $is_auth Whether or not this request is auth-related. Cache disabled if `true`. Default is `false`.
+	 * @param mixed? $body The request body. Default is `null`.
+	 * @param bool   $json_body Whether or not the request body is JSON. Default is `false`.
+	 * @param bool   $ssl_verify Whether or not to verify the SSL certificate. Default is `true`.
+	 *
+	 * @return void
 	 */
 	public function prepare_request( $url, $method = 'GET', $is_auth = false, $body = null, $json_body = false, $ssl_verify = true ) {
 		$this->request = new ET_Core_HTTPRequest( $url, $method, $this->owner, $is_auth, $body, $json_body, $ssl_verify );

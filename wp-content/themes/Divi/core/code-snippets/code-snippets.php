@@ -15,6 +15,17 @@ if ( ! defined( 'ET_CODE_SNIPPETS_DIR' ) ) {
 	define( 'ET_CODE_SNIPPETS_DIR', ET_CORE_PATH . 'code-snippets/' );
 }
 
+/**
+ * Class ET_Code_Snippets_Library_Local wrapper
+ *
+ * @since 4.21.0
+ *
+ * @return ET_Code_Snippets_Library_Local
+ */
+function et_pb_code_snippets_library_local() {
+	return ET_Code_Snippets_Library_Local::instance();
+}
+
 require_once trailingslashit( ET_CODE_SNIPPETS_DIR ) . 'constants.php';
 require_once trailingslashit( ET_CODE_SNIPPETS_DIR ) . 'code-snippets-library.php';
 require_once trailingslashit( ET_CODE_SNIPPETS_DIR ) . 'api.php';

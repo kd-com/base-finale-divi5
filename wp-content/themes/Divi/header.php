@@ -247,7 +247,7 @@
 				$logo_size   = et_get_attachment_size_by_url( $logo );
 				$logo_width  = ( ! empty( $logo_size ) && is_numeric( $logo_size[0] ) )
 						? $logo_size[0]
-						: '93'; // 93 is the width of the default logo.
+						: '43'; // 93 is the width of the default logo.
 				$logo_height = ( ! empty( $logo_size ) && is_numeric( $logo_size[1] ) )
 						? $logo_size[1]
 						: '43'; // 43 is the height of the default logo.

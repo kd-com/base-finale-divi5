@@ -193,7 +193,12 @@ class ET_Builder_Settings {
 	 */
 	protected static function _get_builder_settings_fields() {
 		$builder_settings_fields = array(
-			'et_pb_static_css_file'       => self::_get_static_css_generation_field( 'builder' ),
+			// TODO feat(D5, Optimization) Remove this option if we deem it's no longer needed during the Divi 5 beta.
+			// It is hidden temporarily during the Divi 5 so that no one can hurt their own performance.
+			// Disabling Static CSS has a detrimental impact on performance.
+			// We'll strive to fix all bugs rather than encourage users turn it off.
+			//
+			//'et_pb_static_css_file'       => self::_get_static_css_generation_field( 'builder' ),
 			'et_pb_css_in_footer'         => array(
 				'type'            => 'yes_no_button',
 				'id'              => 'et_pb_css_in_footer',
@@ -224,24 +229,6 @@ class ET_Builder_Settings {
 				'tab_slug'        => 'advanced',
 				'toggle_slug'     => 'product_tour',
 			),
-			'et_enable_bfb'               => array(
-				'type'              => 'yes_no_button',
-				'id'                => 'et_enable_bfb',
-				'index'             => -1,
-				'label'             => esc_html__( 'Enable The Latest Divi Builder Experience', 'et_builder' ),
-				'description'       => esc_html__( 'Disabling this option will load the legacy Divi Builder interface when editing a post using the classic WordPress post editor. The legacy builder lacks many features and interface improvements, but it can still be used if you are experiencing trouble with the new interface.', 'et_builder' ),
-				'options'           => array(
-					'on'  => __( 'On', 'et_builder' ),
-					'off' => __( 'Off', 'et_builder' ),
-				),
-				'default'           => 'off',
-				'validation_type'   => 'simple_text',
-				'tab_slug'          => 'advanced',
-				'toggle_slug'       => 'enable_bfb',
-				'main_setting_name' => 'et_bfb_settings',
-				'sub_setting_name'  => 'enable_bfb',
-				'is_global'         => true,
-			),
 			'et_enable_classic_editor'    => array(
 				'type'            => 'yes_no_button',
 				'id'              => 'et_enable_classic_editor',
@@ -256,6 +243,23 @@ class ET_Builder_Settings {
 				'validation_type' => 'simple_text',
 				'tab_slug'        => 'advanced',
 				'toggle_slug'     => 'enable_classic_editor',
+			),
+			'et_force_enable_shortcode_framework' => array(
+				'type'            => 'yes_no_button',
+				'id'              => 'et_force_enable_shortcode_framework',
+				'index'           => -1,
+				'label'           => esc_html__( 'Force Enable D4 Shortcode Framework', 'et_builder' ),
+				'description'     => esc_html__( 'Force the Legacy Divi 4 shortcode framework to load on every page regardless if shortcodes are used on that page. The default value for this setting is off, where the shortcode framework will only load on a per-page, as needed, basis. Note: Enabling this option will significantly decrease front-end performance.', 'et_builder' ),
+				'options'         => array(
+					'on'  => __( 'On', 'et_builder' ),
+					'off' => __( 'Off', 'et_builder' ),
+				),
+				// During dev alpha and beta release, D5 will be activated by default.
+				// TODO feat(D5, release) turn this into `off` on public release.
+				'default'         => 'off',
+				'validation_type' => 'simple_text',
+				'tab_slug'        => 'advanced',
+				'toggle_slug'     => 'force_enable_shortcode_framework',
 			),
 			'et_pb_post_type_integration' => array(
 				'type'            => 'checkbox_list',
@@ -367,7 +371,7 @@ class ET_Builder_Settings {
 	 */
 	protected static function _get_builder_settings_values() {
 		return array(
-			'et_pb_static_css_file' => et_get_option( 'et_pb_static_css_file', 'on' ),
+			'et_pb_static_css_file' => et_core_is_static_css_enabled(),
 			'et_pb_css_in_footer'   => et_get_option( 'et_pb_css_in_footer', 'off' ),
 		);
 	}
@@ -575,7 +579,12 @@ class ET_Builder_Settings {
 					'tab_slug'       => 'advanced',
 					'toggle_slug'    => 'position',
 				),
-				'et_pb_static_css_file'                  => self::_get_static_css_generation_field( 'page' ),
+				// TODO feat(D5, Optimization) Remove this option if we deem it's no longer needed during the Divi 5 beta.
+				// It is hidden temporarily during the Divi 5 so that no one can hurt their own performance.
+				// Disabling Static CSS has a detrimental impact on performance.
+				// We'll strive to fix all bugs rather than encourage users turn it off.
+				//
+				//'et_pb_static_css_file'       => self::_get_static_css_generation_field( 'builder' ),
 				'global_colors_info'                     => array(
 					'id'       => 'global_colors_info',
 					'type'     => 'hidden',
@@ -631,7 +640,7 @@ class ET_Builder_Settings {
 			return self::$_PAGE_SETTINGS_VALUES[ $post_id ];
 		}
 
-		$overflow         = et_pb_overflow();
+		$overflow         = ET_Builder_Module_Helper_Overflow::get();
 		$OVERFLOW_DEFAULT = ET_Builder_Module_Helper_Overflow::OVERFLOW_DEFAULT;
 		$is_default       = array();
 
@@ -651,11 +660,10 @@ class ET_Builder_Settings {
 		$et_pb_ab_bounce_rate_limit = '' !== $ab_bounce_rate_limit ? $ab_bounce_rate_limit : $default_bounce_rate_limit;
 		$is_default[]               = $et_pb_ab_bounce_rate_limit === $default_bounce_rate_limit ? 'et_pb_ab_bounce_rate_limit' : '';
 
-		$color_palette              = implode( '|', et_pb_get_default_color_palette() );
-		$default                    = array( '#000000', '#FFFFFF', '#E02B20', '#E09900', '#EDF000', '#7CDA24', '#0C71C3', '#8300E9' );
-		$et_pb_saved_color_palette  = '' !== $color_palette ? $color_palette : $default;
-		$et_pb_global_color_palette = et_builder_get_all_global_colors( true );
-		$is_default[]               = $et_pb_saved_color_palette === $default ? 'et_pb_color_palette' : '';
+		$color_palette             = implode( '|', et_pb_get_default_color_palette() );
+		$default                   = array( '#000000', '#FFFFFF', '#E02B20', '#E09900', '#EDF000', '#7CDA24', '#0C71C3', '#8300E9' );
+		$et_pb_saved_color_palette = '' !== $color_palette ? $color_palette : $default;
+		$is_default[]              = $et_pb_saved_color_palette === $default ? 'et_pb_color_palette' : '';
 
 		$gutter_width            = get_post_meta( $post_id, '_et_pb_gutter_width', true );
 		$default                 = et_()->array_get( $fields, array( 'et_pb_page_gutter_width', 'default' ) );
@@ -693,12 +701,18 @@ class ET_Builder_Settings {
 		$overflow_y   = (string) get_post_meta( $post_id, $overflow->get_field_y( '_et_pb_' ), true );
 		$is_default[] = empty( $overflow_y ) || $overflow_y === $OVERFLOW_DEFAULT ? $overflow->get_field_y( 'et_pb_' ) : '';
 
-		$static_css_file       = get_post_meta( $post_id, '_et_pb_static_css_file', true );
+		$static_css_file       = et_core_is_static_css_enabled();
 		$default               = et_()->array_get( $fields, array( 'et_pb_static_css_file', 'default' ) );
 		$et_pb_static_css_file = '' !== $static_css_file ? $static_css_file : $default;
 		$is_default[]          = $et_pb_static_css_file === $default ? 'et_pb_static_css_file' : '';
 
+		// Global colors.
 		$page_global_colors_info = get_post_meta( $post_id, '_global_colors_info', true );
+
+		// Maybe Convert Global Colors Data from D4 to D5 format.
+		\ET\Builder\Packages\GlobalData\GlobalData::maybe_convert_global_colors_data();
+
+		$et_pb_global_color_palette = \ET\Builder\Packages\GlobalData\GlobalData::get_global_colors();
 
 		self::$_PAGE_SETTINGS_IS_DEFAULT[ $post_id ] = $is_default;
 
@@ -726,12 +740,11 @@ class ET_Builder_Settings {
 			'et_pb_post_settings_tags'                => self::_get_object_terms( $post_id, 'post_tag' ),
 			'et_pb_post_settings_project_categories'  => self::_get_object_terms( $post_id, 'project_category' ),
 			'et_pb_post_settings_project_tags'        => self::_get_object_terms( $post_id, 'project_tag' ),
-			et_pb_overflow()->get_field_x( 'et_pb_' ) => $overflow_x,
-			et_pb_overflow()->get_field_y( 'et_pb_' ) => $overflow_y,
+			ET_Builder_Module_Helper_Overflow::get()->get_field_x( 'et_pb_' ) => $overflow_x,
+			ET_Builder_Module_Helper_Overflow::get()->get_field_y( 'et_pb_' ) => $overflow_y,
 			'et_pb_page_z_index'                      => get_post_meta( $post_id, '_et_pb_page_z_index', true ),
 			'global_colors_info'                      => $page_global_colors_info ? $page_global_colors_info : '{}',
 		);
-
 		/**
 		 * Filters Divi Builder page settings values.
 		 *
@@ -784,14 +797,6 @@ class ET_Builder_Settings {
 			),
 			'default'         => 'on',
 			'validation_type' => 'simple_text',
-			'after'           => array(
-				'type'             => 'button',
-				'link'             => '#',
-				'class'            => 'et_builder_clear_static_css',
-				'title'            => esc_html_x( 'Clear', 'clear static css files', 'et_builder' ),
-				'authorize'        => false,
-				'is_after_element' => true,
-			),
 			'tab_slug'        => 'advanced',
 			'toggle_slug'     => 'performance',
 		);
@@ -1247,8 +1252,8 @@ class ET_Builder_Settings {
 			'background'            => et_builder_i18n( 'Background' ),
 			'color_palette'         => esc_html__( 'Color Palette', 'et_builder' ),
 			'custom_css'            => et_builder_i18n( 'Custom CSS' ),
-			'enable_bfb'            => esc_html__( 'Enable The Latest Divi Builder Experience', 'et_builder' ),
 			'enable_classic_editor' => esc_html__( 'Enable Classic Editor', 'et_builder' ),
+			'enable_d5'             => esc_html__( 'Enable Divi 5', 'et_builder' ),
 			'performance'           => esc_html__( 'Performance', 'et_builder' ),
 			'product_tour'          => esc_html__( 'Product Tour', 'et_builder' ),
 			'spacing'               => esc_html__( 'Spacing', 'et_builder' ),
@@ -1512,13 +1517,17 @@ if ( ! function_exists( 'et_builder_settings_init' ) ) :
 	 * @param WP_Screen $screen Optional. Default `null`.
 	 */
 	function et_builder_settings_init( $screen = null ) {
-		$init_settings = et_builder_should_load_framework() || wp_doing_ajax();
+		$is_theme_builder_page = et_is_divi_specific_admin_page( 'et_theme_builder' );
+		// Dont init on TB page to avoid unnecessary overhead of the shortcode framework on that page load,
+		// which isnt needed on TB page. TB's VB will load it in the app window.
+		$init_settings = ! $is_theme_builder_page && ( et_builder_should_load_framework() || wp_doing_ajax() );
 
 		if ( ! $init_settings && is_a( $screen, 'WP_Screen' ) ) {
 			$init_settings = 1 === preg_match( '/et_\w+_options/', $screen->base );
 		}
 
 		if ( $init_settings ) {
+			et_load_shortcode_framework();
 			ET_Builder_Settings::get_instance();
 		}
 	}

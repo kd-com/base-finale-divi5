@@ -5,7 +5,7 @@
  * @package Divi
  */
 
-return array(
+return [
 	'Divi Overview'                                  => esc_html__( 'Divi Overview', 'Divi' ),
 	'Your Divi license key is active'                => esc_html__( 'Your Divi license key is active', 'Divi' ),
 	'Your Divi license key has expired'              => esc_html__( 'Your Divi license key has expired', 'Divi' ),
@@ -72,7 +72,7 @@ return array(
 	'Pick the starter site ...'                      => esc_html__( 'Pick the starter site that best suits your website. Every Starter Site can be used for any type of website. Once your website is generated, you can easily customize the content and styles using the Divi Builder.', 'Divi' ),
 	'Start With %1$s'                                => esc_html__( 'Start With %1$s', 'Divi' ),
 	'Preview %1$s'                                   => esc_html__( 'Preview %1$s', 'Divi' ),
-	'Customize your website'                         => esc_html__( 'Customize Your Website and Select Your Pages', 'Divi' ),
+	'Customize your website'                         => esc_html__( 'Customize and Select Your Pages', 'Divi' ),
 	'Input your website information and select ...'  => esc_html__( 'Input your website information and select which pages you want to have on your website.', 'Divi' ),
 	'Site name'                                      => esc_html__( 'Site Name', 'Divi' ),
 	'Site Slogan'                                    => esc_html__( 'Site Slogan', 'Divi' ),
@@ -92,14 +92,13 @@ return array(
 	'Activating WooCommerce'                         => esc_html__( 'Activating WooCommerce', 'Divi' ),
 	'Creating Your Menu'                             => esc_html__( 'Creating Your Menu', 'Divi' ),
 	'Website Build Complete!'                        => esc_html__( 'Website Build Complete!', 'Divi' ),
-	'Creating %1$s Page'                             => esc_html__( 'Importing %1$s Page', 'Divi' ),
+	'Importing %1$s Page'                            => esc_html__( 'Importing %1$s Page', 'Divi' ),
 	'Updating Website Information'                   => esc_html__( 'Updating Website Information', 'Divi' ),
 	'Importing Theme Builder'                        => esc_html__( 'Importing Theme Builder', 'Divi' ),
 	'Saving Theme Builder'                           => esc_html__( 'Saving Theme Builder', 'Divi' ),
 	'Generating Site Outline'                        => esc_html__( 'Generating Site Outline', 'Divi' ),
-	'Login to activate your license'                 => esc_html__( 'Login to activate your license', 'Divi' ),
 	'Welcome to Divi!'                               => esc_html__( 'Welcome to Divi!', 'Divi' ),
-	'Login to activate your license'                 => esc_html__( 'Login to activate your license', 'Divi' ),
+	'Log In to Activate Your License'                => esc_html__( 'Log In to Activate Your License', 'Divi' ),
 	'Welcome Description'                            => esc_html__( 'Divi has been installed and activated. Next, you must activate your license so that your website can receive updates. Click the button below to log in to your Elegant Themes account and automatically activate this installation.', 'Divi' ),
 	'Generate My Website'                            => esc_html__( 'Generate My Website', 'Divi' ),
 	'Tell Us About Your Website'                     => esc_html__( 'Tell Us About Your Website', 'Divi' ),
@@ -149,7 +148,7 @@ return array(
 	'Page Name'                                      => esc_html__( 'Page Name', 'Divi' ),
 	'Fetching Pages'                                 => esc_html__( 'Fetching Pages', 'Divi' ),
 	'Uh Oh! Something Went Wrong'                    => esc_html__( 'Uh Oh! Something Went Wrong', 'Divi' ),
-	'While creating your site'                       => esc_html__( 'While creating your site, something got hung up. Click Retry to resume where things left off, or Cancel to restore your site to its previous state.' ),
+	'While creating your site'                       => esc_html__( 'While creating your site, something got hung up. Click Retry to resume where things left off, or Cancel to restore your site to its previous state.', 'Divi' ),
 	'Retry'                                          => esc_html__( 'Retry', 'Divi' ),
 	'Purchase A Divi AI Membership'                  => esc_html__( 'Purchase A Divi AI Membership', 'Divi' ),
 	'Something went wrong'                           => esc_html__( 'Something went wrong', 'Divi' ),
@@ -160,4 +159,7 @@ return array(
 	'Default Website Template'                       => esc_html__( 'Default Website Template', 'Divi' ),
 	'Update'                                         => esc_html__( 'Update', 'Divi' ),
 	'request it here'                                => esc_html__( 'request it here', 'Divi' ),
-);
+	'Migrate To Divi 5'                              => esc_html__( 'Migrate To Divi 5', 'Divi' ),
+	'Migrate This Website'                           => esc_html__( 'Migrate This Website', 'Divi' ),
+	'If this website contains content...'            => esc_html__( 'If this website contains content built with Divi 4, you can use the migrator to convert your website to the Divi 5 format. Un-migrated content will not benefit from Divi 5 performance improvements.', 'Divi' ),
+];

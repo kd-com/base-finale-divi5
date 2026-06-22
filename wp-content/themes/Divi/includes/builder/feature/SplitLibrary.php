@@ -70,25 +70,24 @@ class ET_Builder_Split_Library {
 		$cloud_content = isset( $_POST['content'] ) ? $_POST['content'] : ''; // phpcs:ignore ET.Sniffs.ValidatedSanitizedInput -- $_POST['content'] is an array, it's value sanitization is done at the time of accessing value.
 
 		if ( $cloud_content ) {
-			$item_content = wp_unslash( reset( $cloud_content['data'] ) );
+			$item_content = $cloud_content['data'];
 		} else {
-			$post         = get_post( $id );
-			$item_content = $post->post_content;
+			$item_content = get_the_content( null, false, $id );
 		}
 
 		switch ( $split_type ) {
 			case 'split_layout':
-				$pattern     = '/\[et_pb_section .+?]?.+?\[\/et_pb_section]/s';
+				$pattern     = '/<!-- wp:divi\/section.*?<!-- \/wp:divi\/section -->/s';
 				$layout_type = 'section';
 				break;
 
 			case 'split_section':
-				$pattern     = '/\[et_pb_row(_inner)? .+?].+?\[\/et_pb_row(_inner)?]/s';
+				$pattern     = '/<!-- wp:divi\/row(?:-inner)? .*?<!-- \/wp:divi\/row(?:-inner)? -->/s';
 				$layout_type = 'row';
 				break;
 
 			case 'split_row':
-				$pattern     = '/\[(et_pb_(?!section|row|column).+?)\s.+?]?\[\/\1]/s';
+				$pattern     = '/<!-- wp:divi\/(?!row|section|column|row-inner|column-inner)[^ ]*.*?-->/s';
 				$layout_type = 'module';
 				break;
 		}
@@ -149,7 +148,7 @@ class ET_Builder_Split_Library {
 					unset( $cloud_content['thumbnails'] );
 				} else {
 					/* From local to Local */
-					$args['layout_content']       = $content;
+					$args['layout_content']       = wp_slash( $content );
 					$args['layout_selected_cats'] = is_array( $args['layout_selected_cats'] ) ? implode( ',', $args['layout_selected_cats'] ) : '';
 					$args['layout_selected_tags'] = is_array( $args['layout_selected_tags'] ) ? implode( ',', $args['layout_selected_tags'] ) : '';
 

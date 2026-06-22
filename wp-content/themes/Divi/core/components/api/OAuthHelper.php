@@ -1,4 +1,14 @@
 <?php
+/**
+ * Wrapper for the ET_Core_OAuth library.
+ *
+ * @package ET\Core\API
+ *
+ * @since 1.1.0
+ */
+
+ // @phpcs:disable ET.Sniffs.ValidVariableName.UsedPropertyNotSnakeCase -- Use uppercase to be consistent with existing code.
+ // @phpcs:disable WordPress.NamingConventions.ValidVariableName.PropertyNotSnakeCase -- Use uppercase to be consistent with existing code.
 
 /**
  * Wrapper for the ET_Core_OAuth library.
@@ -19,7 +29,7 @@ class ET_Core_API_OAuthHelper {
 	 * @since 1.1.0
 	 * @var   string
 	 */
-	public $ACCESS_TOKEN_URL;
+	public $ACCESS_TOKEN_URL; // @phpcs:ignore ET.Sniffs.ValidVariableName.PropertyNotSnakeCase -- Use uppercase to be consistent with existing code.
 
 	/**
 	 * URL for authorizing applications.
@@ -27,7 +37,7 @@ class ET_Core_API_OAuthHelper {
 	 * @since 1.1.0
 	 * @var   string
 	 */
-	public $AUTHORIZATION_URL;
+	public $AUTHORIZATION_URL; // @phpcs:ignore ET.Sniffs.ValidVariableName.PropertyNotSnakeCase -- Use uppercase to be consistent with existing code.
 
 	/**
 	 * URL for request token requests.
@@ -35,7 +45,7 @@ class ET_Core_API_OAuthHelper {
 	 * @since 1.1.0
 	 * @var   string
 	 */
-	public $REQUEST_TOKEN_URL;
+	public $REQUEST_TOKEN_URL; // @phpcs:ignore ET.Sniffs.ValidVariableName.PropertyNotSnakeCase -- Use uppercase to be consistent with existing code.
 
 	/**
 	 * Instance URL, used by Salesforce.
@@ -46,13 +56,23 @@ class ET_Core_API_OAuthHelper {
 	public $INSTANCE_URL; // @phpcs:ignore ET.Sniffs.ValidVariableName.PropertyNotSnakeCase -- Use uppercase to be consistent with existing code.
 
 	/**
+	 * The OAuth Redirect URL for this instance.
+	 *
+	 * @since 5.5.0
+	 * @var   string
+	 */
+	public $REDIRECT_URL = ''; // @phpcs:ignore ET.Sniffs.ValidVariableName.PropertyNotSnakeCase -- Use uppercase to be consistent with existing code.
+
+
+
+	/**
 	 * The OAuth2 bearer for this instance. This is used as the value of the HTTP
 	 * `Authorization` header. The format is: `Bearer {$access_token}`.
 	 *
 	 * @since 1.1.0
 	 * @var   string
 	 */
-	private $bearer = null;
+	private $_bearer = null;
 
 	/**
 	 * The OAuth Consumer object for this instance.
@@ -69,6 +89,54 @@ class ET_Core_API_OAuthHelper {
 	 * @var   ET_Core_LIB_OAuthToken
 	 */
 	public $token = null;
+
+	/**
+	 * The OAuth Consumer key for this instance.
+	 *
+	 * @since 5.5
+	 * @var   string
+	 */
+	public $consumer_key = '';
+
+	/**
+	 * The OAuth Consumer secret for this instance.
+	 *
+	 * @since 5.5
+	 * @var   string
+	 */
+	public $consumer_secret = '';
+
+	/**
+	 * The OAuth Access token for this instance.
+	 *
+	 * @since 5.5
+	 * @var   string
+	 */
+	public $access_token = '';
+
+	/**
+	 * The OAuth Access token secret for this instance.
+	 *
+	 * @since 5.5
+	 * @var   string
+	 */
+	public $access_token_secret = '';
+
+	/**
+	 * The OAuth Redirect URL for this instance.
+	 *
+	 * @since 5.5
+	 * @var   string
+	 */
+	public $redirect_url = '';
+
+	/**
+	 * The OAuth SHA1 method for this instance.
+	 *
+	 * @since 5.5
+	 * @var   string
+	 */
+	public $sha1_method = null;
 
 	/**
 	 * ET_Core_API_OAuth_Helper constructor.
@@ -90,6 +158,10 @@ class ET_Core_API_OAuthHelper {
 	 *     @type string $authorization_url URL for authorizations. Optional.
 	 *     @type string $access_token_url  URL for access tokens. Required.
 	 * }
+	 *
+	 * @param mixed $owner The owner of the OAuth helper.
+	 *
+	 * @return void
 	 */
 	public function __construct( array $data, array $urls, $owner ) {
 		$this->_initialize( $data, $urls );
@@ -99,16 +171,20 @@ class ET_Core_API_OAuthHelper {
 
 		if ( '' !== $this->access_token && '' !== $this->access_token_secret ) {
 			$this->token = new ET_Core_LIB_OAuthToken( $this->access_token, $this->access_token_secret );
-		} else if ( empty( $this->access_token ) && ! empty( $this->access_token_secret ) ) {
-			$this->bearer = "Bearer {$this->access_token_secret}";
+		} elseif ( empty( $this->access_token ) && ! empty( $this->access_token_secret ) ) {
+			$this->_bearer = "Bearer {$this->access_token_secret}";
 		}
 	}
 
 	/**
+	 * Initialize the OAuth helper.
+	 *
 	 * @internal
 	 *
-	 * @param array $data {@see self::__construct()}
-	 * @param array $urls {@see self::__construct()}
+	 * @param array $data The data for the OAuth helper.
+	 * @param array $urls The URLs for the OAuth helper.
+	 *
+	 * @return void
 	 */
 	private function _initialize( $data, $urls ) {
 		$this->consumer_key        = isset( $data['consumer_key'] ) ? $data['consumer_key'] : '';
@@ -122,20 +198,34 @@ class ET_Core_API_OAuthHelper {
 		$this->REDIRECT_URL      = isset( $urls['redirect_url'] ) ? $urls['redirect_url'] : '';
 	}
 
+	/**
+	 * Get the OAuth 2.0 parameters.
+	 *
+	 * @param array $args The arguments for the OAuth 2.0 parameters.
+	 *
+	 * @return array
+	 */
 	protected function _get_oauth2_parameters( $args ) {
 		et_core_nonce_verified_previously();
 
-		return wp_parse_args( $args, array(
-			'grant_type'    => 'authorization_code',
-			'code'          => sanitize_text_field( $_GET['code'] ),
-			'client_id'     => $this->consumer_key,
-			'client_secret' => $this->consumer_secret,
-			'redirect_uri'  => $this->REDIRECT_URL,
-		) );
+		$code = isset( $_GET['code'] ) ? sanitize_text_field( wp_unslash( $_GET['code'] ) ) : '';// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- No need to verify nonce.
+
+		return wp_parse_args(
+			$args,
+			[
+				'grant_type'    => 'authorization_code',
+				'code'          => $code,
+				'client_id'     => $this->consumer_key,
+				'client_secret' => $this->consumer_secret,
+				'redirect_uri'  => $this->REDIRECT_URL,
+			]
+		);
 	}
 
 	/**
-	 * @param \ET_Core_HTTPRequest $request
+	 * Prepare the OAuth 1.0a request.
+	 *
+	 * @param \ET_Core_HTTPRequest $request The request to prepare.
 	 *
 	 * @return \ET_Core_HTTPRequest
 	 */
@@ -160,20 +250,22 @@ class ET_Core_API_OAuthHelper {
 			$request->URL = $oauth_request->to_url();
 		} else if ( 'POST' === $request->METHOD ) {
 			$request->URL  = $request->JSON_BODY ? $oauth_request->to_url() : $oauth_request->get_normalized_http_url();
-			$request->BODY = $request->JSON_BODY  ? json_encode( $request->BODY ) : $oauth_request->to_post_data();
+			$request->BODY = $request->JSON_BODY ? wp_json_encode( $request->BODY ) : $oauth_request->to_post_data();
 		}
 
 		return $request;
 	}
 
 	/**
-	 * @param \ET_Core_HTTPRequest $request
+	 * Prepare the OAuth 2.0 request.
+	 *
+	 * @param \ET_Core_HTTPRequest $request The request to prepare.
 	 *
 	 * @return \ET_Core_HTTPRequest
 	 */
 	protected function _prepare_oauth2_request( $request ) {
-		if ( null !== $this->bearer ) {
-			$request->HEADERS['Authorization'] = $this->bearer;
+		if ( null !== $this->_bearer ) {
+			$request->HEADERS['Authorization'] = $this->_bearer;
 		}
 
 		if ( $request->JSON_BODY ) {
@@ -190,15 +282,17 @@ class ET_Core_API_OAuthHelper {
 
 	/**
 	 * Finish the OAuth2 authorization process if needed.
+	 *
+	 * @return void
 	 */
 	public static function finish_oauth2_authorization() {
 		et_core_nonce_verified_previously();
 
-		if ( ! isset( $_GET['state'] ) || 0 !== strpos( $_GET['state'], 'ET_Core' ) ) {
+		if ( ! isset( $_GET['state'] ) || ! str_starts_with( sanitize_text_field( wp_unslash( $_GET['state'] ) ), 'ET_Core' ) ) {
 			return;
 		}
 
-		list( $_, $name, $account, $nonce ) = explode( '|', sanitize_text_field( rawurldecode( $_GET['state'] ) ) );
+		list( $_, $name, $account, $nonce ) = explode( '|', sanitize_text_field( rawurldecode( wp_unslash( $_GET['state'] ) ) ) ); // phpcs:ignore -- No need to verify nonce.
 
 		if ( ! $name || ! $account || ! $nonce ) {
 			return;
@@ -214,13 +308,15 @@ class ET_Core_API_OAuthHelper {
 			et_core_die();
 		}
 
-		if ( ! $provider = $providers->get( $name, $account, 'ET_Core' ) ) {
+		$provider = $providers->get( $name, $account, 'ET_Core' );
+
+		if ( ! $provider ) {
 			et_core_die();
 		}
 
 		$result = $provider->fetch_subscriber_lists();
 
-		// Display the authorization results
+		// Display the authorization results.
 		echo et_core_esc_previously( ET_Bloom::generate_modal_warning( $result ) );
 	}
 
@@ -228,7 +324,7 @@ class ET_Core_API_OAuthHelper {
 	 * Prepare a request for an access token.
 	 *
 	 * @param array $args {
-	 *     For OAuth 1.0 & 1.0a:
+	 *     For OAuth 1.0 & 1.0a.
 	 *
 	 *       @type string $verifier OAuth verifier token. Optional.
 	 *
@@ -253,19 +349,22 @@ class ET_Core_API_OAuthHelper {
 	/**
 	 * Prepare an OAuth 1.0a or 2.0 request.
 	 *
-	 * @param ET_Core_HTTPRequest $request
-	 * @param bool                $oauth2
+	 * @param \ET_Core_HTTPRequest $request The request to prepare.
+	 * @param bool                 $oauth2 Whether the request is OAuth 2.0.
 	 *
 	 * @return \ET_Core_HTTPRequest
 	 */
-	function prepare_oauth_request( $request, $oauth2 = false ) {
+	public function prepare_oauth_request( $request, $oauth2 = false ) {
 		return $oauth2 ? $this->_prepare_oauth2_request( $request ) : $this->_prepare_oauth_request( $request );
 	}
 
 	/**
 	 * Process a response to an OAuth access token request and retrieve the access token if auth was successful.
 	 *
-	 * @param \ET_Core_HTTPResponse $response
+	 * @param \ET_Core_HTTPResponse $response The response to process.
+	 * @param bool                  $json Whether the response is JSON.
+	 *
+	 * @return void
 	 */
 	public function process_authentication_response( $response, $json = true ) {
 		if ( $response->ERROR ) {
@@ -280,12 +379,12 @@ class ET_Core_API_OAuthHelper {
 		}
 
 		if ( isset( $response['oauth_token'], $response['oauth_token_secret'] ) ) {
-			// OAuth 1.0a
+			// OAuth 1.0a.
 			$token       = sanitize_text_field( $response['oauth_token'] );
 			$secret      = sanitize_text_field( $response['oauth_token_secret'] );
 			$this->token = new ET_Core_LIB_OAuthToken( $token, $secret );
 		} elseif ( isset( $response['access_token'] ) ) {
-			// OAuth 2.0
+			// OAuth 2.0.
 			$this->token = new ET_Core_LIB_OAuthToken( '', sanitize_text_field( $response['access_token'] ) );
 			if ( isset( $response['refresh_token'] ) ) {
 				$this->token->refresh_token = sanitize_text_field( $response['refresh_token'] );

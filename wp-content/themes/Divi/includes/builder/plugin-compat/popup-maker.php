@@ -46,9 +46,9 @@ class ET_Builder_Plugin_Compat_Popup_Maker extends ET_Builder_Plugin_Compat_Base
 		add_filter( 'et_pb_set_style_selector', array( $this, 'et_builder_maybe_update_selector' ), 10, 4 );
 		add_filter( 'et_core_enqueued_style_handle', array( $this, 'et_builder_maybe_update_style_handle' ), 10, 4 );
 
-		// Disable Feature: Dynamic Assets.
-		add_filter( 'et_use_dynamic_css', array( $this, 'et_builder_disable_dynamic_features' ), 10, 4 );
-		add_filter( 'et_should_generate_dynamic_assets', array( $this, 'et_builder_disable_dynamic_features' ), 10, 4 );
+		// Disable Feature: Dynamic Assets in D5.
+		add_filter( 'divi_frontend_assets_dynamic_assets_utils_use_dynamic_assets', array( $this, 'et_builder_disable_dynamic_features' ), 10, 4 );
+		add_filter( 'divi_frontend_assets_dynamic_assets_utils_should_generate_dynamic_assets', array( $this, 'et_builder_disable_dynamic_features' ), 10, 4 );
 
 		// Disable Cache in Feature Manager.
 		add_filter( 'et_builder_post_feature_cache_enabled', array( $this, 'et_builder_disable_dynamic_features' ), 10, 4 );
@@ -141,6 +141,13 @@ class ET_Builder_Plugin_Compat_Popup_Maker extends ET_Builder_Plugin_Compat_Base
 	public function et_builder_maybe_update_style_handle( $handle ) {
 		// Handle should only be modified for Popup Maker plugin and when it's `divi-style`.
 		if ( ! class_exists( 'PUM_Shortcode_Popup' ) || 'divi-style' !== $handle ) {
+			return $handle;
+		}
+
+		// Skip handle renaming in Visual Builder — the renamed handle bypasses
+		// D5 VB's dequeue mechanism, causing the D4 stylesheet to persist and
+		// break the VB interface.
+		if ( et_core_is_fb_enabled() ) {
 			return $handle;
 		}
 

@@ -7,6 +7,8 @@
 
 		cancelled: false,
 
+		maxProgressPercent: 0,
+
 		boot: function( $instance ) {
 			var $this = this;
 			var $customizeHeader = $( '#customize-header-actions' );
@@ -60,7 +62,12 @@
 
 			// Portability populate import.
 			$el.find( '.et-core-portability-import-form input[type="file"]' ).on( 'change', function( e ) {
-				$this.populateImport( $( this ).get( 0 ).files[0] );
+				var files = $( this ).get( 0 ).files;
+				if ( files.length === 1 ) {
+					$this.populateImport( files[0] );
+				} else if ( files.length > 1 ) {
+					$this.populateImportMultiple( files );
+				}
 			} );
 
 			$el.find('.et-core-portability-import').on('click', function(e){
@@ -68,7 +75,16 @@
 
 				if ( ! $this.actionsDisabled() ) {
 					$this.disableActions();
-					$this.import();
+
+					var files = $this.instance('input[type="file"]').get(0).files;
+					if ( files.length === 1 ) {
+						$this.import();
+					} else if ( files.length > 1 ) {
+						$this.importMultipleFilesToLibrary( Array.from( files ) );
+					} else {
+						$this.enableActions();
+						etCore.modalContent( '<p>' + $this.text.noFileSelected + '</p>', false, 3000, '#et-core-portability-import' );
+					}
 				}
 			});
 
@@ -108,6 +124,41 @@
 			$( '.et-core-portability-import-placeholder' ).text( file.name );
 		},
 
+		populateImportMultiple: function( files ) {
+			var $this = this;
+			var validFiles = [];
+			var invalidCount = 0;
+
+			// Validate all files and collect valid ones.
+			for ( var i = 0; i < files.length; i++ ) {
+				if ( this.validateImportFile( files[i], true ) ) {
+					validFiles.push( files[i] );
+				} else {
+					invalidCount++;
+				}
+			}
+
+			// If no valid files, show error.
+			if ( validFiles.length === 0 ) {
+				etCore.modalContent( '<p>' + this.text.invalideFile + '</p>', false, 3000, '#et-core-portability-import' );
+				this.enableActions();
+				return;
+			}
+
+			// Show selected files count and names.
+			var fileNames = validFiles.map( function( file ) { return file.name; } );
+			var displayText = validFiles.length === 1
+				? fileNames[0]
+				: validFiles.length + ' files selected: ' + fileNames.slice( 0, 3 ).join( ', ' ) + ( fileNames.length > 3 ? '...' : '' );
+
+			$( '.et-core-portability-import-placeholder' ).text( displayText );
+
+			// Show warning if some files were invalid.
+			if ( invalidCount > 0 ) {
+				etCore.modalContent( '<p>' + invalidCount + ' invalid file(s) were skipped. Only JSON files are supported.</p>', false, 3000, '#et-core-portability-import' );
+			}
+		},
+
 		import: async function(noBackup) {
 			var $this = this;
 			var file = $this.instance('input[type="file"]').get(0).files[0];
@@ -144,6 +195,7 @@
 				action: 'et_core_portability_import',
 				file: file,
 				include_global_presets: includeGlobalPresets,
+				progressMessageTemplate: $this.text.importing,
 				nonce: $this.nonces.import
 			}, function( response ) {
 				etCore.modalContent( '<div class="et-core-loader et-core-loader-success"></div>', false, 3000, '#et-core-portability-import' );
@@ -185,6 +237,113 @@
 					} );
 				} );
 			}, true );
+		},
+
+		importMultipleFilesToLibrary: async function( files, noBackup ) {
+			var $this = this;
+			var processedFiles = 0;
+			var successfulImports = 0;
+			var failedImports = 0;
+			var $progressContainer = null;
+
+			// Reset max progress tracking for monotonic progress enforcement.
+			$this.maxProgressPercent = 0;
+
+			$this.addProgressBar( $this.text.importing + ' (0/' + files.length + ')' );
+			$this.updateProgressBar( $this.text.importing + ' (0/' + files.length + ')', 0 );
+			$progressContainer = $this.instance( '.et-core-progress' );
+			if ( $progressContainer.length ) {
+				$progressContainer.addClass( 'et-core-multi-file-import' );
+			}
+
+			// Process each file individually.
+			for ( var i = 0; i < files.length; i++ ) {
+				var file = files[i];
+
+				// Skip invalid files (should already be validated, but double-check).
+				if ( ! this.validateImportFile( file, true ) ) {
+					failedImports++;
+					processedFiles++;
+					var progressPercent = ( processedFiles / files.length ) * 100;
+					$this.updateProgressBar( $this.text.importing + ' (' + processedFiles + '/' + files.length + ')', progressPercent );
+					continue;
+				}
+
+				try {
+					// Format the file (same as single import).
+					var formattedFile = await $this.formatBuilderLayoutFile( file );
+
+					// Check browser support.
+					if ( undefined === window.FormData ) {
+						etCore.modalContent( '<p>' + this.text.browserSupport + '</p>', false, 3000, '#et-core-portability-import' );
+						$this.enableActions();
+						return;
+					}
+
+					// Process the file import.
+					await new Promise( function( resolve ) {
+						var includeGlobalPresets = $this.instance( '[name="et-core-portability-import-include-global-presets"]' ).is( ':checked' );
+
+						// Set up timeout to prevent hanging on network/server errors
+						var timeoutId = setTimeout( function() {
+							console.warn( 'Import timeout for file: ' + file.name );
+							failedImports++;
+							resolve(); // Continue processing other files
+						}, 30000 ); // 30 second timeout
+
+						$this.ajaxAction( {
+							action: 'et_core_portability_import',
+							file: formattedFile,
+							include_global_presets: includeGlobalPresets,
+							multi_file_import: true,
+							progressMessageTemplate: $this.text.importing,
+							nonce: $this.nonces.import,
+							// Pass file counter info for pagination progress messages.
+							processedFileIndex: i + 1,
+							totalFilesCount: files.length,
+						}, function( response ) {
+							clearTimeout( timeoutId );
+							successfulImports++;
+							resolve( response );
+						}, true ); // fileSupport parameter is boolean, not error callback
+					} );
+
+				} catch ( error ) {
+					failedImports++;
+					console.warn( 'Import failed for file: ' + file.name, error );
+				}
+
+				processedFiles++;
+				var progressPercent = ( processedFiles / files.length ) * 100;
+				$this.updateProgressBar( $this.text.importing + ' (' + processedFiles + '/' + files.length + ')', progressPercent );
+			}
+
+			// Show completion message.
+			var message = '';
+			if ( successfulImports > 0 ) {
+				message += successfulImports + ' file(s) imported successfully.';
+			}
+			if ( failedImports > 0 ) {
+				message += ( message ? ' ' : '' ) + failedImports + ' file(s) failed to import.';
+			}
+
+			// Use appropriate icon based on results
+			var iconClass = successfulImports > 0 ? 'et-core-loader-success' : 'et-core-loader-fail';
+			etCore.modalContent( '<div class="et-core-loader ' + iconClass + '"></div><p>' + message + '</p>', false, 3000, '#et-core-portability-import' );
+			if ( $progressContainer && $progressContainer.length ) {
+				$progressContainer.removeClass( 'et-core-multi-file-import' );
+			}
+			$this.toggleCancel();
+
+			// Reload page after completion.
+			$( document ).delay( 3000 ).queue( function() {
+				$( 'body' ).fadeOut( 500, function() {
+					// Remove confirmation popup before relocation.
+					$( window ).off( 'beforeunload' );
+
+					window.location = window.location.href.replace( /reset\=true\&|\&reset\=true/, '' );
+				} );
+			} );
 		},
 
 		renderNoItemsToExportError: function($this = this) {
@@ -246,6 +405,7 @@
 						content: content,
 						selection: $.isEmptyObject( posts ) ? false : JSON.stringify( posts ),
 						apply_global_presets: applyGlobalPresets,
+						progressMessageTemplate: progressBarMessages,
 						nonce: $this.nonces.export,
 						return: true,
 					}, function( response ) {
@@ -281,6 +441,7 @@
 						content: content,
 						selection: $.isEmptyObject( posts ) ? false : JSON.stringify( posts ),
 						apply_global_presets: applyGlobalPresets,
+						progressMessageTemplate: progressBarMessages,
 						nonce: $this.nonces.export
 					}, function( response ) {
 						var time        = ' ' + new Date().toJSON().replace( 'T', ' ' ).replace( ':', 'h' ).substring( 0, 16 );
@@ -831,6 +992,7 @@
 				file: null,
 				content: false,
 				timestamp: 0,
+				progressMessageTemplate: '',
 				post: $( '#post_ID' ).val(),
 				context: $this.instance().data( 'et-core-portability' ),
 				page: 1,
@@ -859,7 +1021,10 @@
 					}
 					// Paginate.
 					else if ( 'undefined' !== typeof response.page ) {
-						var progress = Math.ceil( ( response.page * 100 ) / response.total_pages );
+						var progress   = Math.ceil( ( response.page * 100 ) / response.total_pages );
+						var estimation = Math.ceil( ( ( response.total_pages - response.page ) * 6 ) / 60 );
+						var fileIndex  = parseInt( data.processedFileIndex, 10 );
+						var totalFiles = parseInt( data.totalFilesCount, 10 );
 
 						if ( $this.cancelled ) {
 							return;
@@ -873,11 +1038,28 @@
 							file: null,
 						} ), callback, false );
 
-						$this.instance( '.et-core-progress-bar' )
-							.width( progress + '%' )
-							.text( progress + '%' );
+						// Convert per-file pagination progress into overall multi-file progress.
+						if ( ! isNaN( fileIndex ) && ! isNaN( totalFiles ) && totalFiles > 0 && response.total_pages > 0 ) {
+							const completedFilesProgress = fileIndex - 1;
+							const currentFileProgress    = response.page / response.total_pages;
+							progress                     = ( ( completedFilesProgress + currentFileProgress ) / totalFiles ) * 100;
+						}
 
-						$this.instance( '.et-core-progress-subtext span' ).text( Math.ceil( ( ( response.total_pages - response.page ) * 6 ) / 60 ) );
+						// Use updateProgressBar for monotonic enforcement instead of direct DOM manipulation.
+						// Include file counter in message if available from multi-file import.
+						var progressMessageTemplate = data.progressMessageTemplate;
+						if ( 'string' !== typeof progressMessageTemplate || '' === progressMessageTemplate ) {
+							progressMessageTemplate = $this.instance( '.et-core-progress-subtext' ).html() || '';
+						}
+						if ( 'string' !== typeof progressMessageTemplate || '' === progressMessageTemplate ) {
+							progressMessageTemplate = $this.text.importing;
+						}
+						var message = progressMessageTemplate.replace( /<span[^>]*>.*?<\/span>/, '<span>' + estimation + '</span>' );
+
+						if ( ! isNaN( fileIndex ) && ! isNaN( totalFiles ) ) {
+							message += ' (' + fileIndex + '/' + totalFiles + ')';
+						}
+						$this.updateProgressBar( message, progress );
 
 						return;
 					} else if ( 'undefined' !== typeof response.data && 'undefined' !== typeof response.data.message ) {
@@ -901,8 +1083,11 @@
 							return;
 						}
 
-						// Check if core progress DOM exists
-						if ($this.instance( '.et-core-progress' ).length ) {
+						// Check if this request belongs to multi-file import flow.
+						var isMultiFileImportRequest = true === data.multi_file_import;
+
+						// Check if core progress DOM exists and is not in multi-file import mode.
+						if ( $this.instance( '.et-core-progress' ).length && ! $this.instance( '.et-core-progress' ).hasClass( 'et-core-multi-file-import' ) && ! isMultiFileImportRequest ) {
 							$this.instance( '.et-core-progress' )
 								.removeClass( 'et-core-progress-striped' )
 								.find( '.et-core-progress-bar' ).width( '100%' )
@@ -921,6 +1106,9 @@
 
 									callback( response );
 								} );
+						} else if ( $this.instance( '.et-core-progress' ).hasClass( 'et-core-multi-file-import' ) || isMultiFileImportRequest ) {
+							// Multi-file import: call callback immediately without progress bar animation.
+							callback( response );
 						} else {
 							// Recheck on the next animation frame
 							window.requestAnimationFrame(animateCoreProgressBar);
@@ -985,7 +1173,34 @@
 		},
 
 		addProgressBar: function( message ) {
-			etCore.modalContent( '<div class="et-core-progress et-core-progress-striped et-core-active"><div class="et-core-progress-bar" style="width: 10%;">1%</div><span class="et-core-progress-subtext">' + message + '</span></div>', false, false, '#' + this.instance( '.ui-tabs-panel:visible' ).attr( 'id' ) );
+			// Reset max progress ceiling for each new operation.
+			this.maxProgressPercent = 0;
+			etCore.modalContent( '<div class="et-core-progress et-core-progress-striped et-core-active"><div class="et-core-progress-bar" style="width: 0%;">0%</div><span class="et-core-progress-subtext">' + message + '</span></div>', false, false, '#' + this.instance( '.ui-tabs-panel:visible' ).attr( 'id' ) );
+		},
+
+		updateProgressBar: function( message, progressPercent ) {
+			var $progressBar = this.instance( '.et-core-progress-bar' );
+			var $progressText = this.instance( '.et-core-progress-subtext' );
+			var currentWidth = 0;
+
+			if ( $progressBar.length ) {
+				currentWidth = parseFloat( $progressBar.width() ) || 0;
+			}
+
+			if ( $progressBar.length && 'undefined' !== typeof progressPercent ) {
+				// Enforce monotonic progress - progress should never decrease.
+				var boundedProgress     = Math.max( 0, Math.min( 100, progressPercent ) );
+				var maxProgressBefore   = this.maxProgressPercent;
+				var monotonicProgress   = Math.max( maxProgressBefore, boundedProgress );
+				this.maxProgressPercent = monotonicProgress;
+
+				$progressBar.width( monotonicProgress + '%' );
+				$progressBar.text( Math.round( monotonicProgress ) + '%' );
+			}
+
+			if ( $progressText.length ) {
+				$progressText.html( message );
+			}
 		},
 
 		removeProgressBar: function() {
@@ -1012,19 +1227,20 @@
 		},
 
 		toggleCancel: function( cancel ) {
-			var $target = this.instance( '.ui-tabs-panel:visible [data-et-core-portability-cancel]' );
+			var $cancel_button = this.instance( '.et-core-portability-cancel' );
+			var $import_button = this.instance( '.et-core-portability-import' );
+			var $cloud_button  = this.instance( '.et-core-portability-cloud' );
+			var $duringAction  = this.instance('.et-core-action-buttons-container__during_action');
 
-			var $duringAction = this.instance('.et-core-action-buttons-container__during_action');
-
-			if ( cancel && ! $target.is( ':visible' ) ) {
-				$target.show().animate( { opacity: 1 }, 600, 'swing', function() {
-					$duringAction.show();
-				} );
-			} else if ( ! cancel && $target.is( ':visible' ) ) {
-				$target.animate( { opacity: 0 }, 600, function() {
-					$target.hide();
-					$duringAction.hide();
-				} );
+			if ( cancel ) {
+				$cancel_button.show();
+				$import_button.hide();
+				$cloud_button.hide();
+			} else {
+				$cancel_button.hide();
+				$duringAction.hide();
+				$import_button.show();
+				$cloud_button.show();
 			}
 		},
 

@@ -27,35 +27,7 @@ function et_theme_builder_load_portability() {
 }
 add_action( 'admin_init', 'et_theme_builder_load_portability' );
 
-/**
- * Register the Theme Builder admin page.
- *
- * @since 4.0
- *
- * @param string $parent
- *
- * @return void
- */
-function et_theme_builder_add_admin_page( $parent ) {
-	if (
-		! et_pb_is_allowed( 'theme_builder' )
-		|| ! current_user_can( 'edit_theme_options' )
-		|| ! current_user_can( 'edit_others_posts' )
-	) {
-		return;
-	}
 
-	// We register the page with the 'edit_others_posts' capability since it's the lowest
-	// requirement to use VB and we already checked for the theme_builder ET cap.
-	add_submenu_page(
-		$parent,
-		esc_html__( 'Theme Builder', 'et_builder' ),
-		esc_html__( 'Theme Builder', 'et_builder' ),
-		'edit_others_posts',
-		'et_theme_builder',
-		'et_theme_builder_admin_page'
-	);
-}
 
 /**
  * Enqueue Theme Builder assets.
@@ -69,33 +41,19 @@ function et_theme_builder_enqueue_scripts() {
 		return;
 	}
 
+	// Added hook so that Divi 5 can enqueue scripts and styles for Theme Builder's dashboard page.
+	do_action( 'et_theme_builder_enqueue_scripts' );
+
 	$role_capabilities = et_pb_get_role_settings();
 	$user_role         = et_pb_get_current_user_role();
 
-	et_builder_enqueue_open_sans();
-
 	et_fb_enqueue_bundle( 'et-theme-builder', 'theme-builder.css', array( 'et-core-admin' ) );
-
-	et_builder_enqueue_assets_head();
-	et_builder_enqueue_assets_main();
 
 	global $wp_version;
 
-	$ver  = ET_BUILDER_VERSION;
-	$root = ET_BUILDER_URI;
-
-	if ( version_compare( substr( $wp_version, 0, 3 ), '4.5', '<' ) ) {
-		$dep = array( 'jquery-ui-compat' );
-		wp_register_script( 'jquery-ui-compat', "{$root}/scripts/ext/jquery-ui-1.10.4.custom.min.js", array( 'jquery' ), $ver, true );
-	} else {
-		$dep = array( 'jquery-ui-datepicker' );
-	}
-
-	wp_register_script( 'jquery-ui-datepicker-addon', "{$root}/scripts/ext/jquery-ui-timepicker-addon.js", $dep, $ver, true );
-	wp_register_script( 'react-tiny-mce', "{$root}/frontend-builder/assets/vendors/tinymce.min.js" );
-
-	$asset_ver = ET_BUILDER_VERSION;
-
+	$ver                = ET_BUILDER_VERSION;
+	$root               = ET_BUILDER_URI;
+	$asset_ver          = ET_BUILDER_VERSION;
 	$frame_helpers_id   = 'et-frame-helpers';
 	$frame_helpers_path = ET_BUILDER_DIR . '/frontend-builder/build/frame-helpers.js';
 	$frame_helpers_url  = ET_BUILDER_URI . '/frontend-builder/build/frame-helpers.js';
@@ -114,14 +72,24 @@ function et_theme_builder_enqueue_scripts() {
 	$dependencies = array(
 		'jquery',
 		'jquery-ui-sortable',
-		'jquery-ui-datepicker-addon',
 		'react',
 		'react-dom',
-		'react-tiny-mce',
 		'et-core-admin',
 		'wp-hooks',
 		'et-frame-helpers',
 	);
+
+	if ( function_exists( 'et_common_is_command_palette_admin_screen' ) && et_common_is_command_palette_admin_screen() ) {
+		$dependencies = array(
+			'jquery',
+			'jquery-ui-sortable',
+			'divi-legacy-react',
+			'divi-legacy-react-dom',
+			'et-core-admin',
+			'wp-hooks',
+			'et-frame-helpers',
+		);
+	}
 
 	if ( ! wp_script_is( 'wp-hooks', 'registered' ) ) {
 		// Use bundled wp-hooks script when WP < 5.0
@@ -138,14 +106,6 @@ function et_theme_builder_enqueue_scripts() {
 
 	wp_enqueue_script( $asset_id, $asset_uri, $dependencies, $asset_ver, true );
 
-	// Strip 'validate' key from settings as it is used server-side only.
-	$default_settings = et_theme_builder_get_template_settings_options();
-	foreach ( $default_settings as $group_key => $group ) {
-		foreach ( $group['settings'] as $setting_key => $setting ) {
-			unset( $default_settings[ $group_key ]['settings'][ $setting_key ]['validate'] );
-		}
-	}
-
 	// Library item editor.
 	$theme_builder_id   = 0;
 	$library_item_title = '';
@@ -160,7 +120,25 @@ function et_theme_builder_enqueue_scripts() {
 		}
 	}
 
-	$preloaded_settings = et_theme_builder_get_template_settings_options_for_preloading( $theme_builder_id );
+	$template_settings = et_theme_builder_execute_with_assignment_settings_locale(
+		static function () use ( $theme_builder_id ) {
+			return array(
+				'default'   => et_theme_builder_get_template_settings_options(),
+				'preloaded' => et_theme_builder_get_template_settings_options_for_preloading( $theme_builder_id ),
+			);
+		}
+	);
+
+	$default_settings = $template_settings['default'];
+
+	// Strip 'validate' key from settings as it is used server-side only.
+	foreach ( $default_settings as $group_key => $group ) {
+		foreach ( $group['settings'] as $setting_key => $setting ) {
+			unset( $default_settings[ $group_key ]['settings'][ $setting_key ]['validate'] );
+		}
+	}
+
+	$preloaded_settings = $template_settings['preloaded'];
 	foreach ( $preloaded_settings as $setting_key => $setting ) {
 		unset( $preloaded_settings[ $setting_key ]['validate'] );
 	}
@@ -177,6 +155,7 @@ function et_theme_builder_enqueue_scripts() {
 			'config' => array(
 				'distPath'              => ET_BUILDER_URI . '/frontend-builder/build/',
 				'api'                   => admin_url( 'admin-ajax.php' ),
+				'restUrl'               => get_rest_url(),
 				'apiErrors'             => ET_Theme_Builder_Api_Errors::getMap(),
 				'themeBuilderURL'       => admin_url( 'admin.php?page=et_theme_builder' ),
 				'diviLibraryCustomTabs' => apply_filters( 'et_builder_library_modal_custom_tabs', array(), 'theme-builder' ),
@@ -213,6 +192,9 @@ function et_theme_builder_enqueue_scripts() {
 					'saveDomainToken'                                 => wp_create_nonce( 'et_builder_ajax_save_domain_token' ),
 					'et_theme_builder_library_clear_temp_data'        => wp_create_nonce( 'et_theme_builder_library_clear_temp_data' ),
 					'et_theme_builder_library_get_cloud_token'        => wp_create_nonce( 'et_theme_builder_library_get_cloud_token' ),
+					'et_theme_builder_create_preview_page'            => wp_create_nonce( 'et_theme_builder_create_preview_page' ),
+					'et_theme_builder_template_preview'               => wp_create_nonce( 'et_theme_builder_template_preview' ),
+					'et_theme_builder_delete_preview_page'            => wp_create_nonce( 'wp_rest' ),
 				),
 				// phpcs:enable
 				'site_url'              => get_site_url(),
@@ -260,6 +242,36 @@ function et_theme_builder_enqueue_scripts() {
 	}
 }
 add_action( 'admin_enqueue_scripts', 'et_theme_builder_enqueue_scripts' );
+
+/**
+ * Set dark mode attribute on HTML element for Theme Builder admin page.
+ *
+ * @since 4.0
+ *
+ * @return void
+ */
+function et_theme_builder_set_app_color_mode() {
+	if ( ! et_builder_is_tb_admin_screen() ) {
+		return;
+	}
+
+	// Load Divi 5 appColorMode preference directly from database option.
+	// Divi 5 saves this as 'et_fb_pref_app_color_mode' using the mapping key 'app_color_mode'.
+	$color_mode = et_get_option( 'et_fb_pref_app_color_mode', 'light', '', true );
+
+	// Ensure valid color mode value (only 'light' or 'dark' are valid).
+	if ( 'dark' !== $color_mode ) {
+		$color_mode = 'light';
+	}
+
+	// Set data-app-color-mode attribute on HTML element before React app loads.
+	?>
+	<script>
+		document.documentElement.setAttribute( 'data-app-color-mode', <?php echo wp_json_encode( $color_mode ); ?> );
+	</script>
+	<?php
+}
+add_action( 'admin_head', 'et_theme_builder_set_app_color_mode' );
 
 /**
  * Render the Theme Builder admin page.

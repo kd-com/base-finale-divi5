@@ -485,8 +485,8 @@ abstract class ET_Builder_Module_Type_PostContent extends ET_Builder_Module {
 		}
 
 		// Added data attribute which tells VB to remove oder classname after DOMs have been moved
-		// and builder is loaded to prevent builder UI style from being overwritten
-		if ( et_fb_enabled() ) {
+		// and builder is loaded to prevent builder UI style from being overwritten.
+		if ( et_core_is_fb_enabled() ) {
 			$data_remove_top_window_classname = sprintf(
 				' data-remove-top-window-classname="%1$s""',
 				esc_attr( ET_Builder_Element::get_module_order_class( $render_slug ) )

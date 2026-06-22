@@ -478,7 +478,8 @@ class ET_Builder_Module_Blurb extends ET_Builder_Module {
 		$image_pathinfo                = pathinfo( $image );
 		$is_image_svg                  = isset( $image_pathinfo['extension'] ) ? 'svg' === $image_pathinfo['extension'] : false;
 
-		$icon_selector = '%%order_class%% .et-pb-icon';
+		$icon_selector  = '%%order_class%% .et-pb-icon';
+		$image_selector = '%%order_class%% .et_pb_main_blurb_image img';
 
 		// Icon/image alignment is only rendered if icon/image placement is set to `top`. Note: due
 		// to responsive option, icon placement can be set to `left` on desktop but `top` on tablet;
@@ -821,13 +822,15 @@ class ET_Builder_Module_Blurb extends ET_Builder_Module {
 		if ( 'off' === $use_icon ) {
 			$image = $multi_view->render_element(
 				array(
-					'tag'      => 'img',
-					'attrs'    => array(
+					'tag'            => 'img',
+					'attrs'          => array(
 						'src'   => '{{image}}',
 						'class' => implode( ' ', $image_classes ),
 						'alt'   => $alt,
 					),
-					'required' => 'image',
+					'selector'       => $image_selector,
+					'hover_selector' => '%%order_class%%',
+					'required'       => 'image',
 				)
 			);
 		} elseif ( 'on' === $use_icon ) {
@@ -835,6 +838,7 @@ class ET_Builder_Module_Blurb extends ET_Builder_Module {
 				array(
 					'base_attr_name' => 'icon_color',
 					'selector'       => $icon_selector,
+					'hover_selector' => '%%order_class%%',
 					'css_property'   => 'color',
 					'render_slug'    => $render_slug,
 					'type'           => 'color',
@@ -917,6 +921,8 @@ class ET_Builder_Module_Blurb extends ET_Builder_Module {
 				sprintf( ' et_pb_blurb_position_%1$s', esc_attr( $icon_placement ) ),
 			)
 		);
+
+		$this->add_classname( 'et_block_module' );
 
 		// Background layout class names.
 		$background_layout_class_names = et_pb_background_layout_options()->get_background_layout_class( $this->props );

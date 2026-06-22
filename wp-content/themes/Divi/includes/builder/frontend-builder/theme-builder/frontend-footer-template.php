@@ -2,11 +2,14 @@
 $layouts = et_theme_builder_get_template_layouts();
 ?>
 	<?php
-	et_theme_builder_frontend_render_footer(
-		$layouts[ ET_THEME_BUILDER_FOOTER_LAYOUT_POST_TYPE ]['id'],
-		$layouts[ ET_THEME_BUILDER_FOOTER_LAYOUT_POST_TYPE ]['enabled'],
-		$layouts[ ET_THEME_BUILDER_TEMPLATE_POST_TYPE ]
-	);
+	if ( ! is_et_theme_builder_live_preview() ) {
+		// Render TB footer layout when we're not previewing live demo of a theme builder template.
+		et_theme_builder_frontend_render_footer(
+			$layouts[ ET_THEME_BUILDER_FOOTER_LAYOUT_POST_TYPE ]['id'],
+			$layouts[ ET_THEME_BUILDER_FOOTER_LAYOUT_POST_TYPE ]['enabled'],
+			$layouts[ ET_THEME_BUILDER_TEMPLATE_POST_TYPE ]
+		);
+	}
 	?>
 
 	<?php if ( et_core_is_fb_enabled() && et_theme_builder_is_layout_post_type( get_post_type() ) ) : ?>

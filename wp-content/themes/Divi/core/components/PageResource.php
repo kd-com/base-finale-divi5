@@ -36,6 +36,13 @@ class ET_Core_PageResource {
 	protected static $_lock_file;
 
 	/**
+	 * Track if global timestamp has been updated in this request.
+	 *
+	 * @var bool
+	 */
+	protected static $_global_timestamp_updated = false;
+
+	/**
 	 * Onload attribute for stylesheet output.
 	 *
 	 * @var string[]
@@ -88,6 +95,165 @@ class ET_Core_PageResource {
 	 * @var array
 	 */
 	protected static $_temp_dirs = array();
+
+	/**
+	 * Directories where files were created during this request.
+	 * Used to track which directories need stale file cleanup.
+	 *
+	 * @var array
+	 */
+	public static $_directories_with_new_files = array();
+
+	/**
+	 * Cached taxonomy folder name for the current request.
+	 * Used to ensure taxonomy pages always use the taxonomy folder,
+	 * even when is_tax() becomes unreliable later in the request.
+	 *
+	 * @var string|null
+	 */
+	protected static $_cached_taxonomy_folder = null;
+
+	/**
+	 * Cache for resolved folder names to avoid repeated lookups.
+	 * Stores folder names keyed by post_id for performance optimization.
+	 *
+	 * @var array
+	 */
+	protected static $_cache_folder_cache = array();
+
+	/**
+	 * Check if we're using a taxonomy folder for the current request.
+	 *
+	 * @return bool
+	 */
+	public static function is_using_taxonomy_folder() {
+		if ( null !== self::$_cached_taxonomy_folder ) {
+			return true;
+		}
+		if ( is_tax() || is_category() || is_tag() ) {
+			$queried = get_queried_object();
+			if ( $queried && isset( $queried->taxonomy, $queried->term_id ) ) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * Get cache folder name for a given post_id or object_id.
+	 * Consolidates logic used by both PageResource and DynamicAssets.
+	 *
+	 * @param int|string $post_id_or_object_id The post ID or object ID.
+	 * @return string Cache folder name (e.g., 'taxonomy/product_brand/417', 'search', 'author/1', etc.).
+	 */
+	public static function get_cache_folder_name( $post_id_or_object_id ) {
+		// Check cache first for positive numeric IDs to avoid repeated expensive lookups.
+		if ( is_numeric( $post_id_or_object_id ) && $post_id_or_object_id > 0 ) {
+			if ( isset( self::$_cache_folder_cache[ $post_id_or_object_id ] ) ) {
+				return self::$_cache_folder_cache[ $post_id_or_object_id ];
+			}
+		}
+
+		$folder_name = $post_id_or_object_id;
+
+		// Check cached taxonomy folder first (set early in request when is_tax() was reliable).
+		if ( null !== self::$_cached_taxonomy_folder ) {
+			return self::$_cached_taxonomy_folder;
+		}
+
+		// Check taxonomy pages.
+		if ( is_tax() || is_category() || is_tag() ) {
+			$queried = get_queried_object();
+			if ( $queried && isset( $queried->taxonomy, $queried->term_id ) ) {
+				$taxonomy    = sanitize_key( $queried->taxonomy );
+				$term_id     = intval( $queried->term_id );
+				$folder_name = "taxonomy/{$taxonomy}/{$term_id}";
+				// Cache the taxonomy folder for later use when is_tax() becomes unreliable.
+				self::$_cached_taxonomy_folder = $folder_name;
+				return $folder_name;
+			}
+		}
+
+		// Check author pages (must come before empty check to handle positive author IDs).
+		if ( is_author() ) {
+			$author_id   = get_queried_object_id();
+			$folder_name = "author/{$author_id}";
+			// Cache the result for positive numeric IDs.
+			if ( is_numeric( $post_id_or_object_id ) && $post_id_or_object_id > 0 ) {
+				self::$_cache_folder_cache[ $post_id_or_object_id ] = $folder_name;
+			}
+			return $folder_name;
+		}
+
+		// Check other archive page types (for post_id = 0, -1, null, or empty).
+		// This handles cases where post_id is not set for archive pages like search, etc.
+		if ( empty( $post_id_or_object_id ) || '0' === (string) $post_id_or_object_id || 0 === $post_id_or_object_id || -1 === $post_id_or_object_id ) {
+			if ( is_search() ) {
+				return 'search';
+			} elseif ( is_archive() ) {
+				return 'archive';
+			} elseif ( is_home() ) {
+				return 'home';
+			} elseif ( is_404() ) {
+				return 'notfound';
+			}
+		}
+
+		// Cache the result for positive numeric IDs.
+		if ( is_numeric( $post_id_or_object_id ) && $post_id_or_object_id > 0 ) {
+			self::$_cache_folder_cache[ $post_id_or_object_id ] = $folder_name;
+		}
+
+		return $folder_name;
+	}
+
+	/**
+	 * Check if a folder name indicates an archive/taxonomy folder.
+	 *
+	 * @param string $folder_name The folder name to check.
+	 * @return bool True if the folder name indicates an archive folder.
+	 */
+	public static function is_archive_folder( $folder_name ) {
+		return (
+			strpos( $folder_name, 'taxonomy/' ) === 0 ||
+			'search' === $folder_name ||
+			strpos( $folder_name, 'author/' ) === 0 ||
+			'archive' === $folder_name ||
+			'home' === $folder_name ||
+			'notfound' === $folder_name
+		);
+	}
+
+	/**
+	 * Determine if post_id should be excluded from filename.
+	 * Consolidates logic used by both PageResource and DynamicAssets.
+	 *
+	 * @param int|string $post_id The post ID.
+	 * @param string     $slug The resource slug (may contain TB IDs).
+	 * @param string     $folder_name Optional. The cache folder name. If not provided, will be determined.
+	 * @return bool True if post_id should be excluded from filename.
+	 */
+	public static function should_exclude_post_id_from_filename( $post_id, $slug, $folder_name = null ) {
+		// Exclude if post_id is 0, 'global', or 'all' (not meaningful identifiers).
+		if ( '0' === (string) $post_id || 0 === $post_id || 'global' === $post_id || 'all' === $post_id ) {
+			return true;
+		}
+
+		// Exclude if using archive/taxonomy folders (folder structure handles page context).
+		if ( null === $folder_name ) {
+			$folder_name = self::get_cache_folder_name( $post_id );
+		}
+		if ( self::is_archive_folder( $folder_name ) ) {
+			return true;
+		}
+
+		// For singular pages, always include post_id in filename for precise cache clearing.
+		// Even if TB layout IDs are in the slug, the post_id is needed to clear the correct file
+		// when the post is saved (cache clearing uses pattern: {post_id}/et-{owner}-{slug}*).
+		// Note: TB IDs in slug are still included for identification, but post_id is also included.
+
+		return false;
+	}
 
 	/**
 	 * Resource types.
@@ -307,15 +473,22 @@ class ET_Core_PageResource {
 	 * @param string     $location Where the resource should be output (head|footer). Default: `head`.
 	 */
 	public function __construct( $owner, $slug, $post_id = null, $priority = 10, $location = 'head-late', $type = 'style' ) {
-		$this->owner    = self::_validate_property( 'owner', $owner );
-		$this->post_id  = self::_validate_property( 'post_id', $post_id ? $post_id : et_core_page_resource_get_the_ID() );
+		$this->owner   = self::_validate_property( 'owner', $owner );
+		// Use null check instead of truthy check to preserve 0 as a valid post_id value.
+		$raw_post_id = null !== $post_id ? $post_id : et_core_page_resource_get_the_ID();
+		$this->post_id = self::_validate_property( 'post_id', $raw_post_id );
 
 		$this->type     = self::_validate_property( 'type', $type );
 		$this->location = self::_validate_property( 'location', $location );
 
 		$this->write_file_location = $this->location;
 
-		$this->filename = sanitize_file_name( "et-{$this->owner}-{$slug}-{$post_id}" );
+		// Generate filename. Use consolidated method to determine if post_id should be excluded.
+		$filename_post_id = '';
+		if ( ! self::should_exclude_post_id_from_filename( $this->post_id, $slug ) ) {
+			$filename_post_id = '-' . $this->post_id;
+		}
+		$this->filename = sanitize_file_name( "et-{$this->owner}-{$slug}{$filename_post_id}" );
 		$this->slug     = "{$this->filename}-cached-inline-{$this->type}s";
 
 		$this->data     = array();
@@ -343,6 +516,7 @@ class ET_Core_PageResource {
 		self::$_request_id   = "{$time}-{$rand}";
 		self::$_resources    = array();
 		self::$data_utils    = new ET_Core_Data_Utils();
+		self::$_directories_with_new_files = array();
 
 		foreach ( self::$_output_locations as $location ) {
 			self::$_resources_by_location[ $location ] = array();
@@ -363,6 +537,63 @@ class ET_Core_PageResource {
 	}
 
 	/**
+	 * Clean up stale CSS files in directories where new files were created.
+	 *
+	 * After regenerating CSS files for a page, old stale CSS files that weren't
+	 * regenerated should be removed. This prevents accumulation of unused stale files.
+	 *
+	 * @return void
+	 */
+	protected static function _cleanup_stale_files_in_directories() {
+		if ( empty( self::$_directories_with_new_files ) || ! self::can_write_to_filesystem() ) {
+			return;
+		}
+
+		$cache_dir = self::get_cache_directory();
+
+		foreach ( array_keys( self::$_directories_with_new_files ) as $directory ) {
+			// Security check: Only clean up files within the cache directory.
+			if ( ! et_()->starts_with( $directory, $cache_dir ) ) {
+				continue;
+			}
+
+			if ( ! is_dir( $directory ) ) {
+				continue;
+			}
+
+			// Find all CSS files in this directory with Divi naming convention.
+			// Only match files starting with 'et-' prefix for additional security.
+			// Include both .css and .min.css files (DynamicAssets uses .css, PageResource uses .min.css).
+			// Note: The .css pattern will also match .min.css files, so we deduplicate.
+			$css_files     = glob( $directory . '/et-*.min.css' );
+			$css_files_alt = glob( $directory . '/et-*.css' );
+			$files         = array_unique( array_merge( (array) $css_files, (array) $css_files_alt ) );
+
+			if ( empty( $files ) ) {
+				continue;
+			}
+
+			foreach ( $files as $file ) {
+				// Only delete files that are marked as stale.
+				if ( ! self::is_file_stale( $file ) ) {
+					continue;
+				}
+
+				// Delete the stale file.
+				if ( is_file( $file ) && self::_is_valid_divi_css_file( $file ) ) {
+					self::$wpfs->delete( $file );
+				}
+
+				// Delete the companion .stale marker if it exists.
+				$stale_marker = $file . '.stale';
+				if ( file_exists( $stale_marker ) ) {
+					self::$wpfs->delete( $stale_marker );
+				}
+			}
+		}
+	}
+
+	/**
 	 * Cleanup and save
 	 */
 	public static function shutdown() {
@@ -376,6 +607,9 @@ class ET_Core_PageResource {
 				@self::$wpfs->delete( $temp_directory, true );
 			}
 		}
+
+		// Clean up stale CSS files in directories where new files were created.
+		self::_cleanup_stale_files_in_directories();
 
 		// Reset $_resources property; Mostly useful for unit test big request which needs to make
 		// each test*() method act like it is different page request
@@ -501,6 +735,12 @@ class ET_Core_PageResource {
 
 		foreach ( $sorted_resources as $priority => $resources ) {
 			foreach ( $resources as $slug => $resource ) {
+				// Mirror StaticCSS paginated-loop inline behavior to avoid cache poisoning
+				// where paginated-specific CSS overwrites base page CSS files.
+				if ( 'style' === $resource->type && self::should_force_inline_for_paginated_request() ) {
+					$resource->forced_inline = true;
+				}
+
 				if ( $resource->write_file_location !== $location ) {
 					// This resource's static file needs to be generated later on.
 					self::_assign_output_location( $resource->write_file_location, $resource );
@@ -537,52 +777,62 @@ class ET_Core_PageResource {
 
 				// Make sure directory exists.
 				if ( ! self::$data_utils->ensure_directory_exists( $resource->base_dir ) ) {
-					self::$_can_write = false;
-					return;
+					// Directory creation failed. Mark resource for inline output as fallback.
+					$resource->forced_inline = true;
+					self::$_can_write        = false;
+					// Continue processing other resources, but mark this one for inline output.
+					continue;
 				}
 
-				$can_continue = true;
-
-				// Try to create a temporary directory which we'll use as a pseudo file lock
-				if ( @mkdir( $resource->temp_dir, 0755 ) ) { //phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged -- Just ignore this since it's an internal use.
+				// Try to create a temporary directory which we'll use as a pseudo file lock.
+				if ( self::$wpfs->mkdir( $resource->temp_dir, 0755 ) ) {
 					self::$_temp_dirs[] = $resource->temp_dir;
 
-					// Make sure another request doesn't delete our temp directory.
-					$lock_file = $resource->temp_dir . '/' . self::$_lock_file;
-					self::$wpfs->put_contents( $lock_file, '' );
+				// Make sure another request doesn't delete our temp directory.
+				$lock_file = $resource->temp_dir . '/' . self::$_lock_file;
+				self::$wpfs->put_contents( $lock_file, '' );
 
-					// Create the static resource file
-					if ( ! self::$wpfs->put_contents( $resource->path, $data, 0644 ) ) {
-						// There's no point in continuing
-						self::$_can_write = $can_continue = false;
-					} else {
-						// Remove the temporary directory
-						self::$wpfs->delete( $resource->temp_dir, true );
-
-						/**
-						 * Fires when the static resource file is created.
-						 *
-						 * @since 4.10.8
-						 *
-						 * @param object $resource The resource object.
-						 */
-						do_action( 'et_core_static_file_created', $resource );
-					}
-				} elseif ( file_exists( $resource->temp_dir ) ) {
-					// The static resource file is currently being created by another request
+				// Create the static resource file.
+				if ( ! self::$wpfs->put_contents( $resource->path, $data, 0644 ) ) {
+					// File write failed. Mark resource for inline output as fallback.
+					$resource->forced_inline = true;
+					self::$_can_write        = false;
+					// Continue processing other resources, but mark this one for inline output.
 					continue;
 				} else {
-					// Failed for some other reason. There's no point in continuing
-					self::$_can_write = $can_continue = false;
-					return;
-				}
+					// Remove the temporary directory.
+					self::$wpfs->delete( $resource->temp_dir, true );
 
-				if ( ! $can_continue ) {
-					return;
-				}
+					// Remove stale marker if it exists.
+					self::remove_stale_marker( $resource->path );
 
-				if ( ! defined( 'DONOTCACHEPAGE' ) ) {
-					define( 'DONOTCACHEPAGE', true );
+					// Track this directory for stale file cleanup.
+					if ( ! empty( $resource->base_dir ) ) {
+						self::$_directories_with_new_files[ $resource->base_dir ] = true;
+					}
+
+					/**
+					 * Fires when the static resource file is created.
+					 *
+					 * @since 4.10.8
+					 *
+					 * @param object $resource The resource object.
+					 */
+					do_action( 'et_core_static_file_created', $resource );
+
+					if ( ! defined( 'DONOTCACHEPAGE' ) ) {
+						define( 'DONOTCACHEPAGE', true );
+					}
+				}
+				} elseif ( null !== $resource->temp_dir && self::$wpfs->exists( $resource->temp_dir ) ) {
+					// The static resource file is currently being created by another request.
+					continue;
+				} else {
+					// Failed for some other reason. Mark resource for inline output as fallback.
+					$resource->forced_inline = true;
+					self::$_can_write        = false;
+					// Continue processing other resources, but mark this one for inline output.
+					continue;
 				}
 			}
 		}
@@ -598,6 +848,10 @@ class ET_Core_PageResource {
 
 		foreach ( $sorted_resources as $priority => $resources ) {
 			foreach ( $resources as $slug => $resource ) {
+				if ( 'style' === $resource->type && self::should_force_inline_for_paginated_request() ) {
+					continue;
+				}
+
 				if ( $resource->disabled ) {
 					// Resource is disabled. Remove it from the queue.
 					self::_unassign_output_location( $location, $resource );
@@ -745,6 +999,36 @@ class ET_Core_PageResource {
 	}
 
 	/**
+	 * Determine if static CSS should be forced inline for cache-unsafe requests.
+	 *
+	 * @return bool
+	 */
+	public static function should_force_inline_for_paginated_request() {
+		// PageResource does not know loop settings, so this guard applies to:
+		// 1. actual loop pagination requests (loop-* page > 1), and
+		// 2. WordPress auto-update scrape requests.
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only request inspection for cache-safety behavior.
+		if ( ! isset( $_GET ) || ! is_array( $_GET ) ) {
+			return false;
+		}
+
+		// WordPress auto-update fatal-error scrape requests should never rewrite cache files.
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only request inspection for cache-safety behavior.
+		if ( isset( $_GET['wp_scrape_key'], $_GET['wp_scrape_nonce'] ) ) {
+			return true;
+		}
+
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only request inspection for cache-safety behavior.
+		foreach ( $_GET as $param => $value ) {
+			if ( is_string( $param ) && 0 === strpos( $param, 'loop-' ) && is_numeric( $value ) && (int) $value > 1 ) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	/**
 	 * Whether or not we are able to write to the filesystem.
 	 *
 	 * @return bool
@@ -871,12 +1155,19 @@ class ET_Core_PageResource {
 	 * @param bool    $update
 	 */
 	public static function save_post_cb( $post_id, $post, $update ) {
+		// Skip if we already cleared all cache in this request.
+		// This prevents creating individual .stale files when a "clear all" operation
+		// triggers a save_post hook (e.g., when clearing cache from Theme Options).
+		if ( self::$_global_timestamp_updated ) {
+			return;
+		}
+
 		// In Dynamic CSS, we parse the layout content for generating styles and store it under the `object_id`, so clearing
 		// only the layout assets won't update the page style if we made any changes to the layout/global modules etc.
 		// Hence, we need to clear all static resources when we update a layout.
 		// Also, we should only clear the cache if the layout being saved is a global module/row/section.
 		if ( 'et_pb_layout' === $post->post_type ) {
-			$taxonomies     = get_taxonomies( [ 'object_type' => [ 'et_pb_layout' ] ] );
+			$taxonomies     = get_taxonomies( array( 'object_type' => array( 'et_pb_layout' ) ) );
 			$tax_to_clear   = array( 'scope', 'layout_type' );
 			$types_to_clear = array( 'module', 'row', 'section' );
 
@@ -898,6 +1189,21 @@ class ET_Core_PageResource {
 				}
 			}
 		}
+		/**
+		 * Filters the post ID used for cache clearing when a post is saved.
+		 *
+		 * Allows developers to override the cache clearing behavior for any post type.
+		 * This is particularly useful for library layouts that may be rendered programmatically
+		 * on other pages, where clearing all caches ensures fresh CSS is served.
+		 *
+		 * @since 4.21.1
+		 *
+		 * @param string|int $post_id The post ID to use for cache clearing. Use 'all' to clear all caches.
+		 * @param WP_Post    $post    The post object being saved.
+		 * @param bool       $update  Whether this is an existing post being updated.
+		 */
+		$post_id = apply_filters( 'et_core_page_resource_post_id_before_clear', $post_id, $post, $update );
+
 		self::remove_static_resources( $post_id, 'all' );
 	}
 
@@ -908,8 +1214,11 @@ class ET_Core_PageResource {
 	 * @param string $owner owner of file.
 	 * @param bool   $force remove all resources.
 	 * @param string $slug file slug.
+	 * @param bool   $preserve_vb_files Whether to preserve files containing "-vb-" string. Default false.
+	 * @param bool   $delete_files Whether to delete files immediately instead of marking as stale. Default false.
 	 */
-	public static function remove_static_resources( $post_id, $owner = 'core', $force = false, $slug = 'all' ) {
+	public static function remove_static_resources( $post_id, $owner = 'core', $force = false, $slug = 'all', $preserve_vb_files = false, $delete_files = false ) {
+
 		if ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) {
 			return;
 		}
@@ -926,7 +1235,45 @@ class ET_Core_PageResource {
 			self::startup();
 		}
 
-		self::do_remove_static_resources( $post_id, $owner, $force, $slug );
+		self::do_remove_static_resources( $post_id, $owner, $force, $slug, $preserve_vb_files, $delete_files );
+	}
+
+	/**
+	 * Stale-mark Divi static CSS for all taxonomy archive pages.
+	 *
+	 * Archive CSS lives under `taxonomy/{taxonomy}/{term_id}/`, not under a post ID folder.
+	 * Does not call et_core_clear_wp_cache() — third-party HTML cache for archives is handled
+	 * by those plugins' own WordPress hooks; this only invalidates Divi CSS files.
+	 *
+	 * @since 5.8.0
+	 *
+	 * @return void
+	 */
+	public static function remove_all_taxonomy_archive_resources(): void {
+		if ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) {
+			return;
+		}
+
+		if ( ! wp_doing_cron() && ! et_core_security_check_passed( 'edit_posts' ) ) {
+			return;
+		}
+
+		if ( ! self::can_write_to_filesystem() ) {
+			return;
+		}
+
+		if ( ! self::$data_utils ) {
+			self::startup();
+		}
+
+		$cache_dir = self::get_cache_directory();
+
+		$files = array_filter(
+			(array) glob( "{$cache_dir}/taxonomy/*/*/et-*" ),
+			fn( $f ) => ! str_ends_with( $f, '.stale' ) && is_file( $f )
+		);
+
+		self::_mark_files_stale( array_values( $files ) );
 	}
 
 	/**
@@ -936,8 +1283,10 @@ class ET_Core_PageResource {
 	 * @param string $owner owner of file.
 	 * @param bool   $force remove all resources.
 	 * @param string $slug file slug.
+	 * @param bool   $preserve_vb_files Whether to preserve files containing "-vb-" string. Default false.
+	 * @param bool   $delete_files Whether to delete files immediately instead of marking as stale. Default false.
 	 */
-	public static function do_remove_static_resources( $post_id, $owner = 'core', $force = false, $slug = 'all' ) {
+	public static function do_remove_static_resources( $post_id, $owner = 'core', $force = false, $slug = 'all', $preserve_vb_files = false, $delete_files = false ) {
 		$post_id = self::_validate_property( 'post_id', $post_id );
 		$owner   = self::_validate_property( 'owner', $owner );
 		$slug    = sanitize_key( $slug );
@@ -946,39 +1295,79 @@ class ET_Core_PageResource {
 			return;
 		}
 
-		$_post_id = 'all' === $post_id ? '*' : $post_id;
-		$_owner   = 'all' === $owner ? '*' : $owner;
-		$_slug    = 'all' === $slug ? '*' : $slug;
-
 		$cache_dir = self::get_cache_directory();
 
-		$files = array_merge(
-			// Remove any CSS files missing a parent folder.
-			(array) glob( "{$cache_dir}/et-{$_owner}-*" ),
-			// Remove CSS files for individual posts or all posts if $post_id set to 'all'.
-			(array) glob( "{$cache_dir}/{$_post_id}/et-{$_owner}-{$_slug}*" ),
-			// Remove CSS files that contain theme builder template CSS.
-			// Multiple directories need to be searched through since * doesn't match / in the glob pattern.
-			(array) glob( "{$cache_dir}/*/et-{$_owner}-{$_slug}-*tb-{$_post_id}*" ),
-			(array) glob( "{$cache_dir}/*/*/et-{$_owner}-{$_slug}-*tb-{$_post_id}*" ),
-			(array) glob( "{$cache_dir}/*/*/*/et-{$_owner}-{$_slug}-*tb-{$_post_id}*" ),
-			(array) glob( "{$cache_dir}/*/et-{$_owner}-{$_slug}-*tb-for-{$_post_id}*" ),
-			(array) glob( "{$cache_dir}/*/*/et-{$_owner}-{$_slug}-*tb-for-{$_post_id}*" ),
-			(array) glob( "{$cache_dir}/*/*/*/et-{$_owner}-{$_slug}-*tb-for-{$_post_id}*" ),
-			// Remove Dynamic CSS files for categories, tags, authors, archives, homepage post feed and search results.
-			(array) glob( "{$cache_dir}/taxonomy/*/*/et-{$_owner}-dynamic*" ),
-			(array) glob( "{$cache_dir}/author/*/et-{$_owner}-dynamic*" ),
-			(array) glob( "{$cache_dir}/archive/et-{$_owner}-dynamic*" ),
-			(array) glob( "{$cache_dir}/search/et-{$_owner}-dynamic*" ),
-			(array) glob( "{$cache_dir}/notfound/et-{$_owner}-dynamic*" ),
-			(array) glob( "{$cache_dir}/home/et-{$_owner}-dynamic*" ),
-			// WP Templates and Template Parts.
-			(array) glob( "{$cache_dir}/*/et-{$_owner}-{$_slug}-*wpe-{$_post_id}*" ),
-			(array) glob( "{$cache_dir}/*/*/et-{$_owner}-{$_slug}-*wpe-{$_post_id}*" ),
-			(array) glob( "{$cache_dir}/*/*/*/et-{$_owner}-{$_slug}-*wpe-{$_post_id}*" )
-		);
+		// Decide whether to use global timestamp vs individual markers.
+		// Use global timestamp for mass operations (faster than creating individual markers).
+		$use_global_timestamp = self::_should_use_global_timestamp( $post_id, $owner, $slug );
 
-		self::_remove_files_in_directory( $files, $cache_dir );
+		if ( $use_global_timestamp ) {
+			// Just update global timestamp - instant operation.
+			self::_mark_global_cache_cleared( $cache_dir, $delete_files );
+		} else {
+			// Surgical clear: Create individual .stale markers for matched files.
+			$_post_id = 'all' === $post_id ? '*' : $post_id;
+			$_owner   = 'all' === $owner ? '*' : $owner;
+			$_slug    = 'all' === $slug ? '*' : $slug;
+
+			$files = array_merge(
+				// Remove any CSS files missing a parent folder.
+				(array) glob( "{$cache_dir}/et-{$_owner}-*" ),
+				// Remove CSS files for individual posts or all posts if $post_id set to 'all'.
+				(array) glob( "{$cache_dir}/{$_post_id}/et-{$_owner}-{$_slug}*" ),
+				// Remove CSS files that contain theme builder template CSS.
+				// Multiple directories need to be searched through since * doesn't match / in the glob pattern.
+				(array) glob( "{$cache_dir}/*/et-{$_owner}-{$_slug}-*tb-{$_post_id}*" ),
+				(array) glob( "{$cache_dir}/*/*/et-{$_owner}-{$_slug}-*tb-{$_post_id}*" ),
+				(array) glob( "{$cache_dir}/*/*/*/et-{$_owner}-{$_slug}-*tb-{$_post_id}*" ),
+				(array) glob( "{$cache_dir}/*/et-{$_owner}-{$_slug}-*tb-for-{$_post_id}*" ),
+				(array) glob( "{$cache_dir}/*/*/et-{$_owner}-{$_slug}-*tb-for-{$_post_id}*" ),
+				(array) glob( "{$cache_dir}/*/*/*/et-{$_owner}-{$_slug}-*tb-for-{$_post_id}*" ),
+				// WP Templates and Template Parts.
+				(array) glob( "{$cache_dir}/*/et-{$_owner}-{$_slug}-*wpe-{$_post_id}*" ),
+				(array) glob( "{$cache_dir}/*/*/et-{$_owner}-{$_slug}-*wpe-{$_post_id}*" ),
+				(array) glob( "{$cache_dir}/*/*/*/et-{$_owner}-{$_slug}-*wpe-{$_post_id}*" )
+			);
+
+			// Only clear archive/author/taxonomy dynamic CSS files when clearing "all" cache.
+			// These are archive-level files, not related to individual posts.
+			if ( 'all' === $post_id ) {
+				$files = array_merge(
+					$files,
+					// Remove Dynamic CSS files for categories, tags, authors, archives, homepage post feed and search results.
+					(array) glob( "{$cache_dir}/taxonomy/*/*/et-{$_owner}-dynamic*" ),
+					(array) glob( "{$cache_dir}/author/*/et-{$_owner}-dynamic*" ),
+					(array) glob( "{$cache_dir}/archive/et-{$_owner}-dynamic*" ),
+					(array) glob( "{$cache_dir}/search/et-{$_owner}-dynamic*" ),
+					(array) glob( "{$cache_dir}/notfound/et-{$_owner}-dynamic*" ),
+					(array) glob( "{$cache_dir}/home/et-{$_owner}-dynamic*" )
+				);
+			}
+
+			// Filter out .stale files to prevent creating .stale.stale markers.
+			$files = array_filter(
+				$files,
+				function( $file ) {
+					return !str_ends_with( $file, '.stale' );
+				}
+			);
+
+			// Filter out VB files if preservation is enabled.
+			if ( $preserve_vb_files ) {
+				$files = array_filter(
+					$files,
+					function( $file ) {
+						return !str_contains( basename( $file ), '-vb-' );
+					}
+				);
+			}
+
+			// Deduplicate file paths to avoid redundant stale marker checks/writes.
+			$files = array_values( array_unique( $files ) );
+
+			// Create companion .stale markers or delete files.
+			self::_mark_files_stale( $files, $delete_files );
+		}
 
 		// Remove empty directories.
 		self::$data_utils->remove_empty_directories( $cache_dir );
@@ -997,6 +1386,15 @@ class ET_Core_PageResource {
 			}
 		}
 
+		// Purge the post features cache.
+		if ( class_exists( 'ET_Builder_Post_Features' ) ) {
+			if ( ! empty( $post_id ) ) {
+				ET_Builder_Post_Features::purge_cache( $post_id );
+			} else {
+				ET_Builder_Post_Features::purge_cache();
+			}
+		}
+
 		// Purge the google fonts cache.
 		if ( empty( $post_id ) && class_exists( 'ET_Builder_Google_Fonts_Feature' ) ) {
 			ET_Builder_Google_Fonts_Feature::purge_cache();
@@ -1007,21 +1405,8 @@ class ET_Core_PageResource {
 			ET_Builder_Dynamic_Assets_Feature::purge_cache();
 		}
 
-		$post_meta_caches = array(
-			'et_enqueued_post_fonts',
-			'_et_dynamic_cached_shortcodes',
-			'_et_dynamic_cached_attributes',
-			'_et_builder_module_features_cache',
-		);
-
 		// Clear post meta caches.
-		foreach ( $post_meta_caches as $post_meta_cache ) {
-			if ( ! empty( $post_id ) ) {
-				delete_post_meta( $post_id, $post_meta_cache );
-			} else {
-				delete_post_meta_by_key( $post_meta_cache );
-			}
-		}
+		self::clear_post_meta_caches( $post_id );
 
 		// Set our DONOTCACHEPAGE file for the next request.
 		self::$data_utils->ensure_directory_exists( $cache_dir );
@@ -1042,24 +1427,265 @@ class ET_Core_PageResource {
 	}
 
 	/**
-	 * Removes a list of files from the designated directory.
+	 * Clear post meta caches for dynamic assets.
 	 *
-	 * @param array[] $files     List of patterns to match.
-	 * @param string  $cache_dir Cache directory.
+	 * Clears post meta caches like _divi_dynamic_assets_cached_feature_used for the given post ID(s).
+	 * This is used when clearing caches after saving posts or Theme Builder templates.
+	 *
+	 * @since 5.0.0
+	 *
+	 * @param string|int|array $post_ids Post ID(s) to clear caches for. Can be:
+	 *                                   - A single post ID (int)
+	 *                                   - 'all' (string) to clear all posts
+	 *                                   - An array of post IDs
+	 *                                   - Empty string to clear all posts
+	 *
+	 * @return void
 	 */
-	protected static function _remove_files_in_directory( $files, $cache_dir ) {
+	public static function clear_post_meta_caches( $post_ids ) {
+		$post_meta_caches = array(
+			'et_enqueued_post_fonts',
+			'_et_dynamic_cached_shortcodes', // Legacy D4 Dynamic Assets Cache.
+			'_et_dynamic_cached_attributes', // Legacy D4 Dynamic Assets Cache.
+			'_et_builder_module_features_cache',
+			'_divi_dynamic_assets_cached_modules',
+			'_divi_dynamic_assets_cached_feature_used',
+			'_divi_dynamic_assets_canvases_used',
+		);
+
+		// Handle 'all' or empty string.
+		if ( 'all' === $post_ids || ( empty( $post_ids ) && ! is_numeric( $post_ids ) ) ) {
+			foreach ( $post_meta_caches as $post_meta_cache ) {
+				delete_post_meta_by_key( $post_meta_cache );
+			}
+			return;
+		}
+
+		// Handle array of post IDs.
+		if ( is_array( $post_ids ) ) {
+			foreach ( $post_ids as $post_id ) {
+				if ( empty( $post_id ) || ! is_numeric( $post_id ) ) {
+					continue;
+				}
+
+				foreach ( $post_meta_caches as $post_meta_cache ) {
+					delete_post_meta( $post_id, $post_meta_cache );
+				}
+			}
+			return;
+		}
+
+		// Handle single post ID.
+		if ( ! empty( $post_ids ) && is_numeric( $post_ids ) ) {
+			foreach ( $post_meta_caches as $post_meta_cache ) {
+				delete_post_meta( $post_ids, $post_meta_cache );
+			}
+		}
+	}
+
+	/**
+	 * Decide whether to use global timestamp vs individual markers.
+	 *
+	 * Use global timestamp ONLY for true "clear all" operations.
+	 * Use individual markers for specific posts/owners to avoid marking entire site as stale.
+	 *
+	 * @param string $post_id Post ID or 'all'.
+	 * @param string $owner Owner or 'all'.
+	 * @param string $slug Slug or 'all'.
+	 *
+	 * @return bool True to use global timestamp, false to use individual markers.
+	 */
+	protected static function _should_use_global_timestamp( $post_id, $owner, $slug ) {
+		// Only use global timestamp for true "clear all" operations.
+		// This ensures we don't mark the entire site as stale when clearing individual posts.
+		if ( 'all' === $post_id && 'all' === $owner && 'all' === $slug ) {
+			return true;
+		}
+
+		// For specific posts or owners, use individual markers.
+		// This preserves the selective clearing behavior of the original system.
+		return false;
+	}
+
+	/**
+	 * Check if a file is a valid Divi CSS file that can be deleted.
+	 *
+	 * @param string $file_path Full path to the file.
+	 *
+	 * @return bool True if file is a valid Divi CSS file, false otherwise.
+	 */
+	protected static function _is_valid_divi_css_file( $file_path ) {
+		$basename = basename( $file_path );
+		return strpos( $basename, 'et-' ) === 0 && ( str_ends_with( $basename, '.css' ) || str_ends_with( $basename, '.min.css' ) );
+	}
+
+	/**
+	 * Mark global cache as cleared using a timestamp file.
+	 *
+	 * O(1) operation - just write one timestamp file regardless of cache size.
+	 *
+	 * @param string $cache_dir Cache directory path.
+	 * @param bool   $delete_files Whether to delete files immediately instead of marking as stale. Default false.
+	 */
+	protected static function _mark_global_cache_cleared( $cache_dir, $delete_files = false ) {
+		// Avoid writing the same timestamp multiple times in one request.
+		if ( self::$_global_timestamp_updated && ! $delete_files ) {
+			return;
+		}
+
+		if ( $delete_files ) {
+			// Delete all CSS files in the cache directory recursively.
+			if ( is_dir( $cache_dir ) ) {
+				$iterator = new RecursiveIteratorIterator(
+					new RecursiveDirectoryIterator( $cache_dir, RecursiveDirectoryIterator::SKIP_DOTS ),
+					RecursiveIteratorIterator::CHILD_FIRST
+				);
+
+				foreach ( $iterator as $file ) {
+					if ( ! $file->isFile() ) {
+						continue;
+					}
+
+					// Normalize path before security check.
+					$file_path = self::$data_utils->normalize_path( $file->getPathname() );
+
+					// Security check: Only delete files within the cache directory.
+					if ( ! et_()->starts_with( $file_path, $cache_dir ) ) {
+						continue;
+					}
+
+					// Only delete CSS files with Divi naming convention.
+					if ( self::_is_valid_divi_css_file( $file_path ) ) {
+						self::$wpfs->delete( $file_path );
+
+						// Delete the companion .stale marker if it exists.
+						$stale_marker = $file_path . '.stale';
+						if ( file_exists( $stale_marker ) ) {
+							self::$wpfs->delete( $stale_marker );
+						}
+					}
+				}
+			}
+		} else {
+			$timestamp_file = $cache_dir . '/.cache-cleared-at';
+			self::$wpfs->put_contents( $timestamp_file, (string) time() );
+
+			self::$_global_timestamp_updated = true;
+		}
+	}
+
+	/**
+	 * Mark specific files as stale using companion marker files.
+	 *
+	 * Creates a .stale file next to each CSS file. Only used for surgical clears.
+	 *
+	 * @param array $files Array of file paths to mark as stale.
+	 * @param bool  $delete_files Whether to delete files immediately instead of marking as stale. Default false.
+	 */
+	protected static function _mark_files_stale( $files, $delete_files = false ) {
+		$cache_dir = self::get_cache_directory();
+
 		foreach ( $files as $file ) {
+			// Normalize path before security check.
 			$file = self::$data_utils->normalize_path( $file );
 
+			// Security check: Only mark files within the cache directory as stale.
+			// This prevents accidental modification of files outside the cache directory.
 			if ( ! et_()->starts_with( $file, $cache_dir ) ) {
-				// File is not located inside cache directory so skip it.
+				continue;
+			}
+
+			$stale_marker = $file . '.stale';
+
+			// Skip per-file work when marker already exists.
+			if ( ! $delete_files && file_exists( $stale_marker ) ) {
 				continue;
 			}
 
 			if ( is_file( $file ) ) {
-				self::$wpfs->delete( $file );
+				if ( $delete_files ) {
+					// Only delete CSS files with Divi naming convention.
+					if ( self::_is_valid_divi_css_file( $file ) ) {
+						// Delete the file immediately.
+						self::$wpfs->delete( $file );
+
+						// Delete the companion .stale marker if it exists.
+						if ( file_exists( $stale_marker ) ) {
+							self::$wpfs->delete( $stale_marker );
+						}
+					}
+				} else {
+					// Create companion .stale marker next to the file.
+					self::$wpfs->put_contents( $stale_marker, '' );
+				}
 			}
 		}
+	}
+
+	/**
+	 * Check if a CSS file is marked as stale and needs regeneration.
+	 *
+	 * Uses two-layer detection:
+	 * 1. Global timestamp check (fastest, catches all mass operations).
+	 * 2. Companion .stale marker check (for surgical clears).
+	 *
+	 * @since 5.0.0
+	 *
+	 * @param string $file_path File path to check.
+	 *
+	 * @return bool True if file is marked as stale, false otherwise.
+	 */
+	public static function is_file_stale( $file_path ) {
+		if ( ! file_exists( $file_path ) ) {
+			return false;
+		}
+
+		// === LAYER 1: Global clear timestamp (check FIRST) ===
+		// This catches ALL mass operations instantly without checking individual markers.
+		// Note: We check the timestamp file on every call to handle mid-request timestamp updates.
+		$cache_dir             = self::get_cache_directory();
+		$global_timestamp_file = $cache_dir . '/.cache-cleared-at';
+
+		if ( file_exists( $global_timestamp_file ) ) {
+			$global_clear_time = (int) file_get_contents( $global_timestamp_file );
+
+			// If global clear timestamp exists and file is older, it's stale.
+			if ( $global_clear_time > 0 && filemtime( $file_path ) < $global_clear_time ) {
+				return true;
+			}
+		}
+
+		// === LAYER 2: Companion .stale marker (only for surgical clears) ===
+		// This is only checked if global timestamp didn't catch it.
+		if ( file_exists( $file_path . '.stale' ) ) {
+			return true;
+		}
+
+		return false;
+	}
+
+	/**
+	 * Remove stale marker after file regeneration.
+	 *
+	 * Called after successfully writing a new CSS file.
+	 *
+	 * @since 5.0.0
+	 *
+	 * @param string $file_path File path to remove stale marker from.
+	 *
+	 * @return void
+	 */
+	public static function remove_stale_marker( $file_path ) {
+		// Remove companion .stale marker if it exists.
+		// This handles cleanup for surgical clears.
+		$stale_marker = $file_path . '.stale';
+		if ( file_exists( $stale_marker ) ) {
+			self::$wpfs->delete( $stale_marker );
+		}
+
+		// Note: Global timestamp doesn't need cleanup.
+		// The newly written file has a newer mtime than the global clear timestamp,
+		// so it automatically passes the staleness check.
 	}
 
 	public static function wpfs() {
@@ -1084,18 +1710,27 @@ class ET_Core_PageResource {
 		$path           = self::get_cache_directory();
 		$url            = et_core_cache_dir()->url;
 
-		$file = et_()->path( $path, $this->post_id, $this->filename . $file_extension );
+		// Determine the cache directory folder name using consolidated method.
+		// This matches DynamicAssets::get_folder_name() behavior and ensures
+		// taxonomy pages have their own cache directories, not shared with layout IDs.
+		$cache_folder = self::get_cache_folder_name( $this->post_id );
 
-		if ( file_exists( $file ) ) {
-			// Static resource file exists
+		$file = et_()->path( $path, $cache_folder, $this->filename . $file_extension );
+
+		// Check if file exists and is not marked as stale.
+		$file_exists  = file_exists( $file );
+		$is_not_stale = $file_exists && ! self::is_file_stale( $file );
+
+		if ( $file_exists && $is_not_stale ) {
+			// Static resource file exists and is not stale.
 			$this->path     = self::$data_utils->normalize_path( $file );
 			$this->base_dir = dirname( $this->path );
-			$this->url      = et_()->path( $url, $this->post_id, basename( $this->path ) );
+			$this->url      = et_()->path( $url, $cache_folder, basename( $this->path ) );
 
 		} else {
-			// Static resource file doesn't exist
-			$url  .= "/{$this->post_id}/{$this->filename}{$file_extension}";
-			$path .= "/{$this->post_id}/{$this->filename}{$file_extension}";
+			// Static resource file doesn't exist or is marked as stale.
+			$url  .= "/{$cache_folder}/{$this->filename}{$file_extension}";
+			$path .= "/{$cache_folder}/{$this->filename}{$file_extension}";
 
 			$this->base_dir = self::$data_utils->normalize_path( dirname( $path ) );
 			$this->temp_dir = $this->base_dir . "/{$this->slug}~";
@@ -1151,6 +1786,8 @@ class ET_Core_PageResource {
 	/**
 	 * Whether or not a static resource exists on the filesystem for this instance.
 	 *
+	 * Checks both that the file exists and that it's not marked as stale.
+	 *
 	 * @return bool
 	 */
 	public function has_file() {
@@ -1158,7 +1795,17 @@ class ET_Core_PageResource {
 			return false;
 		}
 
-		return self::$wpfs->exists( $this->path );
+		// File must exist and not be marked as stale.
+		if ( ! self::$wpfs->exists( $this->path ) ) {
+			return false;
+		}
+
+		// Check if file is marked as stale in the single stale marker file.
+		if ( self::is_file_stale( $this->path ) ) {
+			return false;
+		}
+
+		return true;
 	}
 
 	/**

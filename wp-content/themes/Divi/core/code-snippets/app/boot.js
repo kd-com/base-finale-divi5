@@ -79,6 +79,7 @@ $(window).on('et_code_snippets_container_ready', (event, preferences, container 
         codeMirrorId={preferences.codeMirrorId}
         insertCodeCallback={preferences.insertCodeCallback}
         container={container}
+        setEditorValue={preferences.setEditorValue}
       />
     </Container>,
     domNode

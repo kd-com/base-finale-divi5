@@ -766,7 +766,7 @@ class ET_Builder_Module_Filterable_Portfolio extends ET_Builder_Module_Type_Post
 				<div class="et_pb_portfolio_filters clearfix">%2$s</div>
 
 				<div class="et_pb_portfolio_items_wrapper %6$s"%12$s>
-					<div class="et_pb_portfolio_items">%3$s</div>
+					<div class="et_pb_portfolio_items et_pb_grid_items">%3$s</div>
 				</div>
 				%7$s
 			</div>',

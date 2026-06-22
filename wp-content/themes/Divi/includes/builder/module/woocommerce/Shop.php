@@ -891,7 +891,7 @@ class ET_Builder_Module_Shop extends ET_Builder_Module_Type_PostBased {
 		}
 
 		if ( $use_current_loop ) {
-			add_filter( 'woocommerce_shortcode_products_query', array( $this, 'filter_vendors_products_query' ) );
+			add_filter( 'woocommerce_shortcode_products_query', array( $this, 'filter_taxonomy_products_query' ) );
 		}
 
 		$shop = do_shortcode( $shortcode );
@@ -913,7 +913,7 @@ class ET_Builder_Module_Shop extends ET_Builder_Module_Type_PostBased {
 		remove_filter( 'woocommerce_default_catalog_orderby', array( $this, 'set_default_orderby' ) );
 
 		if ( $use_current_loop ) {
-			remove_filter( 'woocommerce_shortcode_products_query', array( $this, 'filter_vendors_products_query' ) );
+			remove_filter( 'woocommerce_shortcode_products_query', array( $this, 'filter_taxonomy_products_query' ) );
 		}
 
 		if ( 'product_category' === $type || $use_current_loop ) {
@@ -1239,31 +1239,28 @@ class ET_Builder_Module_Shop extends ET_Builder_Module_Type_PostBased {
 	}
 
 	/**
-	 * Filter the vendors products query arguments on vendor archive page.
+	 * Filter the products query arguments based on current taxonomy.
 	 *
 	 * @param array $query_args WP_Query arguments.
 	 *
 	 * @return array
 	 */
-	public function filter_vendors_products_query( $query_args ) {
-		if ( ! class_exists( 'WC_Product_Vendors' ) ) {
+	public function filter_taxonomy_products_query( $query_args ) {
+		if ( ! is_tax() ) {
 			return $query_args;
 		}
 
-		if ( defined( 'WC_PRODUCT_VENDORS_TAXONOMY' )
-			&& is_tax( WC_PRODUCT_VENDORS_TAXONOMY ) ) {
-			$term_id = get_queried_object_id(); // Vendor id.
-			$args    = array(
-				'taxonomy' => WC_PRODUCT_VENDORS_TAXONOMY,
-				'field'    => 'id',
-				'terms'    => $term_id,
-			);
+		$term = get_queried_object();
+		$args = array(
+			'taxonomy' => $term->taxonomy,
+			'field'    => 'id',
+			'terms'    => $term->term_id,
+		);
 
-			if ( is_array( $query_args['tax_query'] ) ) {
-				$query_args['tax_query'][] = $args;
-			} else {
-				$query_args['tax_query'] = array( $args );
-			}
+		if ( is_array( $query_args['tax_query'] ) ) {
+			$query_args['tax_query'][] = $args;
+		} else {
+			$query_args['tax_query'] = array( $args );
 		}
 
 		return $query_args;

@@ -28,15 +28,16 @@
 </head>
 <?php
 	/**
-	 * body's overflow:hidden is necessary to avoid unwanted scrollbar during layout preview loading
-	 * Nothing else (inline style added by js, on-page css) is faster enough to prevent it.
+	 * Removed inline overflow:hidden from body when Visual Builder is active.
+	 * The inline style was preventing scrolling within the Layout Block builder canvas.
 	 */
+	$body_style = et_core_is_fb_enabled() ? '' : 'style="overflow: hidden;"';
 ?>
-<body <?php body_class(); ?> style="overflow: hidden;">
+<body <?php body_class(); ?> <?php echo esc_attr( $body_style ); ?>>
 <div id="page-container">
 	<?php
-	// Get TB template for current layout block preview page (basically FE of current page);
-	// Use TB if there is applicable template or default layout if it doesn't exist
+	// Get TB template for current layout block preview page (basically FE of current page).
+	// Use TB if there is applicable template or default layout if it doesn't exist.
 	$tb_template = ET_GB_Block_Layout::get_preview_tb_template();
 
 	if ( $tb_template['has_layout'] ) {

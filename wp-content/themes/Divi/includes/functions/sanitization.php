@@ -153,6 +153,12 @@ function et_sanitize_divider_position( $choosen ) {
  * @return string|bool
  */
 function et_sanitize_alpha_color( $color ) {
+	// Check for HSL (e.g., hsl(from var(--gcid-xxx) calc(h + 0) calc(s + 0) calc(l + 0) / 0.19)).
+	// https://regex101.com/r/6D4BDn/3 - Regex test.
+	if ( preg_match( '/^hsl\s*\(\s*from\s+var\s*\(\s*--gcid-[\w\d-]+\s*\)\s+[^;\n\r]+\s*\)$/i', $color ) ) {
+		return $color;
+	}
+
 	// Trim unneeded whitespace
 	$color = str_replace( ' ', '', $color );
 
@@ -184,8 +190,29 @@ function et_sanitize_alpha_color( $color ) {
 			) {
 			return "rgba({$red},{$green},{$blue},{$alpha})";
 		}
-	} elseif ( 0 === strpos( $color, 'gcid-' ) ) {
+	} elseif ( preg_match( '/^(?:var\(--gcid-[\w\d-]+(?:,\s*[^)]+)?\)|gcid-[\w\d-]+)$/', $color ) ) {
+		// above regex test: https://regex101.com/r/jIhZwg/1.
 		return $color;
+	} elseif ( preg_match( '/^\$variable\((.+)\)\$$/', $color, $matches ) ) {
+		// If this is a Divi 5 dynamic content variable, validate structure and return it.
+		// Regex test: https://regex101.com/r/M0uLa8/1
+		// Additional security: Validate JSON structure inside $variable(...)$.
+		$json_content = $matches[1]; // Extract content between $variable( and )$.
+		$decoded      = json_decode( $json_content, true );
+
+		// Ensure it's valid JSON with expected structure for color variables.
+		if ( null !== $decoded &&
+			is_array( $decoded ) &&
+			isset( $decoded['type'] ) &&
+			'color' === $decoded['type'] &&
+			isset( $decoded['value'] ) &&
+			is_array( $decoded['value'] ) &&
+			isset( $decoded['value']['name'] ) &&
+			is_string( $decoded['value']['name'] ) &&
+			preg_match( '/^gcid-[\w\d-]+$/', $decoded['value']['name'] ) // Validate gcid format.
+		) {
+			return $color;
+		}
 	}
 
 	return false;

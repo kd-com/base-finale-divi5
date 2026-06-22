@@ -1,5 +1,18 @@
 <?php
+/**
+ * Frontend Builder Helpers.
+ *
+ * @package Divi\Builder
+ * @since 5.3.3
+ */
 
+/**
+ * Get the shortcode tags.
+ *
+ * @since 5.3.3
+ *
+ * @return string The shortcode tags.
+ */
 function et_fb_shortcode_tags() {
 	global $shortcode_tags;
 
@@ -35,10 +48,25 @@ function et_fb_prepare_library_terms( $taxonomy = 'layout_category' ) {
 	return $clean_terms_array;
 }
 
+/**
+ * Get the layout type.
+ *
+ * @param int $post_id The post ID.
+ *
+ * @return string The layout type.
+ */
 function et_fb_get_layout_type( $post_id ) {
 	return et_fb_get_layout_term_slug( $post_id, 'layout_type' );
 }
 
+/**
+ * Get the layout term slug.
+ *
+ * @param int $post_id The post ID.
+ * @param string $term_name The term name.
+ *
+ * @return string The layout term slug.
+ */
 function et_fb_get_layout_term_slug( $post_id, $term_name ) {
 	$post_terms = wp_get_post_terms( $post_id, $term_name );
 
@@ -51,15 +79,37 @@ function et_fb_get_layout_term_slug( $post_id, $term_name ) {
 	return $slug;
 }
 
+/**
+ * Get the comments template.
+ *
+ * @since 5.3.3
+ *
+ * @return string The comments template.
+ */
 function et_fb_comments_template() {
 	return ET_BUILDER_DIR . 'comments_template.php';
 }
 
+/**
+ * Modify the comments request.
+ *
+ * @param object $params The parameters for the comments request.
+ *
+ * @return void
+ */
 function et_fb_modify_comments_request( $params ) {
 	// modify the request parameters the way it doesn't change the result just to make request with unique parameters
-	$params->query_vars['type__not_in'] = 'et_pb_comments_random_type_9999';
+	// Note: type__not_in PHP type is string[], not a single string.
+	$params->query_vars['type__not_in'] = [ 'et_pb_comments_random_type_9999' ];
 }
 
+/**
+ * Modify the comments submit button.
+ *
+ * @param string $submit_button The submit button HTML.
+ *
+ * @return string The modified submit button HTML.
+ */
 function et_fb_comments_submit_button( $submit_button ) {
 		return sprintf(
 			'<button name="%1$s" type="submit" id="%2$s" class="%3$s">%4$s</button>',
@@ -107,6 +157,8 @@ function et_builder_add_fake_comments() {
  *
  * @see comment_form() in /wp-includes/comment-template.php
  *
+ * @param string $field The field to append.
+ *
  * @return string
  */
 function et_builder_set_comment_fields( $field ) {
@@ -139,7 +191,13 @@ function et_builder_set_comment_fields( $field ) {
 	return $field . $author . $email . $url;
 }
 
-// comments template cannot be generated via AJAX so prepare it beforehand
+/**
+ * Get the comments markup.
+ *
+ * @since 5.3.3
+ *
+ * @return string The comments markup.
+ */
 function et_fb_get_comments_markup() {
 	global $post;
 
@@ -154,35 +212,42 @@ function et_fb_get_comments_markup() {
 	}
 
 	// Modify the comments request to make sure it's unique.
-	// Otherwise WP generates SQL error and doesn't allow multiple comments sections on single page
+	// Otherwise WP generates SQL error and doesn't allow multiple comments sections on single page.
 	add_action( 'pre_get_comments', 'et_fb_modify_comments_request', 1 );
 
-	// include custom comments_template to display the comment section with Divi style
+	// include custom comments_template to display the comment section with Divi style.
 	add_filter( 'comments_template', 'et_fb_comments_template' );
 
-	// Modify submit button to be advanced button style ready
+	// Modify submit button to be advanced button style ready.
 	add_filter( 'comment_form_submit_button', 'et_fb_comments_submit_button' );
 
 	// Custom action before calling comments_template.
 	do_action( 'et_fb_before_comments_template' );
 
 	ob_start();
-	comments_template( '', true );
+	// TODO fix(D4, Comments): Revert to comments_template after WordPress core resolves Trac #61468. [https://github.com/elegantthemes/Divi/issues/28338].
+	et_comments_template_safe( '', true );
 	$comments_content = ob_get_contents();
 	ob_end_clean();
 
 	// Custom action after calling comments_template.
 	do_action( 'et_fb_after_comments_template' );
 
-	// remove all the actions and filters to not break the default comments section from theme
+	// remove all the actions and filters to not break the default comments section from theme.
 	remove_filter( 'comments_template', 'et_fb_comments_template' );
 	remove_action( 'pre_get_comments', 'et_fb_modify_comments_request', 1 );
 
 	return $comments_content;
 }
 
-// List of shortcode wrappers that requires adjustment in VB. Plugins which uses fullscreen dimension
-// tend to apply negative positioning which looks inappropriate on VB's shortcode mechanism
+/**
+ * List of shortcode wrappers that requires adjustment in VB. Plugins which uses fullscreen dimension
+ * tend to apply negative positioning which looks inappropriate on VB's shortcode mechanism.
+ *
+ * @since 5.3.3
+ *
+ * @return array The known shortcode wrappers.
+ */
 function et_fb_known_shortcode_wrappers() {
 	return apply_filters(
 		'et_fb_known_shortcode_wrappers',
@@ -196,6 +261,13 @@ function et_fb_known_shortcode_wrappers() {
 	);
 }
 
+/**
+ * Get the autosave interval.
+ *
+ * @since 5.3.3
+ *
+ * @return int The autosave interval.
+ */
 function et_builder_autosave_interval() {
 	return apply_filters( 'et_builder_autosave_interval', et_builder_heartbeat_interval() / 2 );
 }
@@ -214,8 +286,17 @@ function et_fb_heartbeat_settings( $settings ) {
 }
 add_filter( 'heartbeat_settings', 'et_fb_heartbeat_settings', 11 );
 
-// This function is used to add dynamic helpers whose content changes frequently
-// because depending on the current post or options that can be edited by the user.
+
+/**
+ * Get the dynamic backend helpers.
+ *
+ * This function is used to add dynamic helpers whose content changes frequently
+ * because depending on the current post or options that can be edited by the user.
+ *
+ * @since 5.3.3
+ *
+ * @return array The dynamic backend helpers.
+ */
 function et_fb_get_dynamic_backend_helpers() {
 	global $post;
 
@@ -228,7 +309,7 @@ function et_fb_get_dynamic_backend_helpers() {
 	// Override $post data if current visual builder is rendering layout block; This is needed
 	// because block editor might be used in CPT that has no frontend such as reusable block's
 	// `wp_block` CPT so layout block preview needs to be rendered using latest / other post
-	// frontend. To correctly render and update the layout, adjust post ID and other data accordingly
+	// frontend. To correctly render and update the layout, adjust post ID and other data accordingly.
 	$is_layout_block_preview = ET_GB_Block_Layout::is_layout_block_preview();
 
 	if ( $is_layout_block_preview && isset( $_GET['et_post_id'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- No need to use nonce.
@@ -293,7 +374,7 @@ function et_fb_get_dynamic_backend_helpers() {
 
 	// In some cases when page created using Polylang
 	// it may have predefined content, so inital content is not empty.
-	$has_predefined_content = isset( $_GET['from_post'] ) && 'empty' !== $_GET['from_post'] ? 'yes' : 'no';
+	$has_predefined_content = isset( $_GET['from_post'] ) && 'empty' !== $_GET['from_post'] ? 'yes' : 'no'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- value is not used
 
 	// Validate the Theme Builder body layout and its post content module, if any.
 	$has_tb_layouts           = ! empty( $theme_builder_layouts );
@@ -511,10 +592,15 @@ function et_fb_get_dynamic_backend_helpers() {
  * This function is used to add static helpers whose content changes rarely.
  * eg: google fonts, module defaults and so on.
  *
+ * @deprecated This is no longer used in Divi 5.0 and will be removed in a future release.
+ *
  * @param string $post_type Post type.
  * @return array
  */
 function et_fb_get_static_backend_helpers( $post_type ) {
+	// This is legacy function and needs the shortcode framework to be loaded.
+	et_load_shortcode_framework();
+
 	$custom_user_fonts = et_builder_get_custom_fonts();
 	$use_google_fonts  = et_core_use_google_fonts();
 	$websafe_fonts     = et_builder_get_websafe_fonts();
@@ -2536,7 +2622,7 @@ function et_fb_get_static_backend_helpers( $post_type ) {
 			'Body Font'         => esc_html__( 'Body Font', 'et_builder' ),
 		),
 
-		// Drag and Droploader
+		// Drag and Droploader.
 		'droploader'                => array(
 			'title'              => esc_html__( 'Drop Files Here To Upload', 'et_builder' ),
 			'description'        => esc_html__( 'Drop %s files here to automatically generate website content', 'et_builder' ),
@@ -2612,7 +2698,7 @@ function et_fb_get_static_backend_helpers( $post_type ) {
 					'4' => $app_preferences['modal_preference']['options']['right'],
 					'5' => $app_preferences['modal_preference']['options']['bottom'],
 					// TODO, disabled until further notice (Issue #3930 & #5859)
-					// '6' => $app_preferences['modal_preference']['options']['top'],
+					// '6' => $app_preferences['modal_preference']['options']['top'],.
 				),
 				'builder_animation_toggle'    => array(
 					'on'  => et_builder_i18n( 'On' ),
@@ -2833,9 +2919,7 @@ function et_fb_get_static_backend_helpers( $post_type ) {
 				'errorMessage'            => esc_html__( 'An error occurred, please try again.', 'et_builder' ),
 			),
 		),
-		/**
-		 * @todo update vbSupport['modalSupportNotices']['off'] and vbSupport['modalSupportNotices']['partial'] once the documentation page is ready
-		 */
+		// @todo update vbSupport['modalSupportNotices']['off'] and vbSupport['modalSupportNotices']['partial'] once the documentation page is ready.
 		'vbSupport'                 => array(
 			'modalSupportNotices'  => array(
 				'off'     => sprintf(
@@ -2904,7 +2988,16 @@ function et_fb_get_static_backend_helpers( $post_type ) {
 	return $helpers;
 }
 
-// Used to update the content of the cached helper js file.
+/**
+ * Used to update the content of the cached helper js file.
+ *
+ * @deprecated This is no longer used in Divi 5.0 and will be removed in a future release.
+ *
+ * @param string $content The content of the cached helper js file.
+ * @param string $post_type The post type.
+ *
+ * @return string The content of the cached helper js file.
+ */
 function et_fb_get_asset_helpers( $content, $post_type ) {
 	$helpers = et_fb_get_static_backend_helpers( $post_type );
 	return sprintf(
@@ -2912,54 +3005,8 @@ function et_fb_get_asset_helpers( $content, $post_type ) {
 		et_fb_remove_site_url_protocol( wp_json_encode( $helpers, ET_BUILDER_JSON_ENCODE_OPTIONS ) )
 	);
 }
-add_filter( 'et_fb_get_asset_helpers', 'et_fb_get_asset_helpers', 10, 2 );
-
-function et_fb_backend_helpers() {
-	global $post;
-	$post_type = isset( $post->post_type ) ? $post->post_type : 'post';
-
-	if ( wp_script_is( 'et-dynamic-asset-helpers', 'enqueued' ) ) {
-		// New loading method
-		$custom_post_id  = isset( $_GET['custom_page_id'] ) ? $_GET['custom_page_id'] : false;
-		$current_post_id = isset( $post->ID ) ? $post->ID : false;
-		$post_id         = $custom_post_id ? $custom_post_id : $current_post_id;
-		$layout_type     = '';
-
-		if ( 'et_pb_layout' === $post_type ) {
-			$layout_type = et_fb_get_layout_type( $post_id );
-		}
-
-		// Include in the page the dynamic helpers and the shortcode_object
-		$helpers = array_merge(
-			et_fb_get_dynamic_backend_helpers(),
-			et_fb_get_builder_shortcode_object( $post_type, $post_id, $layout_type )
-		);
-
-		$helpers['cachedAssets'] = true;
-
-		/**
-		 * Filters backend data passed to the Visual Builder.
-		 *
-		 * @since 3.28
-		 *
-		 * @param array $helpers
-		 */
-		$helpers = apply_filters( 'et_fb_backend_helpers', $helpers );
-		// Pass dynamic helpers via localization.
-		wp_localize_script( 'et-dynamic-asset-helpers', 'ETBuilderBackendDynamic', $helpers );
-	} else {
-		// Old loading method
-		// Include in the page all helpers
-		$helpers = array_merge_recursive(
-			et_fb_get_static_backend_helpers( $post_type ),
-			et_fb_get_dynamic_backend_helpers()
-		);
-
-		$helpers['cachedAssets'] = false;
-		// Pass all helpers via localization.
-		wp_localize_script( 'et-frontend-builder', 'ETBuilderBackend', $helpers );
-	}
-}
+// This hook is deprecated and is no longer used in Divi 5.0 and will be removed in a future release.
+// add_filter( 'et_fb_get_asset_helpers', 'et_fb_get_asset_helpers', 10, 2 );.
 
 if ( ! function_exists( 'et_fb_fix_plugin_conflicts' ) ) :
 	/**

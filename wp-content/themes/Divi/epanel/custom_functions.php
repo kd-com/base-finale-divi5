@@ -137,54 +137,57 @@ add_filter( 'update_custom_css_data', 'et_update_custom_css_data_cb' );
 endif;
 
 if ( ! function_exists( 'et_epanel_handle_custom_css_output' ) ):
-function et_epanel_handle_custom_css_output( $css, $stylesheet ) {
-	global $wp_current_filter, $shortname;
+	function et_epanel_handle_custom_css_output( $css, $stylesheet ) {
+		global $wp_current_filter, $shortname;
 
-	/** @see ET_Core_SupportCenter::toggle_safe_mode */
-	if ( et_core_is_safe_mode_active() ) {
-		return $css;
+		/** @see ET_Core_SupportCenter::toggle_safe_mode */
+		if ( et_core_is_safe_mode_active() ) {
+			return $css;
+		}
+
+		if ( ! $css || ! in_array( 'wp_head', $wp_current_filter ) || is_admin() && ! is_customize_preview() ) {
+			return $css;
+		}
+
+		$post_id     = et_core_page_resource_get_the_ID();
+		$is_preview  = is_preview() || isset( $_GET['et_pb_preview_nonce'] ) || is_customize_preview(); // phpcs:ignore WordPress.Security.NonceVerification.NoNonceVerification
+		$is_singular = et_core_page_resource_is_singular();
+
+		// Loop Builder pagination: PageResource skips enqueuing linked styles; et_core_is_static_css_enabled()
+		// short-circuits on normal frontend so builder filters do not run;
+		// use the same URL detection as PageResource.
+		$is_loop_paginated_request = ET_Core_PageResource::should_force_inline_for_paginated_request();
+
+		$forced_inline     = $is_preview || ! et_core_is_static_css_enabled() || post_password_required() || $is_loop_paginated_request;
+		$builder_in_footer = 'on' === et_get_option( 'et_pb_css_in_footer', 'off' );
+		$unified_styles    = $is_singular && ! $forced_inline && ! $builder_in_footer && et_core_is_builder_used_on_current_request();
+		$resource_owner    = $unified_styles ? 'core' : $shortname;
+		$resource_slug     = $unified_styles ? 'unified' : 'customizer';
+
+		if ( $is_preview ) {
+			// Don't let previews cause existing saved static css files to be modified.
+			$resource_slug .= '-preview';
+		}
+
+		if ( function_exists( 'et_fb_is_enabled' ) && et_fb_is_enabled() ) {
+			$resource_slug .= '-vb';
+		}
+
+		if ( ! $unified_styles ) {
+			$post_id = 'global';
+		}
+
+		$styles_manager = et_core_page_resource_get( $resource_owner, $resource_slug, $post_id, 30 );
+
+		// Include local $forced_inline so set_data runs when static CSS is off, on loop-paginated URLs
+		// or before head-late sets $styles_manager->forced_inline on the resource.
+		if ( $forced_inline || $styles_manager->forced_inline || ! $styles_manager->has_file() ) {
+			$styles_manager->set_data( $css, 30 );
+		}
+
+		return ''; // We're handling the custom CSS output ourselves.
 	}
-
-	if ( ! $css || ! in_array( 'wp_head', $wp_current_filter ) || is_admin() && ! is_customize_preview() ) {
-		return $css;
-	}
-
-	$post_id        = et_core_page_resource_get_the_ID();
-	$is_preview     = is_preview() || isset( $_GET['et_pb_preview_nonce'] ) || is_customize_preview(); // phpcs:ignore WordPress.Security.NonceVerification.NoNonceVerification
-	$is_singular    = et_core_page_resource_is_singular();
-
-	$disabled_global = 'off' === et_get_option( 'et_pb_static_css_file', 'on' );
-	$disabled_post   = $disabled_global || ( $is_singular && 'off' === get_post_meta( $post_id, '_et_pb_static_css_file', true ) );
-
-	$forced_inline     = $is_preview || $disabled_global || $disabled_post || post_password_required();
-	$builder_in_footer = 'on' === et_get_option( 'et_pb_css_in_footer', 'off' );
-
-	$unified_styles = $is_singular && ! $forced_inline && ! $builder_in_footer && et_core_is_builder_used_on_current_request();
-	$resource_owner = $unified_styles ? 'core' : $shortname;
-	$resource_slug  = $unified_styles ? 'unified' : 'customizer';
-
-	if ( $is_preview ) {
-		// Don't let previews cause existing saved static css files to be modified.
-		$resource_slug .= '-preview';
-	}
-
-	if ( function_exists( 'et_fb_is_enabled' ) && et_fb_is_enabled() ) {
-		$resource_slug .= '-vb';
-	}
-
-	if ( ! $unified_styles ) {
-		$post_id = 'global';
-	}
-
-	$styles_manager = et_core_page_resource_get( $resource_owner, $resource_slug, $post_id, 30 );
-
-	if ( $styles_manager->forced_inline || ! $styles_manager->has_file() ) {
-		$styles_manager->set_data( $css, 30 );
-	}
-
-	return ''; // We're handling the custom CSS output ourselves.
-}
-add_filter( 'wp_get_custom_css', 'et_epanel_handle_custom_css_output', 999, 2 );
+	add_filter( 'wp_get_custom_css', 'et_epanel_handle_custom_css_output', 999, 2 );
 endif;
 
 if ( ! function_exists( 'et_get_option' ) ) {
@@ -293,6 +296,11 @@ if ( ! function_exists( 'et_update_option' ) ) {
 			if ( ! isset( $et_theme_options ) || is_customize_preview() ) {
 				$et_theme_options = get_option( $et_theme_options_name );
 			}
+
+			if ( ! is_array( $et_theme_options ) ) {
+				$et_theme_options = [];
+			}
+
 			$et_theme_options[ $option_name ] = $new_value;
 
 			update_option( $et_theme_options_name, $et_theme_options );
@@ -301,7 +309,6 @@ if ( ! function_exists( 'et_update_option' ) ) {
 			update_option( $option_name, $new_value );
 		}
 	}
-
 }
 
 if ( ! function_exists( 'et_delete_option' ) ) {
@@ -626,7 +633,8 @@ if ( ! function_exists( 'print_thumbnail' ) ) {
 			$et_size = isset( $et_theme_image_sizes ) && array_key_exists( $image_size_name, $et_theme_image_sizes ) ? $et_theme_image_sizes[$image_size_name] : array( $width, $height );
 
 			$et_attachment_image_attributes = wp_get_attachment_image_src( get_post_thumbnail_id( $et_post_id ), $et_size );
-			$thumbnail = $et_attachment_image_attributes[0];
+
+			$thumbnail = is_array( $et_attachment_image_attributes ) ? $et_attachment_image_attributes[0] : '';
 		} else {
 			$thumbnail = et_multisite_thumbnail( $thumbnail );
 
@@ -1949,31 +1957,53 @@ endif;
 
 if ( ! function_exists( 'et_uc_theme_name' ) ) :
 
-/**
- * Fixes the bug with lowercase theme name, preventing a theme to update correctly,
- * when an update is being performed via Themes page
- */
-function et_uc_theme_name( $key, $raw_key ) {
+	/**
+	 * Get the theme name based on the key and raw key.
+	 *
+	 * Fixes the bug with lowercase theme name, preventing a theme to update correctly,
+	 * when an update is being performed via Themes page.
+	 *
+	 * @param string $key     The key for the theme name.
+	 * @param string $raw_key The raw key for the theme name.
+	 *
+	 * @return string The theme name.
+	 */
+	function et_uc_theme_name( $key, $raw_key ) {
+		static $cached = null;
 
-	if ( ! ( is_admin() && isset( $_REQUEST['action'] ) && 'update-theme' === $_REQUEST['action'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.NoNonceVerification
-		return $key;
+		$cached_key = $key . $raw_key;
+
+		if ( isset( $cached[ $cached_key ] ) ) {
+			return $cached[ $cached_key ];
+		}
+
+		// phpcs:ignore WordPress.Security.NonceVerification -- This is just check, therefore nonce verification not required.
+		if ( ! ( is_admin() && isset( $_REQUEST['action'] ) && 'update-theme' === $_REQUEST['action'] ) ) {
+			$cached[ $cached_key ] = $key;
+
+			return $key;
+		}
+
+		$theme_info = wp_get_theme();
+
+		if ( is_child_theme() ) {
+			$theme_info = wp_get_theme( $theme_info->parent_theme );
+		}
+
+		$theme_name = $theme_info->display( 'Name' );
+
+		if ( $raw_key !== $theme_name ) {
+			$cached[ $cached_key ] = $key;
+
+			return $key;
+		}
+
+		$cached[ $cached_key ] = $theme_name;
+
+		return $theme_name;
 	}
 
-	$theme_info = wp_get_theme();
-
-	if ( is_child_theme() ) {
-		$theme_info = wp_get_theme( $theme_info->parent_theme );
-	}
-
-	$theme_name = $theme_info->display( 'Name' );
-
-	if ( $raw_key !== $theme_name ) {
-		return $key;
-	}
-
-	return $theme_name;
-}
-add_filter( 'sanitize_key', 'et_uc_theme_name', 10, 2 );
+	add_filter( 'sanitize_key', 'et_uc_theme_name', 10, 2 );
 
 endif;
 

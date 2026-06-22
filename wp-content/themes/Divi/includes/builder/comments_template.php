@@ -56,13 +56,13 @@ if ( empty( $comments_by_type ) ) {
 			</div>
 		<?php endif; ?>
 	<?php else : // this is displayed if there are no comments so far ?>
-	   <div id="comment-section" class="nocomments">
-		  <?php if ( 'open' === $post->comment_status ) : ?>
+		<div id="comment-section" class="nocomments">
+			<?php if ( 'open' === $post->comment_status ) : ?>
 
-		  <?php else : // comments are closed ?>
+			<?php else : // comments are closed ?>
 
-		  <?php endif; ?>
-	   </div>
+			<?php endif; ?>
+		</div>
 	<?php endif; ?>
 	<?php if ( 'open' === $post->comment_status ) : ?>
 		<?php
@@ -78,6 +78,7 @@ if ( empty( $comments_by_type ) ) {
 					'title_reply_before'  => '<' . $et_comments_form_title_level_escaped . ' id="reply-title" class="comment-reply-title">',
 					'title_reply_after'   => '</' . $et_comments_form_title_level_escaped . '>',
 					'class_submit'        => 'submit et_pb_button',
+					'submit_field'        => '<p class="form-submit et_pb_button_wrapper">%1$s %2$s</p>',
 					'comment_notes_after' => '',
 					'id_submit'           => 'et_pb_submit',
 				)

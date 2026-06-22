@@ -1,4 +1,7 @@
 <?php
+
+use ET\Builder\Packages\GlobalData\GlobalData;
+
 /**
  * Create a new layout.
  *
@@ -65,12 +68,19 @@ function et_theme_builder_api_duplicate_layout() {
 		);
 	}
 
+	// In D5, Escaping existing backslashes so they wouldn't get removed when inserting a new TB layout post.
+	// Layout's post content is being read from the DB which means it has already been sanitized.
+	// So just passing it to `et_theme_builder_insert_layout() -> wp_post_insert()` would remove existing backslashes.
+	// causing `\u003cpu\003e` to become `u003cpu003e`, which for example results to `<p>` tag not being rendered on FE.
+	// Ref: https://github.com/elegantthemes/Divi/issues/38584.
+	$content = et_builder_d5_enabled() ? str_replace( '\\', '\\\\', $layout->post_content ) : $layout->post_content;
+
 	$post_id = et_theme_builder_insert_layout(
 		array(
 			'post_type'    => '' !== $post_type ? $post_type : $layout->post_type,
 			'post_status'  => $layout->post_status,
 			'post_title'   => $layout->post_title,
-			'post_content' => $layout->post_content,
+			'post_content' => $content,
 		)
 	);
 
@@ -106,8 +116,9 @@ add_action( 'wp_ajax_et_theme_builder_api_duplicate_layout', 'et_theme_builder_a
 function et_theme_builder_api_get_layout_url() {
 	et_builder_security_check( 'theme_builder', 'edit_others_posts', 'et_theme_builder_api_get_layout_url', 'nonce' );
 
-	$layout_id = isset( $_POST['layout_id'] ) ? (int) $_POST['layout_id'] : 0; // phpcs:ignore WordPress.Security.NonceVerification.Missing -- No need to use nonce.
-	$layout    = get_post( $layout_id );
+	$layout_id      = isset( $_POST['layout_id'] ) ? (int) $_POST['layout_id'] : 0; // phpcs:ignore WordPress.Security.NonceVerification.Missing -- No need to use nonce.
+	$template_title = isset( $_POST['template_title'] ) ? sanitize_text_field( wp_unslash( $_POST['template_title'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Missing -- No need to use nonce.
+	$layout         = get_post( $layout_id );
 
 	if ( ! $layout ) {
 		wp_send_json_error(
@@ -118,9 +129,19 @@ function et_theme_builder_api_get_layout_url() {
 	}
 
 	$edit_url = add_query_arg( 'et_tb', '1', et_fb_get_builder_url( get_permalink( $layout_id ) ) );
+
+	// `app_window` query string is required for app window detection.
+	// Top and app window VB page have different elements, scripts, and styles that are registered into them.
+	// Without `app_window`, VB will assume that what is requested is top window VB page.
+	$edit_url = add_query_arg( 'app_window', '1', $edit_url );
+
 	// If Admin is SSL but FE is not, we need to fix VB url or it won't work
 	// because trying to load insecure resource.
 	$edit_url = set_url_scheme( $edit_url, is_ssl() ? 'https' : 'http' );
+
+	if ( '' !== $template_title ) {
+		$edit_url = add_query_arg( 'et_tb_template_title', $template_title, $edit_url );
+	}
 
 	wp_send_json_success(
 		array(
@@ -232,8 +253,10 @@ function et_theme_builder_api_save() {
 
 		et_theme_builder_clear_wp_cache( 'all' );
 
-		// Remove static resources on save. It's necessary because how we are generating the dynamic assets for the TB.
-		ET_Core_PageResource::remove_static_resources( 'all', 'all', false, 'dynamic' );
+		// Clear all CSS cache files when Theme Builder templates are saved.
+		// Theme builder CSS files include layout IDs in the filename (e.g., et-core-unified-tb-285804-tb-285806-279784.min),
+		// so we need to clear all CSS files to ensure files with these layout IDs are removed.
+		ET_Core_PageResource::remove_static_resources( 'all', 'all' );
 	}
 
 	// Edit Template and Edit Preset: Save the templates into local library.
@@ -278,18 +301,25 @@ function et_theme_builder_api_get_template_settings() {
 	$page     = isset( $_GET['page'] ) ? (int) $_GET['page'] : 1;
 	$page     = $page >= 1 ? $page : 1;
 	$per_page = 30;
-	$settings = et_theme_builder_get_flat_template_settings_options();
+	$results  = et_theme_builder_execute_with_assignment_settings_locale(
+		static function () use ( $parent, $search, $page, $per_page ) {
+			$settings = et_theme_builder_get_flat_template_settings_options();
 
-	if ( ! isset( $settings[ $parent ] ) || empty( $settings[ $parent ]['options'] ) ) {
+			if ( ! isset( $settings[ $parent ] ) || empty( $settings[ $parent ]['options'] ) ) {
+				return new WP_Error( 'invalid_parent_setting', __( 'Invalid parent setting specified.', 'et_builder' ) );
+			}
+
+			return et_theme_builder_get_template_setting_child_options( $settings[ $parent ], array(), $search, $page, $per_page );
+		}
+	);
+
+	if ( is_wp_error( $results ) ) {
 		wp_send_json_error(
 			array(
-				'message' => __( 'Invalid parent setting specified.', 'et_builder' ),
+				'message' => $results->get_error_message(),
 			)
 		);
 	}
-
-	$setting = $settings[ $parent ];
-	$results = et_theme_builder_get_template_setting_child_options( $setting, array(), $search, $page, $per_page );
 
 	wp_send_json_success(
 		array(
@@ -393,6 +423,28 @@ function et_theme_builder_api_export_theme_builder() {
 			);
 		}
 	}
+
+	// Add step to collect global colors, variables, and D5 presets from all layouts.
+	$layout_ids = array();
+	foreach ( $steps as $step ) {
+		if ( 'layout' === $step['type'] ) {
+			$layout_ids[] = $step['data']['post_id'];
+		}
+	}
+
+	if ( ! empty( $layout_ids ) ) {
+		$steps[] = array(
+			'type' => 'collect_global_data',
+			'data' => array(
+				'layout_ids' => $layout_ids,
+			),
+		);
+	}
+
+	// Temp, this is D4 paradigm, we need to refactor this for D5 and
+	// use GlobalPreset:get_data().
+
+	et_load_shortcode_framework();
 
 	$presets_manager = ET_Builder_Global_Presets_Settings::instance();
 	$presets         = $presets_manager->get_global_presets();
@@ -528,13 +580,21 @@ function et_theme_builder_api_import_theme_builder_save_layout( $portability, $t
 		wp_send_json_error();
 	}
 
+	// Keep full payload for fallback usage in case temp file lookup fails later.
+	$layout_fallback = $layout;
+
 	if ( ! empty( $layout['images'] ) ) {
 		// Split up images into individual temporary files
 		// to avoid hitting the memory limit.
 		foreach ( $layout['images'] as $url => $data ) {
 			$image_temp_id = $temp_id . '-image-' . md5( $url );
+			$image_payload = wp_json_encode( $data, JSON_INVALID_UTF8_SUBSTITUTE | JSON_PARTIAL_OUTPUT_ON_ERROR );
 
-			$portability->temp_file( $image_temp_id, $temp_group, false, wp_json_encode( $data ) );
+			if ( false === $image_payload ) {
+				$image_payload = '{}';
+			}
+
+			$portability->temp_file( $image_temp_id, $temp_group, false, $image_payload );
 
 			$layout['images'][ $url ] = array(
 				'id'    => $image_temp_id,
@@ -543,18 +603,34 @@ function et_theme_builder_api_import_theme_builder_save_layout( $portability, $t
 		}
 	}
 
+	$layout_step_data = array(
+		'type'        => 'layout',
+		'data'        => $layout,
+		'id'          => $layout_id,
+		'template_id' => $template_id,
+	);
+
+	$layout_payload = wp_json_encode(
+		$layout_step_data,
+		JSON_INVALID_UTF8_SUBSTITUTE | JSON_PARTIAL_OUTPUT_ON_ERROR
+	);
+
+	if ( false === $layout_payload ) {
+		$layout_payload = '{}';
+	}
+
 	$portability->temp_file(
 		$temp_id,
 		$temp_group,
 		false,
-		wp_json_encode(
-			array(
-				'type'        => 'layout',
-				'data'        => $layout,
-				'id'          => $layout_id,
-				'template_id' => $template_id,
-			)
-		)
+		$layout_payload
+	);
+
+	return array(
+		'type'        => 'layout',
+		'data'        => $layout_fallback,
+		'id'          => $layout_id,
+		'template_id' => $template_id,
 	);
 }
 
@@ -574,8 +650,12 @@ function et_theme_builder_api_import_theme_builder_load_layout( $portability, $t
 		wp_send_json_error();
 	}
 
-	$import = $portability->get_temp_file_contents( $temp_id, $temp_group );
-	$import = ! empty( $import ) ? json_decode( $import, true ) : array();
+	$import_raw = $portability->get_temp_file_contents( $temp_id, $temp_group );
+	$import     = ! empty( $import_raw ) ? json_decode( $import_raw, true ) : array();
+
+	if ( ! is_array( $import ) ) {
+		$import = array();
+	}
 	$images = et_()->array_get( $import, array( 'data', 'images' ), array() );
 
 	// Hydrate images back from their individual temporary files.
@@ -675,6 +755,7 @@ function et_theme_builder_api_import_theme_builder() {
 	$uploaded_file_name                = substr( sanitize_file_name( $_FILES['file']['name'] ), 0, -5 );
 	$cloud_item_editor                 = $_->array_get( $_POST, 'cloud_item_editor', '' );
 	$temp_import                       = '1' === $_->array_get( $_POST, 'temp_import', '0' );
+	$onboarding                        = '1' === $_->array_get( $_POST, 'onboarding', '0' );
 	$preset_prefix                     = $_->array_get( $_POST, 'preset_prefix', '' );
 	$duplicate_presets                 = filter_var( $_->array_get( $_POST, 'duplicate_presets', true ), FILTER_VALIDATE_BOOLEAN );
 
@@ -731,12 +812,14 @@ function et_theme_builder_api_import_theme_builder() {
 			if ( $create_new ) {
 				$temp_id = 'tbi-step-' . count( $steps_files );
 
-				et_theme_builder_api_import_theme_builder_save_layout( $portability, $template_id, $layout_id, $layout, $temp_id, $transient );
+				$step_fallback_data = et_theme_builder_api_import_theme_builder_save_layout( $portability, $template_id, $layout_id, $layout, $temp_id, $transient );
 
 				$steps_files[] = array(
-					'id'    => $temp_id,
-					'group' => $transient,
+					'id'            => $temp_id,
+					'group'         => $transient,
+					'fallback_data' => $step_fallback_data,
 				);
+
 			} else {
 				if ( ! isset( $layout_id_map[ $layout_id ] ) ) {
 					$layout_id_map[ $layout_id ] = array();
@@ -758,6 +841,8 @@ function et_theme_builder_api_import_theme_builder() {
 			'incoming_layout_duplicate'         => $incoming_layout_duplicate,
 			'layout_id_map'                     => $layout_id_map,
 			'presets'                           => $presets,
+			'global_colors'                     => isset( $export['global_colors'] ) ? $export['global_colors'] : array(),
+			'global_variables'                  => isset( $export['global_variables'] ) ? $export['global_variables'] : array(),
 			'import_presets'                    => $import_presets,
 			'library_template_import'           => $library_template_import,
 			'presets_rewrite_map'               => $presets_rewrite_map,
@@ -765,6 +850,7 @@ function et_theme_builder_api_import_theme_builder() {
 			'temp_import'                       => $temp_import,
 			'duplicate_presets'                 => $duplicate_presets,
 			'preset_prefix'                     => $preset_prefix,
+			'onboarding'                        => $onboarding,
 		),
 		60 * 60 * 24
 	);
@@ -815,17 +901,32 @@ function et_theme_builder_api_import_theme_builder_step() {
 	$temp_import             = $export['temp_import'];
 	$duplicate_presets       = $export['duplicate_presets'];
 	$preset_prefix           = $export['preset_prefix'];
+	$onboarding              = $export['onboarding'];
 	$templates               = array();
 	$template_settings       = array();
 	$chunks                  = 1;
 	$preset_id               = 0;
 
 	if ( ! $ready ) {
-		$import_step                        = et_theme_builder_api_import_theme_builder_load_layout( $portability, $steps[ $step ]['id'], $steps[ $step ]['group'] );
+		$fallback_step_data = et_()->array_get( $steps[ $step ], 'fallback_data', array() );
+		$import_step        = array();
+
+		// For onboarding imports, use transient payload first to avoid temp file registry race conditions.
+		if ( $onboarding && ! empty( $fallback_step_data ) && 'layout' === et_()->array_get( $fallback_step_data, 'type', '' ) ) {
+			$import_step = $fallback_step_data;
+		} else {
+			$import_step = et_theme_builder_api_import_theme_builder_load_layout( $portability, $steps[ $step ]['id'], $steps[ $step ]['group'] );
+		}
+
+		if ( ( empty( $import_step ) || 'layout' !== et_()->array_get( $import_step, 'type', '' ) ) && ! empty( $fallback_step_data ) ) {
+			$import_step = $fallback_step_data;
+		}
 		$import_step                        = array_merge( $import_step, array( 'presets' => $presets ) );
 		$import_step                        = array_merge( $import_step, array( 'presets_rewrite_map' => $presets_rewrite_map ) );
 		$import_step['import_presets']      = $import_presets;
 		$import_step['is_update_preset_id'] = ! empty( $preset_prefix );
+		$import_step['preset_prefix']       = $preset_prefix;
+		$import_step['onboarding']          = $onboarding;
 
 		if ( $temp_import ) {
 			$import_step['data']['post_status'] = 'draft';
@@ -868,6 +969,15 @@ function et_theme_builder_api_import_theme_builder_step() {
 					);
 				}
 			}
+		}
+
+		// Import global colors and variables from the export data.
+		if ( ! empty( $export['global_colors'] ) ) {
+			$portability->import_global_colors( $export['global_colors'] );
+		}
+
+		if ( ! empty( $export['global_variables'] ) ) {
+			GlobalData::import_global_variables( $export['global_variables'] );
 		}
 
 		$portability->delete_temp_files( $transient );
@@ -1514,3 +1624,67 @@ function et_theme_builder_library_get_cloud_token() {
 }
 
 add_action( 'wp_ajax_et_theme_builder_library_get_cloud_token', 'et_theme_builder_library_get_cloud_token' );
+
+/**
+ * Create preview page.
+ */
+function et_theme_builder_create_preview_page() {
+	et_builder_security_check( 'theme_builder', 'edit_others_posts', 'et_theme_builder_create_preview_page', 'nonce' );
+
+	$item_id = isset( $_POST['item_id'] ) ? intval( $_POST['item_id'] ) : 0; // phpcs:ignore WordPress.Security.NonceVerification.Missing -- Nonce verified in `et_builder_security_check`.
+
+	if ( ! $item_id ) {
+		wp_send_json_error( 'Error: ID is required.' );
+	}
+
+	$item    = new ET_Theme_Builder_Local_Library_Item( $item_id );
+	$layouts = json_decode( $item->item_post->post_content );
+
+	$layout_post_types = [
+		'header' => ET_THEME_BUILDER_HEADER_LAYOUT_POST_TYPE,
+		'body'   => ET_THEME_BUILDER_BODY_LAYOUT_POST_TYPE,
+		'footer' => ET_THEME_BUILDER_FOOTER_LAYOUT_POST_TYPE,
+	];
+
+	$pattern          = '/<!-- wp:divi\/placeholder -->(.*?)<!-- \/wp:divi\/placeholder -->/s';
+	$template_content = '';
+	foreach ( $layout_post_types as $layout_type => $layout_post_type ) {
+		if ( isset( $layouts->{$layout_type} ) && isset( $layouts->{$layout_type}->post_content ) ) {
+				$content = $layouts->{$layout_type}->post_content;
+			if ( preg_match( $pattern, $content, $matches ) ) {
+					$template_content .= $matches[1];
+			} else {
+				$template_content .= $content;
+			}
+		}
+	}
+
+	$page_data = array(
+		'post_title'   => get_the_title( $item_id ),
+		'post_content' => '<!-- wp:divi/placeholder -->' . wp_slash( $template_content ) . '<!-- /wp:divi/placeholder -->',
+		'post_status'  => 'draft',
+		'post_type'    => 'page',
+	);
+
+	$page_id = wp_insert_post( $page_data );
+
+	if ( is_wp_error( $page_id ) ) {
+		wp_send_json_error( 'Failed to create page: ' . $page_id->get_error_message() );
+		return;
+	}
+
+	update_post_meta( $page_id, '_et_pb_use_builder', 'on' );
+	update_post_meta( $page_id, '_et_pb_page_layout', 'et_full_width_page' );
+	update_post_meta( $page_id, '_et_pb_built_for_post_type', 'page' );
+
+	$preview_link = get_preview_post_link( $page_id );
+
+	wp_send_json_success(
+		[
+			'preview_link' => $preview_link,
+			'page_id'      => $page_id,
+		]
+	);
+}
+
+add_action( 'wp_ajax_et_theme_builder_create_preview_page', 'et_theme_builder_create_preview_page' );

@@ -97,5 +97,5 @@ function et_common_global_js_vars() {
 	echo '<script>var et_common_data = ' . wp_json_encode( $data ) . '</script>';
 }
 
-add_action( 'wp_head', 'et_common_global_js_vars' );
+add_action( 'wp_head', 'et_common_global_js_vars', 1 );
 add_action( 'admin_head', 'et_common_global_js_vars' );

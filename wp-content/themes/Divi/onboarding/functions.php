@@ -29,7 +29,21 @@ function et_onboarding_trigger_redirect() {
 		require_once get_template_directory() . '/onboarding/onboarding.php';
 	}
 
-	ET_Onboarding::redirect_to_onboarding_page();
+	// Default value for the `et_onboarding_trigger_redirect` filter.
+	$redirect = true;
+
+	/**
+	 * Filters whether or not to redirect to onboarding page.
+	 *
+	 * @since ??
+	 *
+	 * @param bool $redirect Whether to redirect. Default `true`.
+	 */
+	$redirect = apply_filters( 'et_onboarding_trigger_redirect', $redirect );
+
+	if ( $redirect ) {
+		ET_Onboarding::redirect_to_onboarding_page();
+	}
 }
 
 add_action(

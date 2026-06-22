@@ -15,9 +15,12 @@ $layouts = et_theme_builder_get_template_layouts();
 
 	wp_body_open();
 
-	et_theme_builder_frontend_render_header(
-		$layouts[ ET_THEME_BUILDER_HEADER_LAYOUT_POST_TYPE ]['id'],
-		$layouts[ ET_THEME_BUILDER_HEADER_LAYOUT_POST_TYPE ]['enabled'],
-		$layouts[ ET_THEME_BUILDER_TEMPLATE_POST_TYPE ]
-	);
+	if ( ! is_et_theme_builder_live_preview() ) {
+		// Render TB header layout when we're not previewing live demo of a theme builder template.
+		et_theme_builder_frontend_render_header(
+			$layouts[ ET_THEME_BUILDER_HEADER_LAYOUT_POST_TYPE ]['id'],
+			$layouts[ ET_THEME_BUILDER_HEADER_LAYOUT_POST_TYPE ]['enabled'],
+			$layouts[ ET_THEME_BUILDER_TEMPLATE_POST_TYPE ]
+		);
+	}
 	?>

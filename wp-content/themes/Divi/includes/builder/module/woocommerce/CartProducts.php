@@ -1033,7 +1033,7 @@ class ET_Builder_Module_Woocommerce_Cart_Products extends ET_Builder_Module {
 			5
 		);
 
-		if ( et_fb_is_computed_callback_ajax() || $is_tb || is_et_pb_preview() ) {
+		if ( et_fb_is_computed_callback_ajax() || $is_tb || is_et_pb_preview() || et_builder_is_rest_api_request( '/module-data/shortcode-module' ) ) {
 			// Runs only on Builder mode.
 			add_filter(
 				'wc_get_template',
@@ -1067,7 +1067,7 @@ class ET_Builder_Module_Woocommerce_Cart_Products extends ET_Builder_Module {
 			)
 		);
 
-		if ( et_fb_is_computed_callback_ajax() || $is_tb || is_et_pb_preview() ) {
+		if ( et_fb_is_computed_callback_ajax() || $is_tb || is_et_pb_preview() || et_builder_is_rest_api_request( '/module-data/shortcode-module' ) ) {
 			remove_filter(
 				'wc_get_template',
 				array(
@@ -1157,7 +1157,10 @@ class ET_Builder_Module_Woocommerce_Cart_Products extends ET_Builder_Module {
 
 		self::maybe_handle_hooks( $conditional_tags );
 
-		if ( ( $is_use_placeholder || et_fb_is_computed_callback_ajax() ) && WC()->cart->is_empty() ) {
+		if (
+			( $is_use_placeholder || et_fb_is_computed_callback_ajax() || et_builder_is_rest_api_request( '/module-data/shortcode-module' ) )
+			&& WC()->cart->is_empty()
+		) {
 			add_filter(
 				'woocommerce_get_cart_contents',
 				array(
@@ -1342,7 +1345,7 @@ class ET_Builder_Module_Woocommerce_Cart_Products extends ET_Builder_Module {
 				continue;
 			}
 
-			$attrs[ $attr_name ] = esc_attr( et_pb_process_font_icon( $attr_value ) );
+			$attrs[ $attr_name ] = esc_attr( html_entity_decode( et_pb_process_font_icon( $attr_value ), ENT_QUOTES, 'UTF-8' ) );
 		}
 
 		return $attrs;
@@ -1443,7 +1446,12 @@ class ET_Builder_Module_Woocommerce_Cart_Products extends ET_Builder_Module {
 		$this->add_classname( 'et_pb_woo_custom_button_icon' );
 		$this->add_classname( $this->get_text_orientation_classname() );
 
-		if ( function_exists( 'WC' ) && isset( WC()->cart ) && WC()->cart->is_empty() ) {
+		if (
+			function_exists( 'WC' )
+			&& isset( WC()->cart )
+			&& WC()->cart->is_empty()
+			&& ! et_builder_is_rest_api_request( '/module-data/shortcode-module' )
+		) {
 			$this->add_classname( 'et_pb_wc_cart_empty' );
 		}
 

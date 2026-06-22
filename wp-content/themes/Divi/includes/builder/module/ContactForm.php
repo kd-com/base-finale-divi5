@@ -398,6 +398,17 @@ class ET_Builder_Module_Contact_Form extends ET_Builder_Module_Type_WithSpamProt
 		$multi_view = et_pb_multi_view_options( $this );
 		$multi_view->set_default_value( 'submit_button_text', __( 'Submit', 'et_builder' ) );
 
+		// Add front-end script data used by D5.
+		\ET\Builder\FrontEnd\Module\ScriptData::add_data_item(
+			[
+				'data_name'    => 'contact_form',
+				'data_item_id' => null,
+				'data_item'    => [
+					'selector' => str_replace( '%%order_class%%', '.' . ET_Builder_Element::get_module_order_class( $render_slug ), $this->main_css_element ),
+				],
+			]
+		);
+
 		$captcha               = $this->props['captcha'];
 		$email                 = $this->props['email'];
 		$title                 = $multi_view->render_element(
@@ -568,7 +579,6 @@ class ET_Builder_Module_Contact_Form extends ET_Builder_Module_Type_WithSpamProt
 					$et_error_message .= sprintf( '<p class="et_pb_contact_error_text">%1$s</p>', esc_html__( 'Invalid submission. Please refresh the page and try again.', 'et_builder' ) );
 					$et_contact_error  = true;
 				}
-
 			} else {
 				$et_error_message .= sprintf( '<p class="et_pb_contact_error_text">%1$s</p>', esc_html__( 'Make sure you fill in all required fields.', 'et_builder' ) );
 				$et_contact_error  = true;
@@ -696,7 +706,7 @@ class ET_Builder_Module_Contact_Form extends ET_Builder_Module_Type_WithSpamProt
 
 		$et_pb_captcha = sprintf(
 			'
-			<div class="et_pb_contact_right">
+			<div class="et_pb_contact_right et_pb_contact_field">
 				<p class="clearfix">
 					<span class="et_pb_contact_captcha_question">%1$s</span> = <input type="text" size="2" class="input et_pb_contact_captcha" data-first_digit="%3$s" data-second_digit="%4$s" value="" name="et_pb_contact_captcha_%2$s" data-required_mark="required" autocomplete="off">
 				</p>
@@ -737,12 +747,12 @@ class ET_Builder_Module_Contact_Form extends ET_Builder_Module_Type_WithSpamProt
 				wp_nonce_field( 'et-pb-contact-form-submit', '_wpnonce-et-pb-contact-form-submitted-' . $et_pb_contact_form_num, true, false ),
 				'' !== $custom_icon && 'on' === $button_custom ? sprintf(
 					' data-icon="%1$s"',
-					esc_attr( et_pb_process_font_icon( $custom_icon ) )
+					esc_attr( html_entity_decode( et_pb_process_font_icon( $custom_icon ), ENT_QUOTES, 'UTF-8' ) )
 				) : '', // #5
 				esc_attr( $et_pb_contact_form_num ),
 				$content,
-				'' !== $custom_icon_tablet && 'on' === $button_custom ? sprintf( ' data-icon-tablet="%1$s"', esc_attr( et_pb_process_font_icon( $custom_icon_tablet ) ) ) : '',
-				'' !== $custom_icon_phone && 'on' === $button_custom ? sprintf( ' data-icon-phone="%1$s"', esc_attr( et_pb_process_font_icon( $custom_icon_phone ) ) ) : '',
+				'' !== $custom_icon_tablet && 'on' === $button_custom ? sprintf( ' data-icon-tablet="%1$s"', esc_attr( html_entity_decode( et_pb_process_font_icon( $custom_icon_tablet ), ENT_QUOTES, 'UTF-8' ) ) ) : '',
+				'' !== $custom_icon_phone && 'on' === $button_custom ? sprintf( ' data-icon-phone="%1$s"', esc_attr( html_entity_decode( et_pb_process_font_icon( $custom_icon_phone ), ENT_QUOTES, 'UTF-8' ) ) ) : '',
 				$multi_view_data_attr // #10
 			);
 		}
@@ -755,6 +765,9 @@ class ET_Builder_Module_Contact_Form extends ET_Builder_Module_Type_WithSpamProt
 				$this->get_text_orientation_classname(),
 			)
 		);
+
+		// Add et_block_module class for PHP frontend output.
+		$this->add_classname( 'et_block_module' );
 
 		// Remove automatically added classname
 		$this->remove_classname( $render_slug );
@@ -777,7 +790,7 @@ class ET_Builder_Module_Contact_Form extends ET_Builder_Module_Type_WithSpamProt
 			esc_attr( $module_id ),
 			$this->module_classname( $render_slug ), // #5
 			esc_attr( $et_pb_contact_form_num ),
-			'on' === $use_redirect && '' !== $redirect_url ? sprintf( ' data-redirect_url="%1$s"', esc_attr( $redirect_url ) ) : '',
+			'on' === $use_redirect && '' !== $redirect_url ? sprintf( ' data-redirect_url="%1$s"', esc_url( $redirect_url ) ) : '',
 			$video_background,
 			$parallax_image_background,
 			esc_attr( $unique_id ), // #10

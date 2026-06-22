@@ -12,7 +12,6 @@
  *
  * @since ?
  */
-
 if ( ! function_exists( 'et_pb_maybe_fa_font_icon' ) ) {
 	/**
 	 * Checking if the passed icon value is Font Awesome type.
@@ -220,6 +219,7 @@ if ( ! function_exists( 'et_pb_get_extended_icon_data' ) ) {
 	}
 }
 
+
 if ( ! function_exists( 'et_pb_maybe_extended_icon' ) ) {
 	/**
 	 * Checking if the passed icon value is extended icon type ( like a '&#x30;||divi' ).
@@ -289,7 +289,7 @@ if ( ! function_exists( 'et_pb_extended_process_font_icon' ) ) {
 	 * @return string
 	 */
 	function et_pb_extended_process_font_icon( $icon ) {
-		return et_pb_maybe_extended_icon( $icon ) ? et_pb_get_extended_font_icon_value( $icon, true ) : esc_attr( et_pb_process_font_icon( $icon ) );
+		return et_pb_maybe_extended_icon( $icon ) ? et_pb_get_extended_font_icon_value( $icon, true ) : esc_attr( html_entity_decode( et_pb_process_font_icon( $icon ), ENT_QUOTES, 'UTF-8' ) );
 	}
 }
 
@@ -450,29 +450,6 @@ if ( ! function_exists( 'et_pb_get_decoded_divi_icons' ) ) :
 endif;
 
 
-if ( ! function_exists( 'et_pb_get_font_icon_field_names' ) ) :
-	/**
-	 * Returns the list of font icon fields with `select_icon` option.
-	 *
-	 * @since ?
-	 *
-	 * @return array
-	 */
-	function et_pb_get_font_icon_field_names() {
-		return array(
-			'font_icon',
-			'button_icon',
-			'hover_icon',
-			'scroll_down_icon',
-			'open_toggle_icon',
-			'toggle_icon',
-			'button_one_icon',
-			'button_two_icon',
-		);
-	}
-
-endif;
-
 if ( ! function_exists( 'et_pb_get_all_font_icon_option_names_string' ) ) :
 	/**
 	 * Returns string with names of all font_icon fields in all responsive, sticky, hover modes separated by '|'.
@@ -489,8 +466,8 @@ if ( ! function_exists( 'et_pb_get_all_font_icon_option_names_string' ) ) :
 				$font_icon_names[] = $font_icon_field;
 				$font_icon_names[] = $font_icon_field . '_tablet';
 				$font_icon_names[] = $font_icon_field . '_phone';
-				$font_icon_names[] = $font_icon_field . et_pb_hover_options()->get_suffix();
-				$font_icon_names[] = $font_icon_field . et_pb_sticky_options()->get_suffix();
+				$font_icon_names[] = $font_icon_field . '__hover';
+				$font_icon_names[] = $font_icon_field . '__sticky';
 			}
 			$font_icon_option_names = implode( '|', $font_icon_names );
 			et_core_cache_set( $cache_key, $font_icon_option_names );

@@ -76,13 +76,13 @@ class ET_Code_Snippets_App {
 	 * Load the Cloud App scripts.
 	 *
 	 * @param string $enqueue_prod_scripts Flag to force Production scripts.
-	 * @param bool   $skip_react_loading   Flag to skip react loading.
+	 * @param bool   $load_react           Flag to load React.
 	 *
 	 * @since 4.19.0
 	 *
 	 * @return void
 	 */
-	public static function load_js( $enqueue_prod_scripts = true, $skip_react_loading = false ) {
+	public static function load_js( $enqueue_prod_scripts = true, $load_react = false ) {
 		// phpcs:disable ET.Sniffs.ValidVariableName.VariableNotSnakeCase -- Following the pattern found in /cloud.
 		$CORE_VERSION = defined( 'ET_CORE_VERSION' ) ? ET_CORE_VERSION : '';
 		$ET_DEBUG     = defined( 'ET_DEBUG' ) && ET_DEBUG;
@@ -90,7 +90,7 @@ class ET_Code_Snippets_App {
 
 		$home_url       = wp_parse_url( get_site_url() );
 		$build_dir_uri  = ET_CORE_URL . 'build';
-		$common_scripts = ET_COMMON_URL . '/scripts';
+		$common_scripts = ET_COMMON_URL . 'scripts';
 		$cache_buster   = $DEBUG ? mt_rand() / mt_getrandmax() : $CORE_VERSION; // phpcs:ignore WordPress.WP.AlternativeFunctions.rand_mt_rand -- mt_rand() should do for cache busting.
 		$asset_path     = ET_CORE_PATH . 'build/et-core-app.bundle.js';
 
@@ -110,11 +110,9 @@ class ET_Code_Snippets_App {
 		if ( $DEBUG || $enqueue_prod_scripts || file_exists( $asset_path ) ) {
 			$BUNDLE_URI = ! file_exists( $asset_path ) ? "{$home_url['scheme']}://{$home_url['host']}:31499/et-core-app.bundle.js" : "{$build_dir_uri}/et-core-app.bundle.js";
 
-			// Skip the React loading if we already have React ( Gutenberg editor for example ) to avoid conflicts.
-			if ( ! $skip_react_loading ) {
-				if ( function_exists( 'et_fb_enqueue_react' ) ) {
-					et_fb_enqueue_react();
-				}
+			// Load React if required.
+			if ( $load_react && function_exists( 'et_fb_enqueue_react' ) ) {
+				et_fb_enqueue_react();
 			}
 
 			wp_enqueue_script(

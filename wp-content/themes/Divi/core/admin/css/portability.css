@@ -12,10 +12,10 @@
   1.0 - Modal
 ------------------------------------------------------------------------------*/
 [data-et-core-portability-cancel] {
-	opacity: 0;
 	display: none;
 	position: absolute;
 	bottom: 0;
+	margin-left: 0 !important;
 }
 
 /*-----------------------------------------------------------------------------
@@ -33,19 +33,22 @@
 
 .et-core-portability-import-placeholder {
 	text-align: center;
-	height: 16px;
-	border: 2px dashed #e6ecf2;
+	line-height: 12px;
+	border: 1px dashed var(--light-gray);
 	border-radius: 3px;
-	color: #a3b0c2;
-	font-weight: 700;
-	text-transform: uppercase;
-	line-height: 16px;
+	color: var(--gray);
+	font-weight: 500;
 	float: left;
-	padding: 5px;
+	padding: 7px;
 	font-size: 12px;
-    text-overflow: ellipsis;
-    overflow: hidden;
-    white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.et-core-portability-import-placeholder:hover {
+	border-color: var(--medium-gray);
 }
 
 body.rtl .et-core-portability-import-placeholder {
@@ -56,8 +59,9 @@ body.rtl .et-core-portability-import-placeholder {
 	position: absolute;
 	left: 0;
 	top: 0;
-	height: 30px;
+	height: 28px;
 	opacity: 0;
+	font-weight: 500;
 }
 
 body.rtl .et-core-portability-import-form input[type="file"] {
@@ -66,7 +70,7 @@ body.rtl .et-core-portability-import-form input[type="file"] {
 }
 
 .et-core-portability-import-placeholder {
-	width: 166px;
+	width: 162px;
 }
 
 .et-core-portability-import-form input[type="file"] {
@@ -106,6 +110,16 @@ body.rtl .et-core-portability-import-form .et-core-button {
 [data-et-core-portability] .et-core-progress {
 	margin-left: auto;
 	margin-right: auto;
+}
+
+[data-et-core-portability] .et-core-modal-temp-content .et-core-loader {
+	margin-bottom: 1.5em;
+}
+
+[data-et-core-portability] .et-core-modal-temp-content p {
+	text-align: center;
+	margin-top: 0;
+	width: 100%;
 }
 
 /*-----------------------------------------------------------------------------

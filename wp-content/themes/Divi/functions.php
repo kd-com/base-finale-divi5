@@ -1,7 +1,13 @@
 <?php
+// phpcs:disable Generic.WhiteSpace.ScopeIndent.Incorrect, Generic.WhiteSpace.ScopeIndent.IncorrectExact -- Until we reformat this entire file, this rule makes reviewing PRs very difficult.
 
+use ET\Builder\FrontEnd\Assets\DynamicAssetsUtils;
+use ET\Builder\Packages\StyleLibrary\Utils\Utils;
 
 if ( ! isset( $content_width ) ) $content_width = 1080;
+
+// TODO fix(D4, Comments): Remove this require and the shim file after WordPress core resolves Trac #61468. [https://github.com/elegantthemes/Divi/issues/28338]
+require_once __DIR__ . '/includes/functions/comments-template-safe.php';
 
 function et_setup_theme() {
 	global $themename, $shortname, $et_store_options_in_one_row, $default_colorscheme;
@@ -16,7 +22,10 @@ function et_setup_theme() {
 	require_once $template_directory . '/core/init.php';
 	require_once $template_directory . '/common/init.php';
 
-	et_common_setup();
+	if ( is_user_logged_in() ) {
+		et_common_setup();
+	}
+
 	et_core_setup( get_template_directory_uri() );
 
 	if ( '3.0.61' === ET_CORE_VERSION ) {
@@ -26,24 +35,46 @@ function et_setup_theme() {
 	}
 
 	require_once $template_directory . '/epanel/custom_functions.php';
-	require_once $template_directory . '/epanel/theme-options-library/theme-options.php';
-	require_once $template_directory . '/core/code-snippets/code-snippets.php';
+
+	// only load this on wp-admin (or frontend if using the visual builder)
+	if ( is_admin() || et_core_is_fb_enabled() ) {
+		require_once $template_directory . '/epanel/theme-options-library/theme-options.php';
+		require_once $template_directory . '/core/code-snippets/code-snippets.php';
+	}
+
+	// Always load the constants files
+	require_once $template_directory . '/epanel/theme-options-library/constants.php';
+	require_once $template_directory . '/core/code-snippets/constants.php';
 
 	require_once $template_directory . '/includes/functions/choices.php';
-
-	require_once $template_directory . '/includes/functions/dynamic-assets.php';
 
 	require_once $template_directory . '/includes/functions/sanitization.php';
 
 	require_once $template_directory . '/includes/functions/sidebars.php';
 
-	load_theme_textdomain( 'Divi', $template_directory . '/lang' );
+	require_once $template_directory . '/includes/functions/customizer-css.php';
+
+	// Translations should be loaded at the init action since WP 6.7.0.
+	add_action(
+		'init',
+		function () {
+			load_theme_textdomain( 'Divi', get_template_directory() . '/lang' );
+		}
+	);
 
 	require_once $template_directory . '/epanel/core_functions.php';
 
 	require_once $template_directory . '/post_thumbnails_divi.php';
 
-	include_once $template_directory . '/includes/widgets.php';
+	require_once $template_directory . '/includes/widgets.php';
+
+	require_once $template_directory . '/includes/Customizer.php';
+
+	require_once $template_directory . '/d5-readiness/d5-readiness.php';
+
+	if ( is_admin() ) {
+		ET_D5_Readiness::init_hooks();
+	}
 
 	register_nav_menus( array(
 		'primary-menu'   => esc_html__( 'Primary Menu', 'Divi' ),
@@ -98,7 +129,11 @@ function et_setup_theme() {
 	add_editor_style( 'css/editor-style.css' );
 	add_editor_style( 'css/editor-blocks.css' );
 
-	et_divi_version_rollback()->enable();
+	// Only trying to make sure to avoid using this on front end page loads,
+	// so were using the same permission check as the rollback feature itself uses.
+	if ( current_user_can( 'install_themes' ) ) {
+		et_divi_version_rollback()->enable();
+	}
 
 	if ( wp_doing_cron() ) {
 		et_register_updates_component();
@@ -157,27 +192,85 @@ function et_divi_load_unminified_styles( $load ) {
 	return $load;
 }
 
+/**
+ * Whether the welcome documentation admin notice should display.
+ *
+ * @since ??
+ *
+ * @return bool
+ */
+function et_theme_epanel_reminder_should_show() {
+	global $shortname;
+
+	$documentation_option_name = $shortname . '_2_4_documentation_message';
+
+	return false === et_get_option( $shortname . '_logo' ) && false === et_get_option( $documentation_option_name );
+}
+
+/**
+ * Print admin styles for the welcome documentation notice.
+ *
+ * WordPress 7.0 sets explicit dark text on `.notice p` and dismiss controls; the
+ * notice uses a branded background, so white foreground colors are required.
+ *
+ * @since ??
+ *
+ * @return void
+ */
+function et_theme_epanel_reminder_admin_styles() {
+	?>
+<style>
+.et-divi-welcome-documentation-notice p {
+	color: #fff;
+}
+
+.et-divi-welcome-documentation-notice .notice-dismiss,
+.et-divi-welcome-documentation-notice .notice-dismiss:before {
+	color: #fff;
+}
+</style>
+	<?php
+}
+
+/**
+ * Register welcome documentation notice admin styles when the notice will display.
+ *
+ * @since ??
+ *
+ * @return void
+ */
+function et_theme_epanel_reminder_maybe_register_admin_styles() {
+	if ( ! et_theme_epanel_reminder_should_show() ) {
+		return;
+	}
+
+	add_action( 'admin_head', 'et_theme_epanel_reminder_admin_styles' );
+}
+add_action( 'admin_init', 'et_theme_epanel_reminder_maybe_register_admin_styles' );
+
 function et_theme_epanel_reminder(){
 	global $shortname, $themename;
 
-	$documentation_url         = 'http://www.elegantthemes.com/gallery/divi/readme.html';
+	$documentation_url         = 'https://help.elegantthemes.com/en/collections/10650977-divi-5';
 	$documentation_option_name = $shortname . '_2_4_documentation_message';
 
-	if ( false === et_get_option( $shortname . '_logo' ) && false === et_get_option( $documentation_option_name ) ) {
-		$message = sprintf(
-			et_get_safe_localization( __( 'Welcome to Divi! Before diving in to your new theme, please visit the <a style="color: #fff; font-weight: bold;" href="%1$s" target="_blank">Divi Documentation</a> page for access to dozens of in-depth tutorials.', $themename ) ),
-			esc_url( $documentation_url )
-		);
-
-		printf(
-			'<div class="notice is-dismissible" style="background-color: #6C2EB9; color: #fff; border-left: none;">
-				<p>%1$s</p>
-			</div>',
-			$message
-		);
-
-		et_update_option( $documentation_option_name, 'triggered' );
+	if ( ! et_theme_epanel_reminder_should_show() ) {
+		return;
 	}
+
+	$message = sprintf(
+		et_get_safe_localization( __( 'Welcome to Divi! Before diving in to your new theme, please visit the <a style="color: #fff; font-weight: bold;" href="%1$s" target="_blank">Divi Documentation</a> page for access to dozens of in-depth tutorials.', $themename ) ),
+		esc_url( $documentation_url )
+	);
+
+	printf(
+		'<div class="notice is-dismissible et-divi-welcome-documentation-notice" style="background-color: var(--app-color, #326bff); border-left: none;">
+			<p>%1$s</p>
+		</div>',
+		$message
+	);
+
+	et_update_option( $documentation_option_name, 'triggered' );
 }
 add_action( 'admin_notices', 'et_theme_epanel_reminder' );
 
@@ -186,8 +279,14 @@ if ( ! function_exists( 'et_divi_fonts_url' ) ) :
 	 * Print Google fonts style for Divi Theme base fonts.
 	 */
 	function et_divi_fonts_url() {
+		static $fonts_url = null;
+
 		if ( ! et_core_use_google_fonts() ) {
 			return '';
+		}
+
+		if ( null !== $fonts_url ) {
+			return $fonts_url;
 		}
 
 		$fonts_url = '';
@@ -231,12 +330,10 @@ function et_divi_load_fonts() {
 	$google_fonts_url = et_divi_fonts_url();
 
 	// Get user selected font defined on customizer
-	$et_gf_body_font = sanitize_text_field( et_get_option( 'body_font', 'none' ) );
-
-	$is_et_fb_enabled = function_exists( 'et_fb_enabled' ) && et_fb_enabled();
+	$et_gf_body_font = et_get_option( 'body_font', 'none' );
 
 	// Determine whether current page needs Open Sans or not
-	$no_open_sans = ! is_customize_preview() && 'none' !== $et_gf_body_font && '' !== $et_gf_body_font && ! $is_et_fb_enabled;
+	$no_open_sans = ! is_customize_preview() && 'none' !== $et_gf_body_font && '' !== $et_gf_body_font;
 
 	if ( ! empty( $google_fonts_url ) && ! $no_open_sans ) {
 		$feature_manager = ET_Builder_Google_Fonts_Feature::instance();
@@ -248,7 +345,7 @@ function et_divi_load_fonts() {
 				function() use ( $feature_manager, $google_fonts_url ) {
 					return $feature_manager->fetch( $google_fonts_url );
 				},
-				sanitize_text_field( et_core_esc_previously( $google_fonts_url ) )
+				esc_url_raw( $google_fonts_url )
 			);
 
 			// if something went wrong fetching the contents
@@ -273,10 +370,14 @@ function et_add_home_link( $args ) {
 }
 add_filter( 'wp_page_menu_args', 'et_add_home_link' );
 
-function et_divi_load_scripts_styles(){
+/**
+ * Load the necessary scripts and styles.
+ *
+ * @return void
+ */
+function et_divi_load_scripts_styles() {
 	global $wp_styles, $et_user_fonts_queue;
 
-	// $dynamic_js_suffix  = et_use_dynamic_js() ? '' : '-static'; // @temp-disabled-dynamic-assets-js
 	$template_dir           = get_template_directory_uri();
 	$theme_version          = et_get_theme_version();
 	$post_id                = get_the_id();
@@ -301,7 +402,19 @@ function et_divi_load_scripts_styles(){
 		$dependencies_array[] = 'jquery-effects-core';
 	}
 
-	wp_enqueue_script( 'divi-custom-script', $template_dir . '/js/scripts.min.js', $dependencies_array, $theme_version, true );
+	if ( ! et_builder_d5_enabled() ) {
+		wp_enqueue_script(
+			'divi-script-library-global-functions',
+			ET_BUILDER_5_URI . '/visual-builder/build/script-library-frontend-global-functions.js',
+			[
+				'jquery',
+			],
+			ET_CORE_VERSION,
+			true
+		);
+	}
+
+	wp_enqueue_script( 'divi-custom-script', $template_dir . '/js/theme-scripts-library-base.js', $dependencies_array, $theme_version, true );
 
 	$divi_data = array(
 		'item_count'  => esc_html__( '%d Item', 'divi' ),
@@ -328,6 +441,49 @@ function et_divi_load_scripts_styles(){
 	if ( 'none' != $et_gf_primary_nav_font ) $et_gf_enqueue_fonts[] = $et_gf_primary_nav_font;
 	if ( 'none' != $et_gf_secondary_nav_font ) $et_gf_enqueue_fonts[] = $et_gf_secondary_nav_font;
 	if ( 'none' != $et_gf_slide_nav_font ) $et_gf_enqueue_fonts[] = $et_gf_slide_nav_font;
+
+	// For Divi 5 we need to enqueue fonts from the content as well (fonts chosen in module settings).
+	// This is needed because in Divi 4 fonts from content are processed in ET_Builder_Element class and enqueued there.
+	// Divi 5 doesn't use the ET_Builder_Element so we have to add fonts here.
+	if ( et_builder_d5_enabled() ) {
+		$fonts_content_id   = $post_id;
+		$fonts_from_content = array();
+
+		// Extract fonts from Theme Builder templates when used.
+		$tb_template_ids = DynamicAssetsUtils::get_theme_builder_template_ids();
+		if ( ! empty( $tb_template_ids ) ) {
+			foreach ( $tb_template_ids as $template_id ) {
+				$fonts_from_content = array_merge(
+					$fonts_from_content,
+					DynamicAssetsUtils::extract_used_fonts_from_content( $template_id )
+				);
+			}
+		}
+
+		if ( $fonts_content_id ) {
+			$fonts_from_content = array_merge(
+				$fonts_from_content,
+				DynamicAssetsUtils::extract_used_fonts_from_content( $fonts_content_id )
+			);
+		}
+
+		$et_gf_enqueue_fonts = array_unique( array_merge( $et_gf_enqueue_fonts, $fonts_from_content ) );
+
+		$google_fonts_url         = function_exists( 'et_divi_fonts_url' ) ? et_divi_fonts_url() : '';
+		$et_gf_body_font_option   = et_get_option( 'body_font', 'none' );
+		$theme_uses_default_font  = is_customize_preview() || 'none' === $et_gf_body_font_option || '' === $et_gf_body_font_option;
+		$theme_enqueues_open_sans = ! empty( $google_fonts_url ) && $theme_uses_default_font;
+		if ( $theme_enqueues_open_sans ) {
+			$et_gf_enqueue_fonts = array_values(
+				array_filter(
+					$et_gf_enqueue_fonts,
+					static function( $font_family ) {
+						return 0 !== strcasecmp( trim( (string) $font_family ), 'Open Sans' );
+					}
+				)
+			);
+		}
+	}
 
 	if ( ! empty( $et_gf_enqueue_fonts ) && function_exists( 'et_builder_enqueue_font' ) ) {
 		$site_domain               = get_locale();
@@ -363,33 +519,27 @@ add_action( 'wp_enqueue_scripts', 'et_divi_load_scripts_styles' );
  * import the Divi style.css file in their child theme .css file, which won't work.
  */
 function et_divi_enqueue_stylesheet() {
-	$theme_version = et_get_theme_version();
-	$styles        = wp_styles();
+	$theme_version            = et_get_theme_version();
+	$handle                   = is_child_theme() ? 'divi-style-parent' : 'divi-style';
+	$styles                   = wp_styles();
+	$stylesheet_directory_uri = get_stylesheet_directory_uri();
 
-	// Filter the $styles array and determine if the Divi stylesheet is enqueued.
-	$divi_style_enqueued = ! empty(
+	$child_theme_style_enqueued = ! empty(
 		array_filter(
 			$styles->registered,
-			function( $style ) {
-				$template_directory_uri = preg_quote( get_template_directory_uri(), '/' );
-
-				return preg_match( '/' . $template_directory_uri . '\/style.*\.css/', $style->src );
+			function( $style ) use ( $stylesheet_directory_uri ) {
+				return preg_match( '/' . preg_quote( $stylesheet_directory_uri, '/' ) . '\/style.*\.css/', $style->src );
 			}
 		)
 	);
 
-	if ( ! is_child_theme() ) {
-		// If no child theme is active, we enqueue the Divi style.css located in the template dir.
-		wp_enqueue_style( 'divi-style', get_template_directory_uri() . '/style.css', array(), $theme_version );
-	} elseif ( $divi_style_enqueued ) {
-		// If a child theme is used and the child theme already enqueued the Divi style.css in their functions.php,
-		// then we enqueue the child theme style.css file via the stylesheet dir.
-		wp_enqueue_style( 'divi-style', get_stylesheet_directory_uri() . '/style.css', array(), $theme_version );
-	} else {
-		// If a child theme is used and they do not enqueue the Divi style.css file,
-		// we need to enqueue it for them before their child theme style.css file.
-		wp_enqueue_style( 'divi-style-parent', get_template_directory_uri() . '/style.css', array(), $theme_version );
-		wp_enqueue_style( 'divi-style', get_stylesheet_directory_uri() . '/style.css', array(), $theme_version );
+	// Enqueue the Divi stylesheet with the correct handle, which is different if a child theme is enabled.
+	wp_enqueue_style( $handle, get_template_directory_uri() . '/style.css', array(), $theme_version );
+
+	// If there is a child theme active, but the child theme does not enqueue their own stylesheet, we enqueue it for them.
+	// Unfortunately this is very common in our community, so we take the reigns and force things to work correctly.
+	if ( is_child_theme() && ! $child_theme_style_enqueued ) {
+		wp_enqueue_style( 'divi-style-child', $stylesheet_directory_uri . '/style.css', array(), $theme_version );
 	}
 }
 add_action( 'wp_enqueue_scripts', 'et_divi_enqueue_stylesheet' );
@@ -401,20 +551,19 @@ add_action( 'wp_enqueue_scripts', 'et_divi_enqueue_stylesheet' );
  * which typically enqueue the standard style.css without the logic below.
  */
 function et_divi_replace_parent_stylesheet() {
+	$should_use_dynamic_css = \ET\Builder\FrontEnd\Assets\DynamicAssetsUtils::use_dynamic_assets();
 	$theme_version          = et_get_theme_version();
-	$post_id                = get_the_ID();
 	$cpt_suffix             = et_builder_should_wrap_styles() ? '-cpt' : '';
-	$dynamic_css_suffix     = et_use_dynamic_css() ? '' : '-static';
+	$dynamic_css_suffix     = $should_use_dynamic_css ? '' : '-static';
 	$rtl_suffix             = is_rtl() ? '-rtl' : '';
 	$template_directory_uri = preg_quote( get_template_directory_uri(), '/' );
 	$style_handle           = is_child_theme() ? 'divi-style-parent' : 'divi-style';
 
 	// We check for .dev in case child themes enqueued this legacy stylesheet.
 	$theme_style          = '/^(' . $template_directory_uri . '\/style)(\.dev)?(\.min)?(\.css)$/';
-	$theme_style_replaced = '$1' . $dynamic_css_suffix . $cpt_suffix  . $rtl_suffix  . '.min.css';
+	$theme_style_replaced = '$1' . $dynamic_css_suffix . $cpt_suffix . $rtl_suffix . '.min.css';
 
 	et_core_replace_enqueued_style( $theme_style, $theme_style_replaced, $theme_version, $style_handle, '', true );
-
 }
 add_action( 'wp_enqueue_scripts', 'et_divi_replace_parent_stylesheet', 99999998 );
 
@@ -424,10 +573,10 @@ add_action( 'wp_enqueue_scripts', 'et_divi_replace_parent_stylesheet', 99999998 
  * depending on RTl and CPT.
  */
 function et_divi_print_stylesheet() {
-	$enable_inline_stylesheet = et_get_option( 'divi_inline_stylesheet', 'on' );
+	$enable_inline_stylesheet = et_core_is_inline_stylesheet_enabled();
+	$should_use_dynamic_css   = \ET\Builder\FrontEnd\Assets\DynamicAssetsUtils::use_dynamic_assets();
 
-	if ( 'on' === $enable_inline_stylesheet && et_use_dynamic_css() ) {
-		$post_id                      = get_the_ID();
+	if ( $enable_inline_stylesheet && $should_use_dynamic_css ) {
 		$cpt_suffix                   = et_builder_should_wrap_styles() ? '-cpt' : '';
 		$rtl_suffix                   = is_rtl() ? '-rtl' : '';
 		$stylesheet_src               = get_template_directory_uri() . '/style' . $cpt_suffix . $rtl_suffix . '.min.css';
@@ -468,7 +617,6 @@ add_action( 'wp_enqueue_scripts', 'et_divi_print_stylesheet', 99999998 );
  * since it's now being enqueued in-line.
  */
 function et_divi_dequeue_stylesheet() {
-	$post_id    = get_the_ID();
 	$cpt_suffix = et_builder_should_wrap_styles() ? '-cpt' : '';
 	$rtl_suffix = is_rtl() ? '-rtl' : '';
 	$styles     = wp_styles();
@@ -505,18 +653,150 @@ function et_enqueue_smoothscroll() {
 add_action( 'wp_enqueue_scripts', 'et_enqueue_smoothscroll' );
 
 /**
- * Enqueue magnific popup when needed.
- *
- * @since ??
+ * Enqueue WooCommerce scripts if WooCommerce is enabled.
  */
-function et_enqueue_magnific_popup() {
+function et_enqueue_theme_scripts_woocommerce() {
 	$theme_version = et_get_theme_version();
 
-	if ( 'on' === et_get_option( 'divi_gallery_layout_enable', 'off' ) && ( is_active_widget( false, false, 'media_gallery', true ) || et_is_active_block_widget( 'core/gallery' ) ) ) {
-		wp_enqueue_script( 'magnific-popup', get_template_directory_uri() . '/includes/builder/feature/dynamic-assets/assets/js/magnific-popup.js', array( 'jquery' ), $theme_version, true );
+	if ( is_plugin_active( 'woocommerce/woocommerce.php' ) ) {
+		wp_enqueue_script( 'divi-theme-scripts-library-woocommerce', get_template_directory_uri() . '/js/theme-scripts-library-woocommerce.js', array( 'jquery' ), $theme_version, true );
 	}
 }
-add_action( 'wp_enqueue_scripts', 'et_enqueue_magnific_popup' );
+add_action( 'wp_enqueue_scripts', 'et_enqueue_theme_scripts_woocommerce' );
+
+/**
+ * Enqueue Slide-In Header scripts if enabled.
+ */
+function et_enqueue_theme_scripts_slide_in_header() {
+	$theme_version = et_get_theme_version();
+
+	if ( et_disable_js_on_demand_theme() || is_customize_preview() || 'slide' === et_get_option( 'header_style', 'left' ) || 'fullscreen' === et_get_option( 'header_style', 'left' ) && ! et_is_theme_builder_header_used() ) {
+		wp_enqueue_script( 'divi-theme-scripts-library-slide-in-header', get_template_directory_uri() . '/js/theme-scripts-library-slide-in-header.js', array( 'jquery' ), $theme_version, true );
+	}
+}
+add_action( 'wp_enqueue_scripts', 'et_enqueue_theme_scripts_slide_in_header' );
+
+/**
+ * Enqueue Vertical Menu scripts if enabled.
+ */
+function et_enqueue_theme_scripts_vertical_menu() {
+	$theme_version = et_get_theme_version();
+
+	if ( et_disable_js_on_demand_theme() || is_customize_preview() || et_get_option( 'vertical_nav', false ) && ! et_is_theme_builder_header_used() ) {
+		wp_enqueue_script( 'divi-theme-scripts-library-vertical-menu', get_template_directory_uri() . '/js/theme-scripts-library-vertical-menu.js', array( 'jquery' ), $theme_version, true );
+	}
+}
+add_action( 'wp_enqueue_scripts', 'et_enqueue_theme_scripts_vertical_menu' );
+
+/**
+ * Enqueue Side Nav scripts if enabled.
+ */
+function et_enqueue_theme_scripts_side_nav() {
+	$theme_version = et_get_theme_version();
+	$post_id       = get_the_ID();
+
+	if ( 'on' === get_post_meta( $post_id, '_et_pb_side_nav', true ) ) {
+		wp_enqueue_script( 'divi-theme-scripts-library-side-nav', get_template_directory_uri() . '/js/theme-scripts-library-side-nav.js', array( 'jquery' ), $theme_version, true );
+	}
+}
+add_action( 'wp_enqueue_scripts', 'et_enqueue_theme_scripts_side_nav' );
+
+/**
+ * Enqueue comments scripts on single posts with comments enabled and the builder disabled.
+ */
+function et_enqueue_theme_scripts_comments() {
+	$theme_version = et_get_theme_version();
+	$post_id       = get_the_ID();
+
+	if ( ( is_single() || is_page() || is_home() ) && comments_open() && ! et_pb_is_pagebuilder_used( $post_id ) ) {
+		wp_enqueue_script( 'divi-theme-scripts-library-comments', get_template_directory_uri() . '/js/theme-scripts-library-comments.js', array( 'jquery' ), $theme_version, true );
+	}
+}
+add_action( 'wp_enqueue_scripts', 'et_enqueue_theme_scripts_comments' );
+
+/**
+ * Enqueue Full Screen Menu scripts if enabled.
+ */
+function et_enqueue_theme_scripts_full_screen_menu() {
+	$theme_version = et_get_theme_version();
+
+	if ( et_disable_js_on_demand_theme() || is_customize_preview() || 'slide' === et_get_option( 'header_style', 'left' ) || 'fullscreen' === et_get_option( 'header_style', 'left' ) && ! et_is_theme_builder_header_used() ) {
+		wp_enqueue_script( 'divi-theme-scripts-library-full-screen-menu', get_template_directory_uri() . '/js/theme-scripts-library-full-screen-menu.js', array( 'jquery' ), $theme_version, true );
+	}
+}
+add_action( 'wp_enqueue_scripts', 'et_enqueue_theme_scripts_full_screen_menu' );
+
+/**
+ * Enqueue Hide Menu scripts if enabled.
+ */
+function et_enqueue_theme_scripts_hide_menu() {
+	$theme_version = et_get_theme_version();
+
+	if ( et_disable_js_on_demand_theme() || is_customize_preview() || et_get_option( 'hide_nav', false ) && ! et_is_theme_builder_header_used() ) {
+		wp_enqueue_script( 'divi-theme-scripts-library-hide-menu', get_template_directory_uri() . '/js/theme-scripts-library-hide-menu.js', array( 'jquery' ), $theme_version, true );
+	}
+}
+add_action( 'wp_enqueue_scripts', 'et_enqueue_theme_scripts_hide_menu' );
+
+/**
+ * Enqueue Split Menu scripts if enabled.
+ */
+function et_enqueue_theme_scripts_split_menu() {
+	$theme_version = et_get_theme_version();
+
+	if ( et_disable_js_on_demand_theme() || is_customize_preview() || 'split' === et_get_option( 'header_style', 'left' ) && ! et_is_theme_builder_header_used() ) {
+		wp_enqueue_script( 'divi-theme-scripts-library-split-menu', get_template_directory_uri() . '/js/theme-scripts-library-split-menu.js', array( 'jquery' ), $theme_version, true );
+	}
+}
+add_action( 'wp_enqueue_scripts', 'et_enqueue_theme_scripts_split_menu' );
+
+/**
+ * Enqueue Search Menu scripts if enabled.
+ */
+function et_enqueue_theme_scripts_search_menu() {
+	$theme_version = et_get_theme_version();
+
+	if ( et_disable_js_on_demand_theme() || is_customize_preview() || et_get_option( 'show_search_icon', true ) && ! et_is_theme_builder_header_used() ) {
+		wp_enqueue_script( 'divi-theme-scripts-library-search-menu', get_template_directory_uri() . '/js/theme-scripts-library-search-menu.js', array( 'jquery' ), $theme_version, true );
+	}
+}
+add_action( 'wp_enqueue_scripts', 'et_enqueue_theme_scripts_search_menu' );
+
+/**
+ * Enqueue Menu scripts if enabled.
+ */
+function et_enqueue_theme_scripts_menu() {
+	$theme_version = et_get_theme_version();
+
+	if ( et_disable_js_on_demand_theme() || is_customize_preview() || ! et_is_theme_builder_header_used() ) {
+		wp_enqueue_script( 'divi-theme-scripts-library-menu', get_template_directory_uri() . '/js/theme-scripts-library-menu.js', array( 'jquery' ), $theme_version, true );
+	}
+}
+add_action( 'wp_enqueue_scripts', 'et_enqueue_theme_scripts_menu' );
+
+/**
+ * Enqueue Scroll To Top button scripts if enabled.
+ */
+function et_enqueue_theme_scripts_scroll_to_top() {
+	$theme_version = et_get_theme_version();
+
+	if ( 'on' === et_get_option( 'divi_back_to_top', 'false' ) ) {
+		wp_enqueue_script( 'divi-theme-scripts-library-scroll-to-top', get_template_directory_uri() . '/js/theme-scripts-library-scroll-to-top.js', array( 'jquery' ), $theme_version, true );
+	}
+}
+add_action( 'wp_enqueue_scripts', 'et_enqueue_theme_scripts_scroll_to_top' );
+
+/**
+ * Enqueue Transparent Menu scripts if enabled.
+ */
+function et_enqueue_theme_scripts_transparent_menu() {
+	$theme_version = et_get_theme_version();
+
+	if ( et_disable_js_on_demand_theme() || is_customize_preview() || et_divi_is_transparent_primary_nav() && ! et_is_theme_builder_header_used() ) {
+		wp_enqueue_script( 'divi-theme-scripts-library-transparent-menu', get_template_directory_uri() . '/js/theme-scripts-library-transparent-menu.js', array( 'jquery' ), $theme_version, true );
+	}
+}
+add_action( 'wp_enqueue_scripts', 'et_enqueue_theme_scripts_transparent_menu' );
 
 function et_add_mobile_navigation(){
 	if ( is_customize_preview() || ( 'slide' !== et_get_option( 'header_style', 'left' ) && 'fullscreen' !== et_get_option( 'header_style', 'left' ) ) ) {
@@ -532,6 +812,60 @@ function et_add_mobile_navigation(){
 	}
 }
 add_action( 'et_header_top', 'et_add_mobile_navigation' );
+
+/**
+ * Check if a Theme Builder header is used on the current page.
+ *
+ * @since ??
+ */
+function et_is_theme_builder_header_used() {
+	$request    = ET_Theme_Builder_Request::from_current();
+	$tb_layouts = null !== $request ? et_theme_builder_get_template_layouts( $request ) : array();
+
+	if ( ! empty( $tb_layouts ) ) {
+		if ( ! empty( $tb_layouts ) && $tb_layouts[ ET_THEME_BUILDER_HEADER_LAYOUT_POST_TYPE ]['override'] ) {
+			return true;
+		}
+	}
+
+	return false;
+}
+
+/**
+ * Check if Dynamic JavaScript Libraries is enabled.
+ *
+ * @since ??
+ */
+function et_disable_js_on_demand_theme() {
+	// TODO feat(D5, To be revisited) Remove this or deprecate the function during Divi 5 test.
+	// We are temporarily returning overriding this function to force Dynamic Assets to be on to improve performance.
+	if ( ! is_preview() && ! is_customize_preview() ) {
+		return false;
+	}
+
+	static $et_disable_js_on_demand_theme = null;
+
+	if ( null === $et_disable_js_on_demand_theme ) {
+		$option = et_get_option( 'divi_dynamic_js_libraries', 'on' );
+
+		if ( 'on' !== $option ) {
+			$et_disable_js_on_demand_theme = true;
+		} else {
+			$et_disable_js_on_demand_theme = false;
+		}
+
+		/**
+		 * Filters whether to disable JS on demand for theme scripts.
+		 *
+		 * @since ??
+		 *
+		 * @param bool $et_disable_js_on_demand_theme
+		 */
+		$et_disable_js_on_demand_theme = apply_filters( 'et_disable_js_on_demand_theme', (bool) $et_disable_js_on_demand_theme );
+	}
+
+	return $et_disable_js_on_demand_theme;
+}
 
 function et_add_viewport_meta(){
 	echo '<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" />';
@@ -750,7 +1084,7 @@ function et_single_settings_meta_box( $post ) {
 
 	<?php if ( 'product' === $post->post_type && $is_builder_active ) : ?>
 		<?php
-		$product_page_layouts = et_builder_wc_get_page_layouts( 'Divi' );
+		$product_page_layouts = \ET\Builder\Packages\WooCommerce\WooCommerceUtils::get_page_layouts( 'Divi' );
 		$product_page_layout  = get_post_meta( $post_id, '_et_pb_product_page_layout', true );
 
 		// Get the default set at Builder level when `$product_page_layout` isn't set at single Product page.
@@ -1004,6 +1338,7 @@ function et_divi_customize_register( $wp_customize ) {
 		$customizer_option_set = $et_customizer_option_set_value;
 	}
 
+	et_load_shortcode_framework();
 	et_builder_init_global_settings();
 
 	// Determine if current request is Design Preview Link. Design Preview Link was added on
@@ -5330,6 +5665,36 @@ function et_divi_add_customizer_css() {
 			return;
 		}
 
+		// Prevents Customizer heading styles from affecting admin UI (Media Library, etc.).
+		$is_vb                   = function_exists( 'et_fb_is_enabled' ) && et_fb_is_enabled();
+		$scope_heading_selectors = function ( $selectors ) use ( $is_vb ) {
+			if ( ! $is_vb ) {
+				return $selectors;
+			}
+
+			// Post content + legacy #main-footer (#47079 / de950c46).
+			// TB header/footer visual mode uses et-l wrappers; TB body mounts in #et-fb-app-body-root.
+			// Wireframe header/footer app roots omitted — wireframe renders structure, not live h1-h6.
+			$vb_scope_prefixes = array(
+				'.et-fb-post-content',
+				'#main-footer',
+				'footer.et-l--footer',
+				'header.et-l--header',
+				'#et-fb-app-body-root',
+			);
+
+			$selector_array   = array_map( 'trim', explode( ',', $selectors ) );
+			$scoped_selectors = array();
+
+			foreach ( $selector_array as $selector ) {
+				foreach ( $vb_scope_prefixes as $prefix ) {
+					$scoped_selectors[] = $prefix . ' ' . $selector;
+				}
+			}
+
+			return implode( ', ', $scoped_selectors );
+		};
+
 		/** @see ET_Core_SupportCenter::toggle_safe_mode */
 		if ( et_core_is_safe_mode_active() ) {
 			return;
@@ -5340,10 +5705,20 @@ function et_divi_add_customizer_css() {
 		$is_singular = et_core_page_resource_is_singular();
 		$is_cpt      = et_builder_should_wrap_styles();
 
-		$disabled_global = 'off' === et_get_option( 'et_pb_static_css_file', 'on' );
-		$disabled_post   = $disabled_global || ( $is_singular && 'off' === get_post_meta( $post_id, '_et_pb_static_css_file', true ) );
+		$is_paginated_loop_request = false;
 
-		$forced_inline     = $is_preview || $disabled_global || $disabled_post || post_password_required();
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only request inspection for loop pagination request detection.
+		if ( isset( $_GET ) && is_array( $_GET ) ) {
+			// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only request inspection for loop pagination request detection.
+			foreach ( $_GET as $param => $value ) {
+				if ( is_string( $param ) && 0 === strpos( $param, 'loop-' ) && is_numeric( $value ) && (int) $value > 1 ) {
+					$is_paginated_loop_request = true;
+					break;
+				}
+			}
+		}
+
+		$forced_inline     = $is_preview || $is_paginated_loop_request || ! et_core_is_static_css_enabled() || post_password_required();
 		$builder_in_footer = 'on' === et_get_option( 'et_pb_css_in_footer', 'off' );
 
 		$unified_styles = $is_singular && ! $forced_inline && ! $builder_in_footer && et_core_is_builder_used_on_current_request();
@@ -5401,13 +5776,13 @@ function et_divi_add_customizer_css() {
 		$body_header_style   = et_get_option( 'body_header_style', '', '', true );
 		$body_header_spacing = intval( et_get_option( 'body_header_spacing', '0' ) );
 		$body_header_height  = floatval( et_get_option( 'body_header_height', '1' ) );
-		$body_font_color     = et_get_option( 'font_color', '#666666' );
-		$body_header_color   = et_get_option( 'header_color', '#666666' );
+		$body_font_color     = Utils::resolve_dynamic_variable( et_get_option( 'font_color', '#666666' ) );
+		$body_header_color   = Utils::resolve_dynamic_variable( et_get_option( 'header_color', '#666666' ) );
 		$heading_font_weight = absint( et_get_option( 'heading_font_weight', '500' ) );
 		$body_font_weight    = absint( et_get_option( 'body_font_weight', '500' ) );
 
 		$accent_color = et_get_option( 'accent_color', '#2ea3f2' );
-		$link_color = et_get_option( 'link_color', $accent_color );
+		$link_color   = Utils::resolve_dynamic_variable( et_get_option( 'link_color', $accent_color ) );
 
 		$content_width = absint( et_get_option( 'content_width', '1080' ) );
 		$large_content_width = intval ( $content_width * 1.25 );
@@ -5510,6 +5885,12 @@ function et_divi_add_customizer_css() {
 		// use different selector for the styles applied directly to body tag while in Visual Builder. Otherwise unwanted styles applied to the Builder interface.
 		$body_selector         = empty( $_GET['et_fb'] ) ? 'body' : 'body .et-fb-post-content';
 		$body_selector_sibling = empty( $_GET['et_fb'] ) ? '' : 'body .et-fb-root-ancestor-sibling, ';
+		$body_color_selector         = $body_selector;
+		$body_color_selector_sibling = $body_selector_sibling;
+
+		if ( $is_vb ) {
+			$body_color_selector_sibling = 'body .et-fb-root-ancestor-sibling #et-boc .et-l, ';
+		}
 
 		/* ====================================================
 		 * --------->>> BEGIN THEME CUSTOMIZER CSS <<<---------
@@ -5528,30 +5909,30 @@ function et_divi_add_customizer_css() {
 			<?php echo $css( '.et_pb_column_3_8 .et_link_content a.et_link_main_url', false ); ?>,
 			<?php echo $css( '.et_pb_column_1_4 .et_link_content a.et_link_main_url', false ); ?>,
 			<?php echo $css( '.et_pb_blog_grid .et_link_content a.et_link_main_url', false ); ?>,
-			<?php echo $css( 'body', '.et_pb_bg_layout_light .et_pb_post p', false ); ?>,
-			<?php echo $css( 'body', '.et_pb_bg_layout_dark .et_pb_post p', false ); ?> {
+			<?php echo $css( 'body', '.et_pb_bg_layout_light .et_pb_post .post-content', false ); ?>,
+			<?php echo $css( 'body', '.et_pb_bg_layout_dark .et_pb_post .post-content', false ); ?> {
 				font-size: <?php echo esc_html( $body_font_size ); ?>px;
 			}
 			<?php echo $css( '.et_pb_slide_content', false ); ?>,
 			<?php echo $css( '.et_pb_best_value', false ); ?> {
 				font-size: <?php echo esc_html( intval( $body_font_size * 1.14 ) ); ?>px;
 			}
-		<?php if ( '#666666' !== $body_font_color) { ?>
-			<?php echo esc_html( $body_selector_sibling ); ?>
-			<?php echo esc_html( $body_selector ); ?> {
-				color: <?php echo esc_html( $body_font_color ); ?>;
-			}
-		<?php } ?>
-		<?php if ( '#666666' !== $body_header_color ) { ?>
-			<?php echo $css( 'h1' ); ?>,
-			<?php echo $css( 'h2' ); ?>,
-			<?php echo $css( 'h3' ); ?>,
-			<?php echo $css( 'h4' ); ?>,
-			<?php echo $css( 'h5' ); ?>,
-			<?php echo $css( 'h6' ); ?> {
-				color: <?php echo esc_html( $body_header_color ); ?>;
-			}
-		<?php } ?>
+	<?php if ( '#666666' !== $body_font_color ) { ?>
+		<?php echo esc_html( $body_color_selector_sibling ); ?>
+		<?php echo esc_html( $body_color_selector ); ?> {
+			color: var(--gcid-body-color, <?php echo esc_html( $body_font_color ); ?>);
+		}
+	<?php } ?>
+	<?php if ( '#666666' !== $body_header_color ) { ?>
+		<?php echo $css( 'h1' ); ?>,
+		<?php echo $css( 'h2' ); ?>,
+		<?php echo $css( 'h3' ); ?>,
+		<?php echo $css( 'h4' ); ?>,
+		<?php echo $css( 'h5' ); ?>,
+		<?php echo $css( 'h6' ); ?> {
+			color: var(--gcid-heading-color, <?php echo esc_html( $body_header_color ); ?>);
+		}
+	<?php } ?>
 		<?php if ( 1.7 !== $body_font_height ) { ?>
 			<?php echo esc_html( $body_selector_sibling ); ?>
 			<?php echo esc_html( $body_selector ); ?> {
@@ -5572,8 +5953,8 @@ function et_divi_add_customizer_css() {
 			<?php echo $css( '.et_pb_column_3_8 .et_link_content a.et_link_main_url', false ); ?>,
 			<?php echo $css( '.et_pb_column_1_4 .et_link_content a.et_link_main_url', false ); ?>,
 			<?php echo $css( '.et_pb_blog_grid .et_link_content a.et_link_main_url', false ); ?>,
-			<?php echo $css( 'body', '.et_pb_bg_layout_light .et_pb_post p', false ); ?>,
-			<?php echo $css( 'body', '.et_pb_bg_layout_dark .et_pb_post p', false ); ?> {
+			<?php echo $css( 'body', '.et_pb_bg_layout_light .et_pb_post .post-content', false ); ?>,
+			<?php echo $css( 'body', '.et_pb_bg_layout_dark .et_pb_post .post-content', false ); ?> {
 				font-weight: <?php echo esc_html( $body_font_weight ); ?>;
 			}
 			<?php echo $css( '.et_pb_slide_content', false ); ?>,
@@ -5685,7 +6066,7 @@ function et_divi_add_customizer_css() {
 		<?php } ?>
 		<?php if ( 1080 !== $content_width ) { ?>
 			<?php echo $css( '.container' ); ?>,
-			<?php echo $css( '.et_pb_row', false ); ?>,
+			<?php echo $css( '.et_pb_row:not([class*="et_flex_column"])', false ); ?>,
 			<?php echo $css( '.et_pb_slider .et_pb_container', false ); ?>,
 			<?php echo $css( '.et_pb_fullwidth_section .et_pb_title_container', false ); ?>,
 			<?php echo $css( '.et_pb_fullwidth_section .et_pb_title_featured_container', false ); ?>,
@@ -5702,9 +6083,9 @@ function et_divi_add_customizer_css() {
 				max-width: <?php echo esc_html( intval( et_get_option( 'content_width', '1080' ) ) + 160 ); ?>px;
 			}
 		<?php } ?>
-		<?php if ( $link_color !== '#2ea3f2' ) { ?>
-			<?php echo $css( 'a' ); ?> { color: <?php echo esc_html( $link_color ); ?>; }
-		<?php } ?>
+	<?php if ( $link_color !== '#2ea3f2' ) { ?>
+		<?php echo $css( 'a' ); ?> { color: var(--gcid-link-color, <?php echo esc_html( $link_color ); ?>); }
+	<?php } ?>
 		<?php if ( $primary_nav_bg !== '#ffffff' ) { ?>
 			#main-header,
 			#main-header .nav li ul,
@@ -6014,7 +6395,7 @@ function et_divi_add_customizer_css() {
 					background-color: <?php echo esc_html( $button_bg_color ); ?>;
 				<?php } ?>
 				<?php if ( 2 !== $button_border_width ) { ?>
-					border-width: <?php echo esc_html( $button_border_width ); ?>px !important;
+					border-width: <?php echo esc_html( $button_border_width ); ?>px;
 				<?php } ?>
 				<?php if ( '#ffffff' !== $button_border_color ) { ?>
 					border-color: <?php echo esc_html( $button_border_color ); ?>;
@@ -6099,21 +6480,31 @@ function et_divi_add_customizer_css() {
 				<?php } ?>
 			}
 		<?php } ?>
-		<?php if ( ! empty( $button_text_color_hover ) || 'rgba(255,255,255,0.2)' !== $button_bg_color_hover || 'rgba(0,0,0,0)' !== $button_border_color_hover || 3 !== $button_border_radius_hover || 0 !== $button_spacing_hover ) { ?>
+		<?php if ( ! empty( $button_text_color_hover ) || 'rgba(255,255,255,0.2)' !== $button_bg_color_hover || 'rgba(0,0,0,0)' !== $button_border_color_hover || 3 !== $button_border_radius_hover || 0 !== $button_spacing_hover || 2 !== $button_border_width ) { ?>
 			<?php echo esc_attr( $css( 'body', '.et_pb_bg_layout_light.et_pb_button:hover' ) ); ?>,
 			<?php echo esc_attr( $css( 'body', '.et_pb_bg_layout_light .et_pb_button:hover' ) ); ?>,
+			<?php echo esc_attr( $css( '', '.et_pb_module .et_pb_button:hover' ) ); ?>,
 			<?php echo esc_attr( $css( 'body', '.et_pb_button:hover' ) ); ?> {
 				<?php if ( ! empty( $button_text_color_hover ) ) { ?>
-					color: <?php echo esc_html( $button_text_color_hover ); ?> !important;
+					color: <?php echo esc_html( $button_text_color_hover ); ?>;
 				<?php } ?>
 				<?php if ( 'rgba(255,255,255,0.2)' !== $button_bg_color_hover ) { ?>
 					background-color: <?php echo esc_html( $button_bg_color_hover ); ?>;
 				<?php } ?>
 				<?php if ( 'rgba(0,0,0,0)' !== $button_border_color_hover ) { ?>
-					border-color: <?php echo esc_html( $button_border_color_hover ); ?> !important;
+					border-color: <?php echo esc_html( $button_border_color_hover ); ?>;
 				<?php } ?>
 				<?php if ( 3 !== $button_border_radius_hover ) { ?>
 					border-radius: <?php echo esc_html( $button_border_radius_hover ); ?>px;
+				<?php } ?>
+				<?php
+				// Customizer doesn't have border width option on button hover group. Thus border width on button group
+				// is used and printed as button hover style so that when the button is hovered, the customizer's button
+				// border-width is cascaded into its hover style instead of fallback to static style that might take priority
+				// unless this style is being printed.
+				if ( 2 !== $button_border_width ) {
+					?>
+					border-width: <?php echo esc_html( $button_border_width ); ?>px;
 				<?php } ?>
 				<?php if ( 0 !== $button_spacing_hover ) { ?>
 					letter-spacing: <?php echo esc_html( $button_spacing_hover ); ?>px;
@@ -6143,13 +6534,13 @@ function et_divi_add_customizer_css() {
 				<?php echo $css( '.woocommerce #content', 'input.button:hover' ); ?>,
 				<?php echo $css( '.woocommerce-page #content', 'input.button:hover' ); ?> {
 					<?php if ( ! empty( $button_text_color_hover ) ) { ?>
-						color: <?php echo esc_html( $button_text_color_hover ); ?> !important;
+						color: <?php echo esc_html( $button_text_color_hover ); ?>;
 					<?php } ?>
 					<?php if ( 'rgba(255,255,255,0.2)' !== $button_bg_color_hover ) { ?>
-						background-color: <?php echo esc_html( $button_bg_color_hover ); ?> !important;
+						background-color: <?php echo esc_html( $button_bg_color_hover ); ?>;
 					<?php } ?>
 					<?php if ( 'rgba(0,0,0,0)' !== $button_border_color_hover ) { ?>
-						border-color: <?php echo esc_html( $button_border_color_hover ); ?> !important;
+						border-color: <?php echo esc_html( $button_border_color_hover ); ?>;
 					<?php } ?>
 					<?php if ( 3 !== $button_border_radius_hover ) { ?>
 						border-radius: <?php echo esc_html( $button_border_radius_hover ); ?>px;
@@ -6161,15 +6552,19 @@ function et_divi_add_customizer_css() {
 			<?php } ?>
 		<?php } ?>
 
-		<?php if ( '' !== $body_header_style || 0 !== $body_header_spacing || 1.0 !== $body_header_height ) { ?>
-			<?php echo $css( 'h1' ); ?>,
-			<?php echo $css( 'h2' ); ?>,
-			<?php echo $css( 'h3' ); ?>,
-			<?php echo $css( 'h4' ); ?>,
-			<?php echo $css( 'h5' ); ?>,
-			<?php echo $css( 'h6' ); ?>,
-			<?php echo $css( '.et_quote_content blockquote p' ); ?>,
-			<?php echo $css( '.et_pb_slide_description .et_pb_slide_title', false ); ?> {
+		<?php
+		if ( '' !== $body_header_style || 0 !== $body_header_spacing || 1.0 !== $body_header_height ) {
+			$header_style_selectors = $css( 'h1' ) . ',' .
+				$css( 'h2' ) . ',' .
+				$css( 'h3' ) . ',' .
+				$css( 'h4' ) . ',' .
+				$css( 'h5' ) . ',' .
+				$css( 'h6' ) . ',' .
+				$css( '.et_quote_content blockquote p' ) . ',' .
+				$css( '.et_pb_slide_description .et_pb_slide_title', false );
+			$header_style_selectors = $scope_heading_selectors( $header_style_selectors );
+			?>
+			<?php echo esc_html( $header_style_selectors ); ?> {
 				<?php if ( $body_header_style !== '' ) { ?>
 					<?php echo esc_html( et_pb_print_font_style( $body_header_style ) ); ?>
 				<?php } ?>
@@ -6322,7 +6717,7 @@ function et_divi_add_customizer_css() {
 				<?php echo $css( '.et_pb_fullwidth_section', false ); ?> { padding: 0; }
 			<?php } ?>
 			<?php if ( 2 !== $row_padding ) { ?>
-				<?php echo $css( '.et_pb_row', false ); ?> { padding: <?php echo esc_html( $row_padding ); ?>% 0; }
+				<?php echo $css( '.et_block_row', false ); ?> { padding: <?php echo esc_html( $row_padding ); ?>% 0; }
 			<?php } ?>
 			<?php if ( intval( $body_header_size * .6 ) !== $widget_header_font_size ) { ?>
 				#main-footer .footer-widget h4,
@@ -6425,27 +6820,32 @@ function et_divi_add_customizer_css() {
 		}
 
 		@media only screen and ( min-width: <?php echo esc_html( $large_content_width ); ?>px) {
-			<?php echo $css( '.et_pb_row', false ); ?> { padding: <?php echo esc_html( intval( $large_content_width * $row_padding / 100 ) ); ?>px 0; }
+			<?php echo $css( '.et_block_row', false ); ?> { padding: <?php echo esc_html( intval( $large_content_width * $row_padding / 100 ) ); ?>px 0; }
 			<?php echo $css( '.et_pb_section', false ); ?> { padding: <?php echo esc_html( intval( $large_content_width * $section_padding / 100 ) ); ?>px 0; }
 			.single.et_pb_pagebuilder_layout.et_full_width_page .et_post_meta_wrapper { padding-top: <?php echo esc_html( intval( $large_content_width * $row_padding / 100 * 3 ) ); ?>px; }
 			<?php echo $css( '.et_pb_fullwidth_section', false ); ?> { padding: 0; }
 		}
 
-		<?php if ( 30 !== $body_header_size ) { ?>
-			<?php echo $css( 'h1' ); ?>,
-			<?php echo $css( 'h1.et_pb_contact_main_title' ); ?>,
-			<?php echo $css( '.et_pb_title_container h1' ); ?> {
+		<?php
+		if ( 30 !== $body_header_size ) {
+			$h1_selectors = $scope_heading_selectors( $css( 'h1' ) ) . ',' .
+				$css( 'h1.et_pb_contact_main_title' ) . ',' .
+				$css( '.et_pb_title_container h1' );
+			$h2_selectors = $scope_heading_selectors( $css( 'h2' ) ) . ',' .
+				$css( '.product .related h2' ) . ',' .
+				$css( '.et_pb_column_1_2 .et_quote_content blockquote p', false );
+			$h3_selectors = $scope_heading_selectors( $css( 'h3' ) );
+			?>
+			<?php echo esc_html( $h1_selectors ); ?> {
 				font-size: <?php echo esc_html( $body_header_size ); ?>px;
 			}
-			<?php echo $css( 'h2' ); ?>,
-			<?php echo $css( '.product .related h2' ); ?>,
-			<?php echo $css( '.et_pb_column_1_2 .et_quote_content blockquote p', false ); ?> {
+			<?php echo esc_html( $h2_selectors ); ?> {
 				font-size: <?php echo esc_html( intval( $body_header_size * .86 ) ) ; ?>px;
 			}
-			<?php echo $css( 'h3' ); ?> {
+			<?php echo esc_html( $h3_selectors ); ?> {
 				font-size: <?php echo esc_html( intval( $body_header_size * .73 ) ); ?>px;
 			}
-			<?php echo $css( 'h4' ); ?>,
+			<?php echo esc_html( $scope_heading_selectors( $css( 'h4' ) ) ); ?>,
 			<?php echo $css( '.et_pb_circle_counter h3', false ); ?>,
 			<?php echo $css( '.et_pb_number_counter h3', false ); ?>,
 			<?php echo $css( '.et_pb_column_1_3 .et_pb_post h2', false ); ?>,
@@ -6470,10 +6870,10 @@ function et_divi_add_customizer_css() {
 			<?php echo $css( '.et_pb_filterable_portfolio_grid .et_pb_portfolio_item h2', false ); ?> {
 				font-size: <?php echo esc_html( intval( $body_header_size * .6 ) ); ?>px;
 			}
-			<?php echo $css( 'h5' ); ?> {
+			<?php echo esc_html( $scope_heading_selectors( $css( 'h5' ) ) ); ?> {
 				font-size: <?php echo esc_html( intval( $body_header_size * .53 ) ); ?>px;
 			}
-			<?php echo $css( 'h6' ); ?> {
+			<?php echo esc_html( $scope_heading_selectors( $css( 'h6' ) ) ); ?> {
 				font-size: <?php echo esc_html( intval( $body_header_size * .47 ) ); ?>px;
 			}
 			<?php echo $css( '.et_pb_slide_description .et_pb_slide_title', false ); ?> {
@@ -6491,22 +6891,26 @@ function et_divi_add_customizer_css() {
 			}
 		<?php } ?>
 
-		<?php if ( 500 !== $heading_font_weight ) { ?>
-			<?php // phpcs:disable WordPress.Security.EscapeOutput.OutputNotEscaped -- Following the existing standards ?>
-			<?php echo $css( 'h1' ); ?>,
-			<?php echo $css( 'h1.et_pb_contact_main_title' ); ?>,
-			<?php echo $css( '.et_pb_title_container h1' ); ?> {
+		<?php
+		if ( 500 !== $heading_font_weight ) {
+			$h1_weight_selectors = $scope_heading_selectors( $css( 'h1' ) ) . ',' .
+				$css( 'h1.et_pb_contact_main_title' ) . ',' .
+				$css( '.et_pb_title_container h1' );
+			$h2_weight_selectors = $scope_heading_selectors( $css( 'h2' ) ) . ',' .
+				$css( '.product .related h2' ) . ',' .
+				$css( '.et_pb_column_1_2 .et_quote_content blockquote p', false );
+			$h3_weight_selectors = $scope_heading_selectors( $css( 'h3' ) );
+			?>
+			<?php echo esc_html( $h1_weight_selectors ); ?> {
 				font-weight: <?php echo esc_html( $heading_font_weight ); ?>;
 			}
-			<?php echo $css( 'h2' ); ?>,
-			<?php echo $css( '.product .related h2' ); ?>,
-			<?php echo $css( '.et_pb_column_1_2 .et_quote_content blockquote p', false ); ?> {
+			<?php echo esc_html( $h2_weight_selectors ); ?> {
 				font-weight: <?php echo esc_html( $heading_font_weight ); ?>;
 			}
-			<?php echo $css( 'h3' ); ?> {
+			<?php echo esc_html( $h3_weight_selectors ); ?> {
 				font-weight: <?php echo esc_html( $heading_font_weight ); ?>;
 			}
-			<?php echo $css( 'h4' ); ?>,
+			<?php echo esc_html( $scope_heading_selectors( $css( 'h4' ) ) ); ?>,
 			<?php echo $css( '.et_pb_circle_counter h3', false ); ?>,
 			<?php echo $css( '.et_pb_number_counter h3', false ); ?>,
 			<?php echo $css( '.et_pb_column_1_3 .et_pb_post h2', false ); ?>,
@@ -6531,10 +6935,10 @@ function et_divi_add_customizer_css() {
 			<?php echo $css( '.et_pb_filterable_portfolio_grid .et_pb_portfolio_item h2', false ); ?> {
 				font-weight: <?php echo esc_html( $heading_font_weight ); ?>;
 			}
-			<?php echo $css( 'h5' ); ?> {
+			<?php echo esc_html( $scope_heading_selectors( $css( 'h5' ) ) ); ?> {
 				font-weight: <?php echo esc_html( $heading_font_weight ); ?>;
 			}
-			<?php echo $css( 'h6' ); ?> {
+			<?php echo esc_html( $scope_heading_selectors( $css( 'h6' ) ) ); ?> {
 				font-weight: <?php echo esc_html( $heading_font_weight ); ?>;
 			}
 			<?php echo $css( '.et_pb_slide_description .et_pb_slide_title', false ); ?> {
@@ -6557,7 +6961,7 @@ function et_divi_add_customizer_css() {
 			<?php if ( $mobile_primary_nav_bg !== $primary_nav_bg ) { ?>
 				#main-header, #main-header .nav li ul, .et-search-form, #main-header .et_mobile_menu { background-color: <?php echo esc_html( $mobile_primary_nav_bg ); ?>; }
 			<?php } ?>
-			<?php if ( $menu_link !== $mobile_menu_link ) { ?>
+			<?php if ( $mobile_menu_link ) { ?>
 				.et_header_style_centered .mobile_nav .select_page, .et_header_style_split .mobile_nav .select_page, .et_mobile_menu li a, .mobile_menu_bar:before, .et_nav_text_color_light #top-menu > li > a, .et_nav_text_color_dark #top-menu > li > a, #top-menu a, .et_mobile_menu li a, #et_search_icon:before, #et_top_search .et-search-form input, .et_search_form_container input, #et-top-navigation .et-cart-info { color: <?php echo esc_html( $mobile_menu_link ); ?>; }
 				.et_close_search_field:after { color: <?php echo esc_html( $mobile_menu_link ); ?> !important; }
 				.et_search_form_container input::-moz-placeholder { color: <?php echo esc_html( $mobile_menu_link ); ?>; }
@@ -6650,8 +7054,8 @@ function et_divi_add_customizer_css() {
 				}
 			<?php } ?>
 			<?php if ( 30 !== $tablet_row_height ) { ?>
-				<?php echo $css( '.et_pb_row', false ); ?>,
-				<?php echo $css( '.et_pb_column .et_pb_row_inner', false ); ?> {
+				<?php echo $css( '.et_block_row', false ); ?>,
+				<?php echo $css( '.et_pb_column .et_pb_row_inner.et_block_row', false ); ?> {
 					padding: <?php echo esc_html( $tablet_row_height ); ?>px 0;
 				}
 			<?php } ?>
@@ -6743,8 +7147,8 @@ function et_divi_add_customizer_css() {
 				}
 			<?php } ?>
 			<?php if ( 30 !== $phone_row_height && $tablet_row_height !== $phone_row_height ) { ?>
-				<?php echo $css( '.et_pb_row', false ); ?>,
-				<?php echo $css( '.et_pb_column .et_pb_row_inner', false ); ?> {
+				<?php echo $css( '.et_block_row', false ); ?>,
+				<?php echo $css( '.et_pb_column .et_pb_row_inner.et_block_row', false ); ?> {
 					padding: <?php echo esc_html( $phone_row_height ); ?>px 0;
 				}
 			<?php } ?>
@@ -6775,14 +7179,16 @@ function et_divi_add_customizer_css() {
 
 	if ( ! in_array( $et_gf_heading_font, array( '', 'none' ), true ) || ! in_array( $et_gf_body_font, array( '', 'none' ), true ) || ! in_array( $et_gf_buttons_font, array( '', 'none' ), true ) || ! in_array( $et_gf_primary_nav_font, array( '', 'none' ), true ) || ! in_array( $et_gf_secondary_nav_font, array( '', 'none' ), true ) || ! in_array( $et_gf_slide_nav_font, array( '', 'none' ), true ) ) {
 			if ( ! in_array( $et_gf_heading_font, array( '', 'none' ) ) ) {
+				$heading_selectors = $css( 'h1' ) . ',' .
+					$css( 'h2' ) . ',' .
+					$css( 'h3' ) . ',' .
+					$css( 'h4' ) . ',' .
+					$css( 'h5' ) . ',' .
+					$css( 'h6' );
+				$heading_selectors = $scope_heading_selectors( $heading_selectors );
 				?>
-				<?php echo $css( 'h1' ); ?>,
-				<?php echo $css( 'h2' ); ?>,
-				<?php echo $css( 'h3' ); ?>,
-				<?php echo $css( 'h4' ); ?>,
-				<?php echo $css( 'h5' ); ?>,
-				<?php echo $css( 'h6' ); ?> {
-					<?php echo sanitize_text_field( et_builder_get_font_family( $et_gf_heading_font ) ); ?>
+				<?php echo esc_html( $heading_selectors ); ?> {
+					font-family: var(--et_global_heading_font);
 				}
 			<?php }
 
@@ -6791,7 +7197,7 @@ function et_divi_add_customizer_css() {
 				<?php echo $css( 'input' ); ?>,
 				<?php echo $css( 'textarea' ); ?>,
 				<?php echo $css( 'select' ); ?> {
-					<?php echo sanitize_text_field( et_builder_get_font_family( $et_gf_body_font ) ); ?>
+					font-family: var(--et_global_body_font);
 				}
 			<?php }
 
@@ -8145,7 +8551,7 @@ function et_layout_post_class( $classes ) {
 
 	$post_id       = get_the_ID();
 	$post_type     = get_post_type( $post_id );
-	$template_name = ! empty( $template ) ? basename( $template ) : ''; // phpcs:ignore Generic.WhiteSpace.ScopeIndent.Incorrect -- We decided to ignore indentation change.
+	$template_name = ( is_string( $template ) && ! empty( $template ) ) ? basename( $template ) : ''; // phpcs:ignore Generic.WhiteSpace.ScopeIndent.Incorrect -- We decided to ignore indentation change.
 
 	if ( 'page' === $post_type ) {
 		// Don't add the class to pages.
@@ -8235,10 +8641,11 @@ function et_divi_activate_features(){
 }
 add_action( 'init', 'et_divi_activate_features' );
 
-require_once( get_template_directory() . '/et-pagebuilder/et-pagebuilder.php' );
+require_once get_template_directory() . '/et-pagebuilder/et-pagebuilder.php';
+require_once get_template_directory() . '/et-pagebuilder/et-experiment-flags.php';
+require_once get_template_directory() . '/et-pagebuilder/builder-5.php';
 require_once get_template_directory() . '/includes/theme-builder.php';
-
-require_once( get_template_directory() . '/includes/block-editor-integration.php' );
+require_once get_template_directory() . '/includes/block-editor-integration.php';
 
 /**
  * Custom body classes for sidebar location in different places
@@ -8345,6 +8752,10 @@ add_filter( 'loop_shop_columns', 'et_modify_shop_page_columns_num' );
  * @since ??
  */
 function onboarding_scripts() {
+	if ( ! is_admin() ) {
+		return;
+	}
+
 	require_once get_template_directory() . '/onboarding/onboarding.php';
 	require_once get_template_directory() . '/onboarding/functions.php';
 
@@ -8483,10 +8894,12 @@ function et_add_divi_menu() {
 	}
 
 	$onboarding_page = ET_Onboarding::add_admin_submenu_item();
+	$d5_readiness_page = \Divi\D5_Readiness\Server\AdminPage::add_admin_submenu_item();
 
 	add_action( "load-{$core_page}", 'et_pb_check_options_access' ); // load function to check the permissions of current user
 	add_action( "load-{$core_page}", 'et_epanel_hook_scripts' );
 	add_action( "load-{$onboarding_page}", [ 'ET_Onboarding', 'load_js' ] );
+	add_action( "admin_print_scripts-{$d5_readiness_page}", ['\Divi\D5_Readiness\Server\AdminPage', 'load_js'] );
 	add_action( "admin_print_scripts-{$core_page}", 'et_epanel_admin_js' );
 	add_action( "admin_head-{$core_page}", 'et_epanel_css_admin');
 	add_action( "admin_print_scripts-{$core_page}", 'et_epanel_media_upload_scripts');
@@ -8610,25 +9023,42 @@ function et_divi_woocommerce_output_related_products_args( $args ) {
 add_filter( 'woocommerce_upsell_display_args', 'et_divi_woocommerce_output_related_products_args' );
 add_filter( 'woocommerce_output_related_products_args', 'et_divi_woocommerce_output_related_products_args' );
 
-function et_divi_maybe_change_frontend_locale( $locale ) {
-	$option_name   = 'divi_disable_translations';
-	$theme_options = get_option( 'et_divi' );
-
-	$disable_translations = isset ( $theme_options[ $option_name ] ) ? $theme_options[ $option_name ] : false;
-
-	if ( 'on' === $disable_translations ) {
-		return 'en_US';
+/**
+ * Disable translations if user enables the disable translations option.
+ *
+ * @param bool   $override Whether to override the .mo file loading. Default false.
+ * @param string $domain   Text domain. Unique identifier for retrieving translated strings.
+ * @param string $mofile   Path to the MO file.
+ *
+ * @return bool True to prevent loading translations, false to allow.
+ */
+function et_divi_maybe_disable_translations( $override, $domain, $mofile ) {
+	// Check if et_get_option() is available (it's loaded in et_setup_theme()).
+	if ( ! function_exists( 'et_get_option' ) ) {
+		return $override;
 	}
 
-	return $locale;
+	$disable_translations = et_get_option( 'divi_disable_translations', 'false' );
+	$domains              = array( 'Divi', 'et_builder', 'et_builder_5', 'et_core', 'dashboard' );
+
+	if ( 'on' === $disable_translations && in_array( $domain, $domains, true ) ) {
+		return true; // Prevent loading translation file.
+	}
+
+	return $override;
 }
-add_filter( 'theme_locale', 'et_divi_maybe_change_frontend_locale' );
+add_filter( 'override_load_textdomain', 'et_divi_maybe_disable_translations', 10, 3 );
 
 /**
  * Enable Divi gallery override if user activates it
  * @return bool
  */
 function et_divi_gallery_layout_enable( $option ) {
+	// Check if et_get_option() is available (it's loaded in et_setup_theme()).
+	if ( ! function_exists( 'et_get_option' ) ) {
+		return $option;
+	}
+
 	$setting = et_get_option( 'divi_gallery_layout_enable' );
 
 	return ( 'on' === $setting ) ? true : $option;
@@ -8656,8 +9086,31 @@ function et_divi_register_customizer_portability() {
 	// get all the roles that can edit theme options.
 	$applicability_roles = et_core_get_roles_by_capabilities( [ 'edit_theme_options' ] );
 
-	// Make sure the Portability is loaded.
+	// Ensure portability is available before admin_init hooks run.
 	et_core_load_component( 'portability' );
+
+	// phpcs:disable Generic.WhiteSpace.ScopeIndent.Incorrect, Generic.WhiteSpace.ScopeIndent.IncorrectExact -- Legacy file indentation is inconsistent; keep this localized block stable.
+	if ( ! function_exists( 'et_core_portability_register' ) ) {
+		// Fallback for preload/CI timing: avoid fatal if component load is skipped.
+		if ( defined( 'ET_CORE_PATH' ) ) {
+			$portability_cache = ET_CORE_PATH . 'components/Cache.php';
+			$portability_file  = ET_CORE_PATH . 'components/Portability.php';
+
+			if ( is_readable( $portability_cache ) ) {
+				require_once $portability_cache;
+			}
+
+			if ( is_readable( $portability_file ) ) {
+				require_once $portability_file;
+			}
+		}
+	}
+
+	if ( ! function_exists( 'et_core_portability_register' ) ) {
+		// Bail if portability is still unavailable to prevent admin 500s.
+		return;
+	}
+	// phpcs:enable Generic.WhiteSpace.ScopeIndent.Incorrect, Generic.WhiteSpace.ScopeIndent.IncorrectExact
 
 	// Load ePanel options.
 	et_load_core_options();
@@ -8685,7 +9138,9 @@ function et_divi_register_customizer_portability() {
 add_action( 'admin_init', 'et_divi_register_customizer_portability' );
 
 function et_register_updates_component() {
-	et_core_enable_automatic_updates( get_template_directory_uri(), ET_CORE_VERSION );
+	if ( current_user_can( 'manage_options' ) ) {
+		et_core_enable_automatic_updates( get_template_directory_uri(), ET_CORE_VERSION );
+	}
 }
 add_action( 'admin_init', 'et_register_updates_component', 9 );
 
@@ -9057,3 +9512,131 @@ function et_divi_oembed_dataparse_remove_yt_frameborder( $html, $data, $url ) {
 	return $html;
 }
 add_filter( 'oembed_dataparse', 'et_divi_oembed_dataparse_remove_yt_frameborder', 10, 3 );
+
+/**
+ * Get the list of plugins that shouldn't be activated with Divi 5.
+ *
+ * @return array List of disallowed plugin slugs.
+ */
+function et_divi_get_disallowed_plugins() {
+	return [];
+}
+
+/**
+ * Get the list of plugins that shouldn't be activated with Divi 5.
+ *
+ * @return bool Is the current request the top window in the VB.
+ */
+function et_divi_is_vb_top_window() {
+	static $is_top_window = null;
+
+	if ( null === $is_top_window ) {
+		$is_vb_enabled = et_core_is_fb_enabled();
+		$is_app_window = isset( $_GET['app_window'] ) && '1' === $_GET['app_window'];
+
+		if ( $is_vb_enabled && ! $is_app_window ) {
+			$is_top_window = true;
+		}
+	}
+
+	return $is_top_window;
+}
+/**
+ * Prevents the theme from being activated if certain plugins are active.
+ *
+ * Checks the list of disallowed plugins and prevents the theme activation if
+ * any of these plugins are currently active. Displays an error message in the
+ * WordPress dashboard if activation is blocked.
+ */
+function et_divi_prevent_theme_activation() {
+	$previous_theme     = get_option( 'theme_switched' );
+	$disallowed_plugins = et_divi_get_disallowed_plugins();
+	$active_plugins     = [];
+
+	// Loop through the disallowed plugins and check if any are active.
+	foreach ( $disallowed_plugins as $plugin ) {
+		if ( is_plugin_active( $plugin ) ) {
+			$plugin_data     = get_plugin_data( WP_PLUGIN_DIR . '/' . $plugin );
+			$active_plugins[] = $plugin_data['Name'];
+		}
+	}
+
+	// If any disallowed plugins are active, prevent theme activation.
+	if ( ! empty( $active_plugins ) ) {
+
+		// Switch back to the previously-activated Theme.
+		switch_theme( $previous_theme );
+
+		$message = '<h3>' . esc_html__( 'Unsupported Plugins Detected', 'Divi' ) . '</h3>';
+		$message .= '<p>' . esc_html__( 'Divi 5 cannot be activated while the following plugins are active. Please deactivate these plugins and activate Divi 5 again.', 'Divi' ) . '</p>';
+		$message .= '<ul>';
+		foreach ( $active_plugins as $plugin_name ) {
+			$message .= '<li>' . esc_html( $plugin_name ) . '</li>';
+		}
+		$message .= '</ul>';
+		$message .= '<p>' . esc_html__( 'The creators of these plugins have chosen to opt out of the Divi 5 Public Alpha while they focus on creating new versions of their modules in preparation for the final release of Divi 5. 🎉', 'Divi' ) . '</p>';
+		$message .= '<p>' . esc_html__( 'While Divi 5 was built to be backward compatible, the backward compatibility system is in its alpha stage. Some creators don\'t want to participate in the testing phase.', 'Divi' ) . '</p>';
+		$message .= '<p>' . esc_html__( 'Third party modules aren\'t expected to be ready for Divi 5 during the alpha and beta phases.', 'Divi' ) . '</p>';
+		$message .= '<p>' . esc_html__( 'This block will eventually be removed, so please check back again in the future. Thanks for testing Divi 5!', 'Divi' ) . '</p>';
+		$message .= '<a href="' . esc_url( wp_get_referer() ) . '">' . esc_html__( '« Go Back', 'Divi' ) . '</a>';
+
+		wp_die( $message, esc_html__( 'Unsupported Plugins Detected', 'Divi' ) );
+	}
+}
+
+add_action( 'after_switch_theme', 'et_divi_prevent_theme_activation' );
+
+/**
+ * Prevents certain plugins from being activated if the theme is active.
+ *
+ * Checks the list of disallowed plugins and prevents their activation if the
+ * active theme is the specified one. Displays an error message in the WordPress
+ * dashboard if activation is blocked.
+ *
+ * @param string $plugin The plugin being activated.
+ */
+function et_divi_prevent_plugin_activation( $plugin ) {
+	$disallowed_plugins = et_divi_get_disallowed_plugins();
+
+	if ( in_array( $plugin, $disallowed_plugins, true ) ) {
+		deactivate_plugins( $plugin );
+
+		$plugin_data = get_plugin_data( WP_PLUGIN_DIR . '/' . $plugin );
+		$message = '<h3>' . esc_html__( 'This Plugin Can\'t Be Activated While Using Divi 5', 'Divi' ) . '</h3>';
+		$message .= '<p>' . esc_html__( 'The creators of ' . esc_html( $plugin_data['Name'] ) . ' have chosen to opt out of the Divi 5 Public Alpha while they focus on creating new versions of their modules in preparation for the final release of Divi 5. 🎉', 'Divi' ) . '</p>';
+		$message .= '<p>' . esc_html__( 'While Divi 5 was built to be backward compatible, the backward compatibility system is in its alpha stage. Some creators don\'t want to participate in the testing phase.', 'Divi' ) . '</p>';
+		$message .= '<p>' . esc_html__( 'Third party modules aren\'t expected to be ready for Divi 5 during the alpha and beta phases.', 'Divi' ) . '</p>';
+		$message .= '<p>' . esc_html__( 'This block will eventually be removed, so please check back again in the future. Thanks for testing Divi 5!', 'Divi' ) . '</p>';
+		$message .= '<a href="' . esc_url( wp_get_referer() ) . '">' . esc_html__( '« Go Back', 'Divi' ) . '</a>';
+
+		wp_die( $message, esc_html__( 'This Plugin Can\'t Be Activated While Using Divi 5', 'Divi' ) );
+	}
+}
+
+add_action( 'activate_plugin', 'et_divi_prevent_plugin_activation' );
+
+
+/**
+ * TODO: Make this detect if blocks exist on the page, rather than just checking the Divi Builder is used.
+ * Dequeue inline block styles if the Divi Builder is used.
+ *
+ * @since ?.?
+ */
+function et_divi_maybe_dequeue_block_css() {
+
+	// If this isn't a page that could be built with the Divi Builder, return.
+	if ( ! ( is_single() || is_front_page() ) ) {
+		return;
+	}
+
+	$post_id                = get_the_id();
+	$is_page_builder_used   = et_pb_is_pagebuilder_used( $post_id );
+
+	// If the Divi Builder is used, it's highly unlikely a WordPress block is used, at least for now.
+	if ( $is_page_builder_used ) {
+		wp_dequeue_style('wp-block-library-theme');
+		wp_dequeue_style('global-styles');
+	}
+
+}
+add_filter( 'wp_enqueue_scripts', 'et_divi_maybe_dequeue_block_css', 100 );

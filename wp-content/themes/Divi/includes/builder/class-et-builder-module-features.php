@@ -30,7 +30,7 @@ class ET_Builder_Module_Features extends ET_Builder_Post_Feature_Base {
 	public function __construct() {
 		parent::__construct();
 		// Get shortcode tag / attributes.
-		add_filter( 'pre_do_shortcode_tag', [ $this, 'set_cache_group' ], 99, 3 );
+		add_filter( 'pre_do_shortcode_tag', [ $this, 'set_cache_group' ], 98, 3 );
 		add_filter( 'do_shortcode_tag', [ $this, 'restore_previous_cache_group' ] );
 	}
 
@@ -87,11 +87,12 @@ class ET_Builder_Module_Features extends ET_Builder_Post_Feature_Base {
 	 * @param string   $key Name of item.
 	 * @param function $cb  Callback function to perform logic.
 	 * @param string   $group Cache group.
+	 * @param bool     $forcefully Whether to forcefully set the cache.
 	 *
 	 * @return bool/mixed Result.
 	 */
-	public function get( $key, $cb, $group = 'default' ) {
-		return parent::get( $key, $cb, end( $this->_cache_group ) );
+	public function get( $key, $cb, $group = 'default', $forcefully = false ) {
+		return parent::get( $key, $cb, end( $this->_cache_group ), $forcefully );
 	}
 
 }

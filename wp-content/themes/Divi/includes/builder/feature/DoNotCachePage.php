@@ -140,7 +140,7 @@ class ET_Builder_Do_Not_Cache_Page {
 			! $post_id ||
 			$is_preview ||
 			$forced_in_footer ||
-			et_builder_setting_is_off( 'et_pb_static_css_file', $post_id ) ||
+			! et_core_is_static_css_enabled() ||
 			et_core_is_safe_mode_active() ||
 			ET_GB_Block_Layout::is_layout_block_preview()
 		);

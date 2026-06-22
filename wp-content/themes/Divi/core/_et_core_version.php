@@ -8,4 +8,4 @@
  */
 
 // Note, this will be updated automatically during grunt release task
-$ET_CORE_VERSION = '4.27.4';
+$ET_CORE_VERSION = '5.8.0';

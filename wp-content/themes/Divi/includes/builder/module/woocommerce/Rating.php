@@ -232,6 +232,32 @@ class ET_Builder_Module_Woocommerce_Rating extends ET_Builder_Module {
 	}
 
 	/**
+	 * Get rating element as demo component.
+	 *
+	 * This placeholder is intended for Unsupported D5 module. The product may not have
+	 * any review, so the rating element maybe empty. In order to fill the gap, we set
+	 * demo component in Woo Rating builder component. To keep it consistence, we also
+	 * set demo component here to be used by Unsupported D5 module.
+	 *
+	 * TODO feat(D5, Woo Modules): This is only temporary solution to display existing
+	 * D4 Woo Modules until they have D5 support. We may need to evaluate the usage later.
+	 *
+	 * @since 5.0.0
+	 *
+	 * @return string Rating element.
+	 */
+	public static function get_rating_demo() {
+		return '<div class="woocommerce-product-rating">
+			<div class="star-rating" role="img" aria-label="Rated 4.00 out of 5">
+				<span style="width:80%">Rated <strong class="rating">4.00</strong> out of 5 based on <span
+					class="rating">1</span> customer rating</span>
+			</div>
+			<a href="#reviews" class="woocommerce-review-link" rel="nofollow">(<span
+				class="count">1</span> example review)</a>
+		</div>';
+	}
+
+	/**
 	 * Get rating output
 	 *
 	 * @param array $args Additional arguments.
@@ -254,6 +280,11 @@ class ET_Builder_Module_Woocommerce_Rating extends ET_Builder_Module {
 			$args,
 			array( 'product', 'wp_query' )
 		);
+
+		// Use demo component for Unsupported D5 module.
+		if ( empty( $rating ) && ( et_builder_is_rest_api_request( '/module-data/shortcode-module' ) || is_et_d5_preview() ) ) {
+			$rating = self::get_rating_demo();
+		}
 
 		if ( 'current' !== $args['product'] ) {
 			// Remove filter after module is rendered.

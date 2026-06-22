@@ -99,14 +99,6 @@ $options = array (
 				   "desc" => esc_html__( "Enable this if you want to replace the WordPress default gallery with the Divi-style gallery.", $themename )
 			),
 
-			array( "name"         => esc_html__( "Color Pickers Default Palette", $themename ),
-				   "id"           => $shortname . "_color_palette",
-				   "type"         => "et_color_palette",
-				   "items_amount" => 8,
-				   "std"          => '#000000|#FFFFFF|#E02B20|#E09900|#EDF000|#7CDA24|#0C71C3|#8300E9',
-				   "desc"         => esc_html__( "Define the default color palette for color pickers in the Divi Builder.", $themename ),
-			),
-
 			array( "type" => "clearfix",),
 
 			array( "name" => esc_html__( "Grab the first post image", $themename ),
@@ -348,13 +340,18 @@ $options = array (
 		'std'  => 'on',
 		'desc' => esc_html__( 'Enable this to allow the Divi Framework to only load the modules that are used on the page, and process the logic for the features in use.', 'Divi' ),
 	),
-	array(
-		'name' => esc_html__( 'Dynamic CSS', 'Divi' ),
-		'id'   => 'divi_dynamic_css',
-		'type' => 'checkbox',
-		'std'  => 'on',
-		'desc' => esc_html__( 'Dynamic CSS greatly reduces CSS file size by dynamically generating only the assets necessary for the features and modules you use. This eliminates all file bloat and greatly improves load times.', 'Divi' ),
-	),
+	// TODO feat(D5, Optimization) Remove this option if we deem it's no longer needed during the Divi 5 beta.
+	// It is hidden temporarily during the Divi 5 so that no one can hurt their own performance.
+	// Disabling Static CSS has a detrimental impact on performance.
+	// We'll strive to fix all bugs rather than encourage users turn it off.
+	//
+	//array(
+	//	'name' => esc_html__( 'Dynamic CSS', 'Divi' ),
+	//	'id'   => 'divi_dynamic_css',
+	//	'type' => 'checkbox',
+	//	'std'  => 'on',
+	//	'desc' => esc_html__( 'Dynamic CSS greatly reduces CSS file size by dynamically generating only the assets necessary for the features and modules you use. This eliminates all file bloat and greatly improves load times.', 'Divi' ),
+	//),
 	array(
 		'name' => esc_html__( 'Dynamic Icons', 'Divi' ),
 		'id'   => $child_theme_active ? 'divi_dynamic_icons_child_theme' : 'divi_dynamic_icons',
@@ -362,13 +359,18 @@ $options = array (
 		'std'  => et_dynamic_icons_default_value(),
 		'desc' => esc_html__( 'The Divi icon font is broken up into various subsets. These subsets are loaded only when needed based on the modules and features used on each page. If you need access to the entire icon font on all pages (for example, if you are using our icon font in your child theme), then you can disable this option and load the entire icon font library on all pages.', 'Divi' ),
 	),
-	array(
-		'name' => esc_html__( 'Load Dynamic Stylesheet In-line', 'Divi' ),
-		'id'   => 'divi_inline_stylesheet',
-		'type' => 'checkbox',
-		'std'  => 'on',
-		'desc' => esc_html__( 'This option dequeues the Divi style.css file and prints the contents in-line. This removes a render blocking request and improves the PageSpeed scores of individual pages. However, it also prevents the style.css file from being cached. Since the stylesheet is small, it\'s recommended to keep this option enabled.', 'Divi' ),
-	),
+	// TODO feat(D5, Optimization) Remove this option if we deem it's no longer needed during the Divi 5 beta.
+	// It is hidden temporarily during the Divi 5 so that no one can hurt their own performance.
+	// Disabling Static CSS has a detrimental impact on performance.
+	// We'll strive to fix all bugs rather than encourage users turn it off.
+	//
+	//array(
+	//	'name' => esc_html__( 'Load Dynamic Stylesheet In-line', 'Divi' ),
+	//	'id'   => 'divi_inline_stylesheet',
+	//	'type' => 'checkbox',
+	//	'std'  => 'on',
+	//	'desc' => esc_html__( 'This option dequeues the Divi style.css file and prints the contents in-line. This removes a render blocking request and improves the PageSpeed scores of individual pages. However, it also prevents the style.css file from being cached. Since the stylesheet is small, it\'s recommended to keep this option enabled.', 'Divi' ),
+	//),
 	array(
 		'name' => esc_html__( 'Critical CSS', 'Divi' ),
 		'id'   => 'divi_critical_css',
@@ -384,13 +386,18 @@ $options = array (
 		'std'     => 'Medium',
 		'desc'    => esc_html__( 'When Critical CSS is enabled, Divi determines an "above the fold threshold" and defers all styles for elements below the fold. However, this threshold is just a estimate and can vary on different devices. Increasing threshold height will deffer fewer styles, resulting in slightly slower load times but less of a chance for Cumulative Layout Shifts to occur. If you are experiencing CLS issues you can increase the threshold height.', 'Divi' ),
 	),
-	array(
-		'name' => esc_html__( 'Dynamic JavaScript Libraries', 'Divi' ),
-		'id'   => 'divi_dynamic_js_libraries',
-		'type' => 'checkbox',
-		'std'  => 'on',
-		'desc' => esc_html__( 'Only load external JavaScript libraries when they are needed by a specific Divi modules on the page. This removes unused JavaScript from the main scripts bundle and improves load times.', 'Divi' ),
-	),
+	// TODO feat(D5, Optimization) Remove this option if we deem it's no longer needed during the Divi 5 beta.
+	// It is hidden temporarily during the Divi 5 so that no one can hurt their own performance.
+	// Disabling Static CSS has a detrimental impact on performance.
+	// We'll strive to fix all bugs rather than encourage users turn it off.
+	//
+	//array(
+	//	'name' => esc_html__( 'Dynamic JavaScript Libraries', 'Divi' ),
+	//	'id'   => 'divi_dynamic_js_libraries',
+	//	'type' => 'checkbox',
+	//	'std'  => 'on',
+	//	'desc' => esc_html__( 'Only load external JavaScript libraries when they are needed by a specific Divi modules on the page. This removes unused JavaScript from the main scripts bundle and improves load times.', 'Divi' ),
+	//),
 	array(
 		'name' => esc_html__( 'Disable WordPress Emojis', 'Divi' ),
 		'id'   => 'divi_disable_emojis',
@@ -731,7 +738,8 @@ $options = array (
 				   "desc" => esc_html__("By default the theme does not add keywords to your header. Most search engines don't use keywords to rank your site anymore, but some people define them anyway just in case. If you want to add meta keywords to your header then enable this option and fill in the custom keywords field below. ",$themename)
 			),
 
-			array( "name" => esc_html__(" Enable canonical URL's",$themename),
+			// @phpcs:ignore -- reason: nothing in this file complies to phpcs rules.
+			array( "name" => esc_html__( "Enable canonical URLs", $themename ),
 				   "id" => $shortname . "_seo_home_canonical",
 				   "type" => "checkbox",
 				   "std" => "false",
@@ -805,7 +813,8 @@ $options = array (
 				   "desc" => esc_html__( "If you would like to add meta keywords to your post you can do so using custom fields. This option must be enabled for keywords to be displayed on post pages. You can add your meta keywords using custom fields based off the custom field name you define below.", $themename )
 			),
 
-			array( "name" => esc_html__("Enable canonical URL's",$themename),
+			// @phpcs:ignore -- reason: nothing in this file complies to phpcs rules.
+			array( "name" => esc_html__( "Enable canonical URLs", $themename ),
 				   "id" => $shortname . "_seo_single_canonical",
 				   "type" => "checkbox2",
 				   "std" => "false",
@@ -858,7 +867,8 @@ $options = array (
 		array( "name" => "seo-3",
 				   "type" => "subcontent-start",),
 
-			array( "name" => esc_html__(" Enable canonical URL's",$themename),
+			// @phpcs:ignore -- reason: nothing in this file complies to phpcs rules.
+			array( "name" => esc_html__( "Enable canonical URLs", $themename ),
 				   "id" => $shortname . "_seo_index_canonical",
 				   "type" => "checkbox",
 				   "std" => "false",

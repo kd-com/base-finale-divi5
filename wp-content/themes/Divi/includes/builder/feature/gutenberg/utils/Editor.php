@@ -7,14 +7,6 @@
  * @since 4.14.8
  */
 
-if ( ! defined( 'ET_WP_EDITOR_TEMPLATE_POST_TYPE' ) ) {
-	define( 'ET_WP_EDITOR_TEMPLATE_POST_TYPE', 'wp_template' );
-}
-
-if ( ! defined( 'ET_WP_EDITOR_TEMPLATE_PART_POST_TYPE' ) ) {
-	define( 'ET_WP_EDITOR_TEMPLATE_PART_POST_TYPE', 'wp_template_part' );
-}
-
 if ( ! function_exists( 'et_builder_get_wp_editor_template_post_types' ) ) {
 	/**
 	 * Get supported WP Editor template post types.

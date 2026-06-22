@@ -36,8 +36,23 @@ class ET_Builder_Plugin_Compat_Advanced_Custom_Fields extends ET_Builder_Plugin_
 
 		$pro  = 'advanced-custom-fields-pro/acf.php';
 		$free = 'advanced-custom-fields/acf.php';
+		$scf  = 'secure-custom-fields/secure-custom-fields.php';
 
-		return is_plugin_active( $pro ) ? $pro : $free;
+		// Prioritize ACF Pro, then ACF Free, then SCF as fallback.
+		if ( is_plugin_active( $pro ) ) {
+			return $pro;
+		}
+
+		if ( is_plugin_active( $free ) ) {
+			return $free;
+		}
+
+		if ( is_plugin_active( $scf ) ) {
+			return $scf;
+		}
+
+		// Default fallback (shouldn't reach here if plugin is active).
+		return $free;
 	}
 
 	/**
@@ -148,9 +163,15 @@ class ET_Builder_Plugin_Compat_Advanced_Custom_Fields extends ET_Builder_Plugin_
 					continue;
 				}
 
+				// Determine the appropriate type based on ACF field type.
+				$field_type = 'any';
+				if ( 'color_picker' === $field['type'] ) {
+					$field_type = 'color';
+				}
+
 				$settings = array(
 					'label'    => esc_html( $field['label'] ),
-					'type'     => 'any',
+					'type'     => $field_type,
 					'fields'   => array(
 						'before' => array(
 							'label'   => et_builder_i18n( 'Before' ),
@@ -217,7 +238,7 @@ class ET_Builder_Plugin_Compat_Advanced_Custom_Fields extends ET_Builder_Plugin_
 				),
 			);
 
-			if ( 'group' === $field['type'] ) {
+			if ( 'group' === $field['type'] && isset( $field['sub_fields'] ) ) {
 				$expanded[] = $this->expand_fields(
 					$field['sub_fields'],
 					$name_prefix . $field['name'] . '_',
@@ -358,6 +379,76 @@ class ET_Builder_Plugin_Compat_Advanced_Custom_Fields extends ET_Builder_Plugin_
 		}
 
 		return $value;
+	}
+
+	/**
+	 * Get all repeater fields and their subfields.
+	 *
+	 * Recursively searches inside group fields to find nested repeaters.
+	 *
+	 * @since 5.0.0
+	 *
+	 * @return array Array of repeater fields with their subfields.
+	 */
+	public function get_repeater_fields() {
+		if ( ! $this->_get_plugin_id() || ! function_exists( 'acf_get_field_groups' ) ) {
+			return array();
+		}
+
+		$repeater_fields = array();
+		$groups          = acf_get_field_groups();
+
+		foreach ( $groups as $group ) {
+			$fields = acf_get_fields( $group['ID'] );
+
+			if ( empty( $fields ) ) {
+				continue;
+			}
+
+			// Use helper method to recursively search fields, avoiding infinite loop.
+			$found_repeaters = $this->_get_repeater_fields_from_fields( $fields );
+			$repeater_fields = array_merge( $repeater_fields, $found_repeaters );
+		}
+
+		return $repeater_fields;
+	}
+
+	/**
+	 * Recursively search for repeater fields within a given fields array.
+	 *
+	 * Helper method to avoid infinite loops when recursively searching fields.
+	 * Processes a specific fields array without restarting field group iteration.
+	 *
+	 * @since 5.0.0
+	 *
+	 * @param array  $fields      Array of ACF fields to search through.
+	 * @param string $name_prefix Current name prefix for nested fields (e.g., 'group_name_').
+	 * @param string $label_prefix Current label prefix for nested fields (e.g., 'Group Label: ').
+	 *
+	 * @return array Array of repeater fields found at any nesting level.
+	 */
+	protected function _get_repeater_fields_from_fields( array $fields, string $name_prefix = '', string $label_prefix = '' ): array {
+		$repeater_fields = array();
+
+		foreach ( $fields as $field ) {
+			if ( 'repeater' === $field['type'] && isset( $field['sub_fields'] ) ) {
+				// Found a repeater field - add it with prefixed name and label.
+				$repeater_fields[] = array(
+					'name'       => $name_prefix . $field['name'],
+					'group'      => $label_prefix . $field['label'],
+					'sub_fields' => $field['sub_fields'],
+				);
+			} elseif ( 'group' === $field['type'] && isset( $field['sub_fields'] ) ) {
+				// Found a group field - recursively search inside it.
+				// Build the prefix for nested fields: current_prefix + group_name + underscore.
+				$nested_name_prefix  = $name_prefix . $field['name'] . '_';
+				$nested_label_prefix = $label_prefix . $field['label'] . ': ';
+				$nested_repeaters    = $this->_get_repeater_fields_from_fields( $field['sub_fields'], $nested_name_prefix, $nested_label_prefix );
+				$repeater_fields     = array_merge( $repeater_fields, $nested_repeaters );
+			}
+		}
+
+		return $repeater_fields;
 	}
 }
 

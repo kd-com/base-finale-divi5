@@ -180,7 +180,7 @@ class ET_Builder_Module_Field_DisplayConditions extends ET_Builder_Module_Field_
 
 		foreach ( $display_conditions as $arr_key => $condition ) {
 			$condition_id            = isset( $condition['id'] ) ? $condition['id'] : '';
-			$condition_name          = isset( $condition['condition'] ) ? $condition['condition'] : '';
+			$condition_name          = isset( $condition['conditionName'] ) ? $condition['conditionName'] : '';
 			$condition_settings      = isset( $condition['conditionSettings'] ) ? $condition['conditionSettings'] : [];
 			$operator                = isset( $condition['operator'] ) ? $condition['operator'] : 'OR';
 			$is_enable_condition_set = isset( $condition_settings['enableCondition'] ) ? true : false;

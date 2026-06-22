@@ -11,7 +11,6 @@
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
-
 /**
  * Display Conditions functionalities to be used site wide.
  *
@@ -94,7 +93,8 @@ class ET_Builder_Display_Conditions {
 			$display_conditions_json = base64_decode( $element_instance->props['display_conditions'] ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_decode  -- The returned data is an array and necessary validation checks are performed.
 		}
 		if ( $has_display_conditions && false !== $display_conditions_json ) {
-			$display_conditions = json_decode( $display_conditions_json, true );
+			// html_entity_decode is used to decode the data, as it's encoded by the builder.
+			$display_conditions = json_decode( html_entity_decode( $element_instance->props['display_conditions'] ) ?? [], true ) ?? [];
 			$is_displayable     = \ET_Builder_Module_Fields_Factory::get( 'DisplayConditions' )->is_displayable( $display_conditions );
 		}
 
@@ -116,7 +116,7 @@ class ET_Builder_Display_Conditions {
 			}
 		}
 
-		return $output;
+		return $is_displayable ? $output : '';
 	}
 
 	/**

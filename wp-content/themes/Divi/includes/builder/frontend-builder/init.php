@@ -132,9 +132,6 @@ if ( ! ET_FB_ENABLED && ! ET_BUILDER_LOAD_ON_AJAX ) {
 	return;
 }
 
-require_once ET_BUILDER_DIR . 'frontend-builder/view.php';
-require_once ET_BUILDER_DIR . 'frontend-builder/assets.php';
-require_once ET_BUILDER_DIR . 'frontend-builder/rtl.php';
-
-do_action( 'et_fb_framework_loaded' );
-et_fb_fix_plugin_conflicts();
+// D4 app runtime bootstrap is intentionally gutted.
+// Keep helper functions available, but do not load app boot/runtime hooks.
+return;

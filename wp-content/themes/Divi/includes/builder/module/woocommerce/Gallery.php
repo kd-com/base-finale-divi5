@@ -180,7 +180,7 @@ class ET_Builder_Module_Woocommerce_Gallery extends ET_Builder_Module_Gallery {
 	}
 
 	/**
-	 * Gets Placeholder ID as Gallery IDs when in TB mode.
+	 * Gets Placeholder ID as Gallery IDs when in TB mode or Unsupported REST API request.
 	 *
 	 * @see   https://github.com/elegantthemes/Divi/issues/18768
 	 *
@@ -197,7 +197,9 @@ class ET_Builder_Module_Woocommerce_Gallery extends ET_Builder_Module_Gallery {
 
 		$is_tb = et_()->array_get( $conditional_tags, 'is_tb', false );
 
-		if ( ! $is_tb || ! function_exists( 'wc_placeholder_img_src' ) ) {
+		if (
+			( ! $is_tb && ! et_builder_is_rest_api_request( '/module-data/shortcode-module' ) )
+			|| ! function_exists( 'wc_placeholder_img_src' ) ) {
 			return array();
 		}
 

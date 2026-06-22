@@ -170,21 +170,19 @@ class ET_Builder_Google_Fonts_Feature extends ET_Builder_Global_Feature_Base {
 		}
 
 		/**
-		 * Safari, Android, iOS
+		 * Modern Mobile (TTF for older mobile devices)
 		 */
-		$uas['ttf'] = 'Mozilla/5.0 (Unknown; Linux x86_64) AppleWebKit/538.1 (KHTML, like Gecko) Safari/538.1 Daum/4.1';
+		$uas['ttf'] = 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1';
 
 		/**
-		 * Modern Browsers.
-		 * Chrome 6+, Firefox 3.6+, IE 9+, Safari 5.1+
+		 * Modern Desktop (WOFF for broad compatibility)
 		 */
-		$uas['woff'] = 'Mozilla/5.0 (Windows NT 6.1; WOW64; rv:27.0) Gecko/20100101 Firefox/27.0';
+		$uas['woff'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/115.0';
 
 		/**
-		 * Super Modern Browsers.
-		 * hrome 26+, Opera 23+, Firefox 39+
+		 * Latest Browsers (WOFF2 for optimal compression)
 		 */
-		$uas['woff2'] = 'Mozilla/5.0 (Windows NT 6.3; rv:39.0) Gecko/20100101 Firefox/39.0';
+		$uas['woff2'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 
 		/**
 		 * Filters which user agents to use to get google fonts.

@@ -293,12 +293,12 @@ abstract class ET_Builder_Module_Settings_Migration {
 	 * @return array
 	 */
 	public static function maybe_override_shortcode_attributes( $attrs, $unprocessed_attrs, $module_slug, $module_address, $content = '', $maybe_global_presets_migration = false ) {
-		if ( empty( $attrs['_builder_version'] ) ) {
-			$attrs['_builder_version'] = '3.0.47';
-		}
-
 		if ( ! self::_should_handle_render( $module_slug ) ) {
 			return $attrs;
+		}
+
+		if ( empty( $attrs['_builder_version'] ) ) {
+			$attrs['_builder_version'] = '3.0.47';
 		}
 
 		if ( ! is_array( $unprocessed_attrs ) ) {
@@ -308,7 +308,7 @@ abstract class ET_Builder_Module_Settings_Migration {
 		self::$_maybe_global_presets_migration = $maybe_global_presets_migration;
 		$migrations                            = self::get_migrations( $attrs['_builder_version'] );
 
-		// Register address-based name module's field name change
+		// Register address-based name module's field name change.
 		if ( isset( self::$migrated['field_name_changes'] ) && isset( self::$migrated['field_name_changes'][ $module_slug ] ) ) {
 			foreach ( self::$migrated['field_name_changes'][ $module_slug ] as $old_name => $name_change ) {
 				if ( version_compare( $attrs['_builder_version'], $name_change['version'], '<' ) ) {
@@ -430,6 +430,20 @@ abstract class ET_Builder_Module_Settings_Migration {
 	}
 
 	public static function _should_handle_render( $slug ) {
+		/**
+		 * Filter to determine if a migration should be handled.
+		 *
+		 * @since 5.0.0
+		 *
+		 * @param bool|null $should_handle_migration Whether to handle migration. Default null.
+		 * @param string    $slug                    The module slug.
+		 */
+		$should_handle_migration = apply_filters( 'et_pb_should_handle_migration_pre', null, $slug );
+
+		if ( null !== $should_handle_migration ) {
+			return ! ! $should_handle_migration;
+		}
+
 		// Get all module slugs to compare against this slug. This way, we're
 		// not trying to process any and every shortcode, only Divi modules.
 		$all_module_slugs = ET_Builder_Element::get_all_module_slugs();

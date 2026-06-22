@@ -314,6 +314,96 @@ class ET_Builder_Module_Circle_Counter extends ET_Builder_Module {
 			sprintf( ' data-alpha-sticky="%1$s"', esc_attr( $circle_color_alpha_sticky ) )
 			: '';
 
+		$number_hover         = et_pb_hover_options()->get_value( 'number', $this->props, '' );
+		$number_hover_enabled = et_builder_is_hover_enabled( 'number', $this->props );
+		$number_values        = et_pb_responsive_options()->get_property_values( $this->props, 'number' );
+		$number_sticky        = $sticky->get_value( 'number', $this->props, '' );
+
+		// Add front-end script data used by D5.
+		\ET\Builder\FrontEnd\Module\ScriptData::add_data_item(
+			[
+				'data_name'    => 'circle_counter',
+				'data_item_id' => null,
+				'data_item'    => [
+					'selector' => str_replace( '%%order_class%%', '.' . ET_Builder_Element::get_module_order_class( $render_slug ), $this->main_css_element ),
+					'data'     => [
+						'numberValue' => [
+							'desktop' => [
+								'value'  => $number,
+								'hover'  => '' !== $number_hover && $number_hover_enabled ? $number_hover : $number,
+								'sticky' => '' !== $number_sticky ? $number_sticky : $number,
+							],
+							'tablet'  => [
+								'value'  => $number_values['tablet'] ?? $number,
+								'hover'  => $number_values['tablet'] ?? $number,
+								'sticky' => $number_values['tablet'] ?? $number,
+							],
+							'phone'   => [
+								'value'  => $number_values['phone'] ?? $number,
+								'hover'  => $number_values['phone'] ?? $number,
+								'sticky' => $number_values['phone'] ?? $number,
+							],
+
+						],
+						'trackColor'  => [
+							'desktop' => [
+								'value'  => $circle_color,
+								'hover'  => '' !== $circle_color_hover && $circle_color_hover_enabled ? $circle_color_hover : $circle_color,
+								'sticky' => '' !== $circle_color_sticky ? $circle_color_sticky : $circle_color,
+							],
+							'tablet'  => [
+								'value'  => '' !== $circle_color_tablet ? $circle_color_tablet : $circle_color,
+								'hover'  => '' !== $circle_color_tablet ? $circle_color_tablet : $circle_color,
+								'sticky' => '' !== $circle_color_tablet ? $circle_color_tablet : $circle_color,
+							],
+							'phone'   => [
+								'value'  => '' !== $circle_color_phone ? $circle_color_phone : $circle_color,
+								'hover'  => '' !== $circle_color_phone ? $circle_color_phone : $circle_color,
+								'sticky' => '' !== $circle_color_phone ? $circle_color_phone : $circle_color,
+							],
+
+						],
+						'barColor'    => [
+							'desktop' => [
+								'value'  => $bar_bg_color,
+								'hover'  => '' !== $bar_bg_color_hover && $bar_bg_color_hover_enabled ? $bar_bg_color_hover : $bar_bg_color,
+								'sticky' => '' !== $bar_bg_color_sticky ? $bar_bg_color_sticky : $bar_bg_color,
+							],
+							'tablet'  => [
+								'value'  => '' !== $bar_bg_color_tablet ? $bar_bg_color_tablet : $bar_bg_color,
+								'hover'  => '' !== $bar_bg_color_tablet ? $bar_bg_color_tablet : $bar_bg_color,
+								'sticky' => '' !== $bar_bg_color_tablet ? $bar_bg_color_tablet : $bar_bg_color,
+							],
+							'phone'   => [
+								'value'  => '' !== $bar_bg_color_phone ? $bar_bg_color_phone : $bar_bg_color,
+								'hover'  => '' !== $bar_bg_color_phone ? $bar_bg_color_phone : $bar_bg_color,
+								'sticky' => '' !== $bar_bg_color_phone ? $bar_bg_color_phone : $bar_bg_color,
+							],
+
+						],
+						'trackAlpha'  => [
+							'desktop' => [
+								'value'  => $circle_color_alpha,
+								'hover'  => '' !== $circle_color_alpha_hover && $circle_color_alpha_hover_enable ? $circle_color_alpha_hover : $circle_color_alpha,
+								'sticky' => '' !== $circle_color_alpha_sticky ? $circle_color_alpha_sticky : $circle_color_alpha,
+							],
+							'tablet'  => [
+								'value'  => '' !== $circle_color_alpha_tablet ? $circle_color_alpha_tablet : $circle_color_alpha,
+								'hover'  => '' !== $circle_color_alpha_tablet ? $circle_color_alpha_tablet : $circle_color_alpha,
+								'sticky' => '' !== $circle_color_alpha_tablet ? $circle_color_alpha_tablet : $circle_color_alpha,
+							],
+							'phone'   => [
+								'value'  => '' !== $circle_color_alpha_phone ? $circle_color_alpha_phone : $circle_color_alpha,
+								'hover'  => '' !== $circle_color_alpha_phone ? $circle_color_alpha_phone : $circle_color_alpha,
+								'sticky' => '' !== $circle_color_alpha_phone ? $circle_color_alpha_phone : $circle_color_alpha,
+							],
+
+						],
+					],
+				],
+			]
+		);
+
 		// Sticky id.
 		$data_sticky_id = $sticky->is_sticky_module( $this->props ) ?
 			sprintf( ' data-sticky-id="%1$s"', esc_attr( $this->get_sticky_id( $render_slug ) ) )
@@ -347,6 +437,8 @@ class ET_Builder_Module_Circle_Counter extends ET_Builder_Module {
 		// Background layout class names.
 		$background_layout_class_names = et_pb_background_layout_options()->get_background_layout_class( $this->props );
 		$this->add_classname( $background_layout_class_names );
+
+		$this->add_classname( 'et_block_module' );
 
 		if ( '' !== $title ) {
 			$this->add_classname( 'et_pb_with_title' );

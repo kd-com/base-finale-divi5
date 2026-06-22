@@ -32,19 +32,40 @@ if ( ! defined( 'ET_THEME_BUILDER_DYNAMIC_CONTENT_REGEX' ) ) {
 	define( 'ET_THEME_BUILDER_DYNAMIC_CONTENT_REGEX', '/@ET-DC@(.*?)@/' );
 }
 
-require_once ET_THEME_BUILDER_DIR . 'ThemeBuilderApiErrors.php';
+if ( ! defined( 'ET_THEME_BUILDER_DYNAMIC_CONTENT_REGEX_D5' ) ) {
+	define( 'ET_THEME_BUILDER_DYNAMIC_CONTENT_REGEX_D5', '/\$variable\(([^)$]+)\)\$/' );
+}
+
+global $pagenow;
+
+// Only load the Theme Builder on the front end or when using heme Builder, or edit post pages.
 require_once ET_THEME_BUILDER_DIR . 'ThemeBuilderRequest.php';
-require_once ET_THEME_BUILDER_DIR . 'template-setting-validations.php';
-require_once ET_THEME_BUILDER_DIR . 'api.php';
-require_once ET_THEME_BUILDER_DIR . 'admin.php';
-require_once ET_THEME_BUILDER_DIR . 'frontend.php';
-require_once ET_THEME_BUILDER_DIR . 'dynamic-content.php';
-require_once ET_THEME_BUILDER_DIR . 'TBItemLibrary.php';
 require_once ET_THEME_BUILDER_DIR . 'constants.php';
-require_once ET_THEME_BUILDER_DIR . 'LocalLibraryItemEditor.php';
-require_once ET_THEME_BUILDER_DIR . 'local-library.php';
-require_once ET_THEME_BUILDER_DIR . 'theme-builder-library.php';
-require_once ET_THEME_BUILDER_DIR . 'LocalLibraryItem.php';
+
+require_once ET_THEME_BUILDER_DIR . 'template-setting-validations.php';
+
+// Only load these files when the Theme Builder is being used,
+// which is when the builder framework is loaded or when doing AJAX.
+
+if ( is_admin() || wp_doing_ajax() || et_builder_is_et_onboarding_page() ) {
+
+	require_once ET_THEME_BUILDER_DIR . 'ThemeBuilderApiErrors.php';
+
+	require_once ET_THEME_BUILDER_DIR . 'api.php';
+	require_once ET_THEME_BUILDER_DIR . 'admin.php';
+	require_once ET_THEME_BUILDER_DIR . 'TBItemLibrary.php';
+	require_once ET_THEME_BUILDER_DIR . 'LocalLibraryItemEditor.php';
+	require_once ET_THEME_BUILDER_DIR . 'local-library.php';
+	require_once ET_THEME_BUILDER_DIR . 'theme-builder-library.php';
+	require_once ET_THEME_BUILDER_DIR . 'LocalLibraryItem.php';
+}
+
+// Only load these files when the Theme Builder is being used on the front end,
+// or when the builder framework is loaded.
+if ( et_is_front_end_request() || et_builder_should_load_framework() ) {
+	require_once ET_THEME_BUILDER_DIR . 'frontend.php';
+	require_once ET_THEME_BUILDER_DIR . 'dynamic-content.php';
+}
 
 // Conditional Includes.
 if ( et_is_woocommerce_plugin_active() ) {
@@ -500,6 +521,75 @@ function et_theme_builder_get_template( $template_id ) {
 }
 
 /**
+ * Get the Theme Builder template title for a layout.
+ *
+ * @since 5.0.0
+ *
+ * @param int $layout_id Layout post ID.
+ *
+ * @return string
+ */
+function et_theme_builder_get_template_title_for_layout( $layout_id ) {
+	$layout_id = (int) $layout_id;
+
+	if ( 0 === $layout_id ) {
+		return '';
+	}
+
+	$layout_type = get_post_type( $layout_id );
+
+	if ( ! et_theme_builder_is_layout_post_type( $layout_type ) ) {
+		return '';
+	}
+
+	$meta_key = "_{$layout_type}_id";
+
+	$template_query = new WP_Query(
+		array(
+			'post_type'              => ET_THEME_BUILDER_TEMPLATE_POST_TYPE,
+			'post_status'            => 'publish',
+			'posts_per_page'         => 1,
+			'fields'                 => 'ids',
+			'no_found_rows'          => true,
+			'update_post_meta_cache' => false,
+			'update_post_term_cache' => false,
+			'meta_query'             => array(
+				array(
+					'key'     => $meta_key,
+					'value'   => $layout_id,
+					'compare' => '=',
+				),
+				array(
+					'key'     => '_et_theme_builder_marked_as_unused',
+					'compare' => 'NOT EXISTS',
+				),
+			),
+		)
+	);
+
+	if ( ! $template_query->have_posts() ) {
+		if ( et_builder_tb_enabled() && isset( $_GET['et_tb_template_title'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only title fallback for unsaved TB state.
+			$template_title = sanitize_text_field( wp_unslash( $_GET['et_tb_template_title'] ) );
+
+			if ( '' !== $template_title ) {
+				return $template_title;
+			}
+		}
+
+		return '';
+	}
+
+	$template_id   = (int) $template_query->posts[0];
+	$template_post = get_post( $template_id );
+
+	if ( null === $template_post ) {
+		return '';
+	}
+
+	return $template_post->post_title;
+}
+
+/**
  * Trash the theme builder draft and any unused theme builder templates and layouts.
  *
  * @since 4.0
@@ -914,6 +1004,32 @@ function et_theme_builder_get_template_settings_options_for_archive_pages() {
 }
 
 /**
+ * Execute a Theme Builder assignment-settings callback using a consistent locale.
+ *
+ * @since 5.5.1
+ *
+ * @param callable $callback Callback used to generate assignment settings data.
+ *
+ * @return mixed
+ */
+function et_theme_builder_execute_with_assignment_settings_locale( $callback ) {
+	$disable_translations = function_exists( 'et_get_option' ) ? et_get_option( 'divi_disable_translations', 'off' ) : 'off';
+	$locale_switched      = false;
+
+	if ( 'on' === $disable_translations && function_exists( 'switch_to_locale' ) ) {
+		$locale_switched = switch_to_locale( 'en_US' );
+	}
+
+	try {
+		return $callback();
+	} finally {
+		if ( $locale_switched && function_exists( 'restore_previous_locale' ) ) {
+			restore_previous_locale();
+		}
+	}
+}
+
+/**
  * Get array of template setting options.
  * Settings that have children should have a trailing ET_THEME_BUILDER_SETTING_SEPARATOR in their id.
  * Settings that have children should have their id be unique even without the trailing ET_THEME_BUILDER_SETTING_SEPARATOR.
@@ -1245,8 +1361,8 @@ function et_theme_builder_get_template_layouts( $request = null, $cache = true, 
 	$post_type = ET_Theme_Builder_Request::TYPE_SINGULAR === $request->get_type() ? $request->get_subtype() : '';
 	$layouts   = array();
 
-	if ( et_theme_builder_is_layout_post_type( $post_type ) ) {
-		// We are currently editing a layout in the VB.
+	if ( et_theme_builder_is_layout_post_type( $post_type ) || is_et_theme_builder_live_preview() ) {
+		// We are currently editing a layout in the VB, or, previewing live demo of a theme builder template in FE.
 		$layouts = array_replace(
 			array(
 				ET_THEME_BUILDER_TEMPLATE_POST_TYPE      => 0,
@@ -1615,25 +1731,26 @@ add_filter( 'et_builder_cache_post_type', 'et_theme_builder_cache_post_type' );
  * @return string
  */
 function et_theme_builder_decorate_page_resource_slug( $post_id, $resource_slug ) {
-	if ( ! is_numeric( $post_id ) || ! is_singular() ) {
-		return $resource_slug;
+	$layout_types = et_theme_builder_get_layout_post_types();
+	$layouts      = et_theme_builder_get_template_layouts();
+
+	// If we're editing a TB layout itself, add -tb-for-{main_post_id}.
+	if ( is_numeric( $post_id ) && is_singular() ) {
+		$post_type = get_post_type( (int) $post_id );
+
+		if ( et_theme_builder_is_layout_post_type( $post_type ) ) {
+			$resource_slug .= '-tb-for-' . ET_Post_Stack::get_main_post_id();
+			return $resource_slug;
+		}
 	}
 
-	$post_type = get_post_type( (int) $post_id );
-
-	if ( et_theme_builder_is_layout_post_type( $post_type ) ) {
-		$resource_slug .= '-tb-for-' . ET_Post_Stack::get_main_post_id();
-	} else {
-		$layout_types = et_theme_builder_get_layout_post_types();
-		$layouts      = et_theme_builder_get_template_layouts();
-
-		foreach ( $layout_types as $type ) {
-			if ( ! isset( $layouts[ $type ] ) || ! $layouts[ $type ]['override'] ) {
-				continue;
-			}
-
-			$resource_slug .= '-tb-' . $layouts[ $type ]['id'];
+	// For all other cases (including taxonomy/archive pages), add TB layout IDs if layouts are active.
+	foreach ( $layout_types as $type ) {
+		if ( ! isset( $layouts[ $type ] ) || ! $layouts[ $type ]['override'] ) {
+			continue;
 		}
+
+		$resource_slug .= '-tb-' . $layouts[ $type ]['id'];
 	}
 
 	return $resource_slug;
@@ -1688,10 +1805,6 @@ function et_theme_builder_clear_wp_post_cache( $layout_id = '' ) {
 		return;
 	}
 
-	if ( ! et_pb_detect_cache_plugins() ) {
-		return;
-	}
-
 	// Get template of current TB layout.
 	$template = new WP_Query(
 		array(
@@ -1741,6 +1854,12 @@ function et_theme_builder_clear_wp_post_cache( $layout_id = '' ) {
 		// Clear All - If the template is 'default' because it's enabled globally.
 		if ( $is_template_default ) {
 			et_theme_builder_clear_wp_cache( 'all' );
+			// Clear post meta caches for all posts since default templates affect all pages site-wide.
+			ET_Core_PageResource::clear_post_meta_caches( 'all' );
+			// Clear the dynamic assets feature cache since default templates affect all pages site-wide.
+			if ( class_exists( 'ET_Builder_Dynamic_Assets_Feature' ) ) {
+				ET_Builder_Dynamic_Assets_Feature::purge_cache();
+			}
 		}
 		return;
 	}
@@ -1821,7 +1940,24 @@ function et_theme_builder_clear_wp_post_cache( $layout_id = '' ) {
 		$target_post_ids = array_unique( $target_post_ids );
 	}
 
-	et_theme_builder_clear_wp_cache( $target_post_ids );
+	// Clear 3rd party cache plugins.
+	if ( et_pb_detect_cache_plugins() ) {
+		et_theme_builder_clear_wp_cache( $target_post_ids );
+	}
+
+	// Clear post meta caches for target posts (like _divi_dynamic_assets_cached_feature_used).
+	// This is critical because PageResource::save_post_cb() only clears the layout post's cache,
+	// not the posts that actually use the template (like the homepage page).
+	ET_Core_PageResource::clear_post_meta_caches( $target_post_ids );
+
+	// Clear the dynamic assets feature cache when the template targets non-singular pages.
+	// The _et_builder_da_feature_cache is only used on non-singular pages (archives, taxonomies, categories, etc.),
+	// so we only need to clear it when the template targets those types of pages, not when targeting singular posts.
+	if ( 'all' === $target_post_ids ) {
+		if ( class_exists( 'ET_Builder_Dynamic_Assets_Feature' ) ) {
+			ET_Builder_Dynamic_Assets_Feature::purge_cache();
+		}
+	}
 }
 
 add_action( 'et_save_post', 'et_theme_builder_clear_wp_post_cache' );
@@ -1909,3 +2045,67 @@ function et_theme_builder_add_library_editor_body_class( $classes ) {
 	return $classes;
 }
 add_action( 'admin_body_class', 'et_theme_builder_add_library_editor_body_class' );
+
+/**
+ * Retrieves an array of the terms in a given taxonomy in following format:
+ *
+ *   $terms = array(
+ *       '1' => array(
+ *           'id'    => 1,
+ *           'name'  => 'Uncategorized',
+ *           'slug'  => 'uncategorized',
+ *           'count' => 10,
+ *       ),
+ *   );
+ *
+ * @param string $tax_name Taxonomy name.
+ */
+function et_theme_builder_get_terms( $tax_name ) {
+	$terms       = get_terms( $tax_name, array( 'hide_empty' => false ) );
+	$terms_by_id = array();
+
+	if ( is_wp_error( $terms ) || empty( $terms ) ) {
+		return array();
+	}
+
+	foreach ( $terms as $term ) {
+		$term_id = $term->term_id;
+
+		$terms_by_id[ $term_id ]['id']    = $term_id;
+		$terms_by_id[ $term_id ]['name']  = $term->name;
+		$terms_by_id[ $term_id ]['slug']  = $term->slug;
+		$terms_by_id[ $term_id ]['count'] = $term->count;
+	}
+
+	return $terms_by_id;
+}
+
+/**
+ * Register the Theme Builder admin page.
+ *
+ * @since 4.0
+ *
+ * @param string $parent
+ *
+ * @return void
+ */
+function et_theme_builder_add_admin_page( $parent ) {
+	if (
+		! et_pb_is_allowed( 'theme_builder' )
+		|| ! current_user_can( 'edit_theme_options' )
+		|| ! current_user_can( 'edit_others_posts' )
+	) {
+		return;
+	}
+
+	// We register the page with the 'edit_others_posts' capability since it's the lowest
+	// requirement to use VB and we already checked for the theme_builder ET cap.
+	add_submenu_page(
+		$parent,
+		esc_html__( 'Theme Builder', 'et_builder' ),
+		esc_html__( 'Theme Builder', 'et_builder' ),
+		'edit_others_posts',
+		'et_theme_builder',
+		'et_theme_builder_admin_page'
+	);
+}

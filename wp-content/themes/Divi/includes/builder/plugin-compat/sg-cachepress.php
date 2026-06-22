@@ -49,8 +49,14 @@ class ET_Builder_Plugin_Compat_SiteGround_Optimizer extends ET_Builder_Plugin_Co
 			return;
 		}
 
+		// Ensure DynamicAssetsUtils is loaded before using it.
+		require_once get_template_directory() . '/includes/builder-5/server/FrontEnd/Assets/DynamicAssetsUtils.php';
+
 		// Do nothing if Dynamic CSS and Critical CSS are disabled.
-		if ( ! ( et_use_dynamic_css() || et_builder_is_critical_enabled() ) ) {
+		$use_dynamic_assets  = \ET\Builder\FrontEnd\Assets\DynamicAssetsUtils::use_dynamic_assets();
+		$is_critical_enabled = et_builder_is_critical_enabled();
+
+		if ( ! ( $use_dynamic_assets || $is_critical_enabled ) ) {
 			return;
 		}
 

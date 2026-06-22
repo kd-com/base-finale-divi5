@@ -76,4 +76,22 @@ class ET_Builder_Post_Query_Layouts extends ET_Core_Post_Query {
 
 		return $this->_add_tax_query( $tax_name, $args );
 	}
+
+	/**
+	 * Whether a database error indicates the library index query hit MySQL join-size limits.
+	 *
+	 * @since 5.7.2
+	 *
+	 * @param string $error Database error message from `$wpdb->last_error`.
+	 *
+	 * @return bool
+	 */
+	public static function is_library_query_join_limit_error( $error ) {
+		if ( empty( $error ) || ! is_string( $error ) ) {
+			return false;
+		}
+
+		return false !== stripos( $error, 'MAX_JOIN_SIZE' )
+			|| false !== stripos( $error, 'SQL_BIG_SELECTS' );
+	}
 }

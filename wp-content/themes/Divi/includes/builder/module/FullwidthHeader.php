@@ -877,7 +877,7 @@ class ET_Builder_Module_Fullwidth_Header extends ET_Builder_Module {
 				$scroll_down_container_classes .= ' scroll-down-container-tablet';
 				$scroll_down_icon_markup_tablet = sprintf(
 					'<span class="scroll-down-tablet et-pb-icon">%1$s</span>',
-					esc_html( et_pb_process_font_icon( $scroll_down_icon_tablet, 'et_pb_get_font_down_icon_symbols' ) )
+					et_core_esc_previously( html_entity_decode( et_pb_process_font_icon( $scroll_down_icon_tablet, 'et_pb_get_font_down_icon_symbols' ), ENT_QUOTES, 'UTF-8' ) )
 				);
 			}
 
@@ -886,7 +886,7 @@ class ET_Builder_Module_Fullwidth_Header extends ET_Builder_Module {
 				$scroll_down_container_classes .= ' scroll-down-container-phone';
 				$scroll_down_icon_markup_phone  = sprintf(
 					'<span class="scroll-down-phone et-pb-icon">%1$s</span>',
-					esc_html( et_pb_process_font_icon( $scroll_down_icon_phone, 'et_pb_get_font_down_icon_symbols' ) )
+					et_core_esc_previously( html_entity_decode( et_pb_process_font_icon( $scroll_down_icon_phone, 'et_pb_get_font_down_icon_symbols' ), ENT_QUOTES, 'UTF-8' ) )
 				);
 			}
 
@@ -896,7 +896,7 @@ class ET_Builder_Module_Fullwidth_Header extends ET_Builder_Module {
 					%2$s
 					%3$s
 				</a>',
-				esc_html( et_pb_process_font_icon( $scroll_down_icon, 'et_pb_get_font_down_icon_symbols' ) ),
+				et_core_esc_previously( html_entity_decode( et_pb_process_font_icon( $scroll_down_icon, 'et_pb_get_font_down_icon_symbols' ), ENT_QUOTES, 'UTF-8' ) ),
 				$scroll_down_icon_markup_tablet,
 				$scroll_down_icon_markup_phone,
 				$scroll_down_container_classes

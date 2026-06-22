@@ -1,6 +1,73 @@
 <?php
 
 define( 'ET_BUILDER_THEME', true );
+
+/**
+ * Check whether shortcode framework should be loaded.
+ */
+function et_should_load_shortcode_framework() {
+	static $divi_options = null;
+	// Default to false, don't load shortcode framework.
+	// The shortcode framework will lazy load if needed.
+	$load_shortcode_framework = false;
+
+	// Get Divi options.
+	if ( null === $divi_options ) {
+		$divi_options = get_option( 'et_divi' );
+	}
+
+	// If the `et_force_enable_shortcode_framework` option exists, then use it.
+	if ( isset( $divi_options['et_force_enable_shortcode_framework'] ) ) {
+		$load_shortcode_framework = 'on' === $divi_options['et_force_enable_shortcode_framework'];
+	}
+
+	// If the `ET_SHOULD_LOAD_SHORTCODE_FRAMEWORK` constant exists, then use it.
+	if ( defined( 'ET_SHOULD_LOAD_SHORTCODE_FRAMEWORK' ) ) {
+		$load_shortcode_framework = ET_SHOULD_LOAD_SHORTCODE_FRAMEWORK;
+	}
+
+	$load_shortcode_framework_before = $load_shortcode_framework;
+
+	/**
+	 * Filter whether to load Divi shortcode framework.
+	 *
+	 * @since ??
+	 *
+	 * @param bool $load_shortcode_framework Whether to load Divi shortcode framework. Default is true.
+	 */
+	$load_shortcode_framework = apply_filters( 'et_should_load_shortcode_framework', $load_shortcode_framework );
+
+	define( 'ET_SHOULD_LOAD_SHORTCODE_FRAMEWORK_CHANGED_VIA_HOOK', $load_shortcode_framework !== $load_shortcode_framework_before );
+
+	return $load_shortcode_framework;
+}
+
+/**
+ * Load D4 shortcode framework for certain ajax actions.
+ */
+function et_load_shortcode_framework_for_ajax_action() {
+	$should_load_shortcode_framework = false;
+
+	if ( defined( 'DOING_AJAX' ) && DOING_AJAX ) {
+		// load for these actions
+		$load_for_ajax_actions = [
+			'et_pb_add_new_layout',
+		];
+
+		if ( isset( $_REQUEST['action'] ) && in_array( $_REQUEST['action'], $load_for_ajax_actions, true ) ) {
+			$should_load_shortcode_framework = true;
+		}
+	}
+
+	if ( $should_load_shortcode_framework ) {
+		add_filter( 'et_should_load_shortcode_framework', '__return_true' );
+	}
+}
+add_action( 'init', 'et_load_shortcode_framework_for_ajax_action', -1 );
+
+/**
+ * Initialize the Divi Builder.
+ */
 function et_setup_builder() {
 	define( 'ET_BUILDER_DIR', get_template_directory() . '/includes/builder/' );
 	define( 'ET_BUILDER_URI', get_template_directory_uri() . '/includes/builder' );
@@ -10,10 +77,355 @@ function et_setup_builder() {
 	define( 'ET_BUILDER_VERSION', $theme_version );
 
 	load_theme_textdomain( 'et_builder', ET_BUILDER_DIR . 'languages' );
+
+	// Load D5 text domain if D5 is enabled.
+	if ( et_builder_d5_enabled() ) {
+		load_theme_textdomain( 'et_builder_5', ET_BUILDER_5_DIR . 'languages' );
+	}
+
+	// Load the builder's constants file.
+	require_once ET_BUILDER_DIR . 'constants.php';
+
+	// This is the base framework file that is always required.
 	require_once ET_BUILDER_DIR . 'framework.php';
+
+	// This is the shortcode specific framework file that is only required if the theme is not set to disable it.
+	if ( et_should_load_shortcode_framework() ) {
+		et_load_shortcode_framework();
+	}
+
+	// Always load the shortcode manager, this is
+	// where the magic happens, with lazy loading.
+	et_builder_init_shortcode_manager();
 
 	et_pb_register_posttypes();
 }
+
+$et_shortcode_framework_shortcodes_used = [];
+
+/**
+ * Load the Divi shortcode framework.
+ */
+function et_load_shortcode_framework( $shortcode = '' ) {
+	static $shortcode_framework_loaded = null;
+	global $et_shortcode_framework_shortcodes_used;
+
+	// if a specific shortcode is requested, log it.
+	if ( !empty( $shortcode ) ) {
+		if (!in_array($shortcode, $et_shortcode_framework_shortcodes_used)) {
+			$et_shortcode_framework_shortcodes_used[] = $shortcode;
+		}
+	}
+
+	if ( $shortcode_framework_loaded ) {
+		return;
+	}
+
+	/**
+	 * Fires before the Divi shortcode framework is loaded.
+	 *
+	 * @since ??
+	 *
+	 * @param string $shortcode The shortcode that will be loaded.
+	 */
+	do_action( 'et_will_load_shortcode_framework', $shortcode );
+
+	$shortcode_framework_loaded = true;
+
+	define( 'ET_BUILDER_SHORTCODE_FRAMEWORK_LOADED', true );
+
+	require_once ET_BUILDER_DIR . 'shortcode-framework.php';
+}
+
+/**
+ * Load the WooCommerce framework.
+ *
+ * @since ??
+ */
+function et_load_woocommerce_framework() {
+	// Static variable to ensure the WooCommerce framework is only loaded once.
+	static $woocommerce_framework_loaded = null;
+
+	if ( $woocommerce_framework_loaded ) {
+		return;
+	}
+
+	$woocommerce_framework_loaded = true;
+
+	if ( et_is_woocommerce_plugin_active() ) {
+		require_once ET_BUILDER_DIR . 'feature/woocommerce-modules.php';
+	}
+}
+
+/**
+ * Check whether the shortcode framework was loaded.
+ */
+function et_is_shortcode_framework_loaded() {
+	return defined( 'ET_BUILDER_SHORTCODE_FRAMEWORK_LOADED' ) && ET_BUILDER_SHORTCODE_FRAMEWORK_LOADED;
+}
+
+/**
+ * Hook into the footer, to display a note if the shortcode framework was loaded.
+ */
+function et_display_shortcode_framework_loaded_note() {
+	global $et_shortcode_framework_shortcodes_used;
+	// Only display this note to logged in users, and not in the Divi Builder and not in Preview mode.
+	if ( ! is_user_logged_in() || et_core_is_fb_enabled() || is_et_pb_preview() ) {
+		return;
+	}
+
+	$css = '';
+	$js  = 'jQuery( document ).ready( function() {
+		const $shortcodeFrameworkElement = jQuery("#wp-admin-bar-et-builder-shortcode-framework");
+		if ( $shortcodeFrameworkElement.length && $shortcodeFrameworkElement.offset() ) {
+			const shortcodeFrameworkViewportWidth = jQuery(window).width();
+			const shortcodeFrameworkWarningOffset = $shortcodeFrameworkElement.offset().left;
+			const shortcodeFrameworkSubmenuWidth = shortcodeFrameworkViewportWidth - shortcodeFrameworkWarningOffset - 32;
+			$shortcodeFrameworkElement.find(".ab-sub-wrapper").css("width", shortcodeFrameworkSubmenuWidth + "px");
+		}
+		});';
+
+	// Display an HTML comment noting whether
+	// the shortcode framework was loaded or not.
+	if ( et_is_shortcode_framework_loaded() ) {
+		?>
+		<!-- Divi Shortcode Framework Loaded -->
+		<?php
+
+		$css .= '#wpadminbar #wp-admin-bar-et-builder-shortcode-framework { display: block !important } ';
+		$css .= '#wpadminbar #wp-admin-bar-et-builder-shortcode-framework-loaded { display: block !important } ';
+	} else {
+		?>
+		<!-- Divi Shortcode Framework Not Loaded -->
+		<?php
+	}
+
+	// Display an HTML comment noting shortcodes that were used.
+	if ( !empty( $et_shortcode_framework_shortcodes_used ) ) {
+		?>
+		<!-- Shortcodes used: <?php echo implode( ', ', $et_shortcode_framework_shortcodes_used ); ?> -->
+		<?php
+
+		$css .= '#wpadminbar #wp-admin-bar-et-builder-shortcode-framework-shortcodes-used { display: block !important } ';
+		$js .= 'jQuery( document ).ready( function() { jQuery( "#wp-admin-bar-et-builder-shortcode-framework-shortcodes-used" ).find( "div" ).html( "<strong>Legacy Modules Detected</strong>: ' . implode( ', ', $et_shortcode_framework_shortcodes_used ) . '" ); } );';
+	}
+
+	// Get Divi options.
+	$divi_options = get_option( 'et_divi' );
+
+	// If the `et_force_enable_shortcode_framework` option exists, then use it.
+	if ( isset( $divi_options['et_force_enable_shortcode_framework'] ) ) {
+		?>
+		<!-- Divi Option: et_force_enable_shortcode_framework was set to value: <?php echo 'on' === $divi_options['et_force_enable_shortcode_framework'] ? 'true' : 'false'; ?> -->
+		<?php
+
+		$css .= '#wpadminbar #wp-admin-bar-et-builder-shortcode-framework-option { display: block !important; }';
+		// $css .= '#wpadminbar #wp-admin-bar-et-builder-shortcode-framework-option a { content: "Option: et_force_enable_shortcode_framework was set to value: ' . ( 'on' === $divi_options['et_force_enable_shortcode_framework'] ? 'true' : 'false' ) . '" } ';
+		$js .= 'jQuery( document ).ready( function() { jQuery( "#wp-admin-bar-et-builder-shortcode-framework-option" ).find( "div" ).html( "<p>Option: et_force_enable_shortcode_framework was set to value: ' . ( 'on' === $divi_options['et_force_enable_shortcode_framework'] ? 'true' : 'false' ) . '</p>" ); } );';
+	}
+
+	// Note if ET_SHOULD_LOAD_SHORTCODE_FRAMEWORK, was set and its value
+	if ( defined( 'ET_SHOULD_LOAD_SHORTCODE_FRAMEWORK' ) ) {
+		?>
+		<!-- Constant: ET_SHOULD_LOAD_SHORTCODE_FRAMEWORK was set to value: <?php echo ET_SHOULD_LOAD_SHORTCODE_FRAMEWORK ? 'true' : 'false'; ?> -->
+		<?php
+
+		$css .= '#wpadminbar #wp-admin-bar-et-builder-shortcode-framework-constant { display: block !important; }';
+		$js .= 'jQuery( document ).ready( function() { jQuery( "#wp-admin-bar-et-builder-shortcode-framework-constant" ).find( "div" ).html( "<p>Constant: ET_SHOULD_LOAD_SHORTCODE_FRAMEWORK was set to value: ' . ( ET_SHOULD_LOAD_SHORTCODE_FRAMEWORK ? 'true' : 'false' ) . '</p>" ); } );';
+	}
+
+	// if ET_SHOULD_LOAD_SHORTCODE_FRAMEWORK_CHANGED_VIA_HOOK, was true
+	if ( defined( 'ET_SHOULD_LOAD_SHORTCODE_FRAMEWORK_CHANGED_VIA_HOOK' ) && ET_SHOULD_LOAD_SHORTCODE_FRAMEWORK_CHANGED_VIA_HOOK ) {
+		?>
+		<!-- Hook: et_should_load_shortcode_framework was used to change the value of $load_shortcode_framework -->
+		<?php
+
+		$css .= '#wpadminbar #wp-admin-bar-et-builder-shortcode-framework-hook { display: block !important; }';
+		$js .= 'jQuery(document).ready(function() { jQuery("#wp-admin-bar-et-builder-shortcode-framework-hook").find("div").html("<p>Hook: et_should_load_shortcode_framework was used to change the value of $load_shortcode_framework</p>"); });';
+	}
+
+	// Output the CSS to show the admin bar items.
+	if ( !empty( $css ) ) {
+		?>
+		<style>
+			<?php echo $css; ?>
+		</style>
+		<?php
+	}
+
+	// Output the JS to update the admin bar items.
+	if ( !empty( $js ) ) {
+		?>
+		<script>
+			<?php echo $js; ?>
+		</script>
+		<?php
+	}
+}
+add_action( 'wp_footer', 'et_display_shortcode_framework_loaded_note', 9999 );
+
+
+// Add wp admin bar item
+function et_builder_add_admin_bar_item() {
+	global $wp_admin_bar;
+
+	if ( ! is_admin_bar_showing() || et_core_is_fb_enabled() ) {
+		return;
+	}
+
+	$wp_admin_bar->add_menu( array(
+		'id'    => 'et-builder-shortcode-framework',
+		'title' => esc_html__( 'Backwards Compatibility Mode Enabled', 'et_builder' ),
+		'href'  => '#',
+	) );
+
+	// lets add submenu items for each shortcode framework message,
+	// We'll hide each menu item with CSS by default, and in the footer, if the shortcode framework was loaded, we'll show the menu item via CSS.
+
+	$wp_admin_bar->add_menu( array(
+		'parent' => 'et-builder-shortcode-framework',
+		'id'     => 'et-builder-shortcode-framework-loaded',
+		'title'  => __( 'This page is running in backwards compatibility mode because it contains legacy Divi 4 modules. They will continue to function, however, this page won\'t benefit from all of Divi 5\'s performance improvements. This page may still need to be converted, or you may be using modules that aren\'t ready for Divi 5. This notice is for information purposes and is not an error.', 'et_builder' ),
+		'href'   => false,
+	) );
+
+	// Shortcodes used menu item
+	$wp_admin_bar->add_menu( array(
+		'parent' => 'et-builder-shortcode-framework',
+		'id'     => 'et-builder-shortcode-framework-shortcodes-used',
+		'title'  => esc_html__( 'Shortcodes Used', 'et_builder' ),
+		'href'   => false,
+	) );
+
+	$wp_admin_bar->add_menu( array(
+		'parent' => 'et-builder-shortcode-framework',
+		'id'     => 'et-builder-shortcode-framework-option',
+		'title'  => esc_html__( 'Shortcode Framework Option', 'et_builder' ),
+		'href'   => false,
+	) );
+
+	$wp_admin_bar->add_menu( array(
+		'parent' => 'et-builder-shortcode-framework',
+		'id'     => 'et-builder-shortcode-framework-constant',
+		'title'  => esc_html__( 'Shortcode Framework Constant', 'et_builder' ),
+		'href'   => false,
+	) );
+
+	$wp_admin_bar->add_menu( array(
+		'parent' => 'et-builder-shortcode-framework',
+		'id'     => 'et-builder-shortcode-framework-hook',
+		'title'  => esc_html__( 'Shortcode Framework Hook', 'et_builder' ),
+		'href'   => false,
+	) );
+
+	$wp_admin_bar->add_menu( array(
+		'parent' => 'et-builder',
+		'id'     => 'et-builder-shortcode-framework-constant-value',
+		'title'  => esc_html__( 'Shortcode Framework Constant Value', 'et_builder' ),
+		'href'   => false,
+	) );
+
+	$wp_admin_bar->add_menu( array(
+		'parent' => 'et-builder-shortcode-framework',
+		'id'     => 'et-builder-shortcode-framework-migrator',
+		'title'  => esc_html__( 'Visit The Migrator', 'et_builder' ),
+		'href'   => admin_url( 'admin.php?page=et_d5_readiness' ),
+	) );
+
+	$wp_admin_bar->add_menu( array(
+		'parent' => 'et-builder-shortcode-framework',
+		'id'     => 'et-builder-shortcode-framework-learn-more',
+		'title'  => esc_html__( 'Learn More', 'et_builder' ),
+		'href'   => 'https://help.elegantthemes.com/en/articles/9824521',
+	) );
+
+}
+add_action( 'wp_before_admin_bar_render', 'et_builder_add_admin_bar_item' );
+
+/**
+ * Output css to hide admin bar items.
+ */
+function et_builder_admin_bar_css() {
+	if ( is_user_logged_in() ) {
+	?>
+	<style>
+
+		#wpadminbar #wp-admin-bar-et-builder-shortcode-framework {
+			padding: 4px 6px;
+		}
+
+		#wpadminbar #wp-admin-bar-et-builder-shortcode-framework .ab-sub-wrapper {
+			max-width: 500px;
+			max-height: calc(100vh - 64px);
+			overflow-y: hidden;
+			padding: 6px;
+			margin-top: 4px;
+		}
+
+		#wpadminbar #wp-admin-bar-et-builder-shortcode-framework .ab-sub-wrapper div.ab-item {
+			height: max-content;
+			word-wrap: break-word;
+			white-space: normal;
+			line-height: 1.4em;
+			display: inline-block;
+		}
+
+		#wpadminbar #wp-admin-bar-et-builder-shortcode-framework .ab-sub-wrapper div.ab-item * {
+			line-height: 1em;
+		}
+
+		#wpadminbar #wp-admin-bar-et-builder-shortcode-framework .ab-sub-wrapper div.ab-item strong {
+			color: #fff;
+			font-weight: 500;
+		}
+
+		#wpadminbar #wp-admin-bar-et-builder-shortcode-framework > a {
+			background-color: orangered;
+			position: relative;
+			border-radius: 3px;
+			height: 24px;
+			line-height: 24px;
+			font-size: 12px;
+		}
+
+		#wp-admin-bar-et-builder-shortcode-framework-migrator {
+			border-top: 1px solid #494e56;
+			margin-top: 10px !important;
+			padding-top: 10px !important;
+		}
+
+		#wpadminbar #wp-admin-bar-et-builder-shortcode-framework > a:hover,
+		#wpadminbar #wp-admin-bar-et-builder-shortcode-framework > a:hover::before,
+		#wpadminbar li#wp-admin-bar-et-builder-shortcode-framework.hover .ab-item::before,
+		#wpadminbar li#wp-admin-bar-et-builder-shortcode-framework.hover > a,
+		#wpadminbar:not(.mobile) .ab-top-menu>li:hover > .ab-item,
+		#wpadminbar:not(.mobile) .ab-top-menu>li>.ab-item:focus {
+			color: #fff !important;
+		}
+
+		#wpadminbar #wp-admin-bar-et-builder-shortcode-framework > a::before {
+			font-family: ETmodules !important;
+			font-weight: 400;
+			content: "";
+			color: #fff;
+			padding: 4px 0;
+			font-size: 16px;
+		}
+
+		#wpadminbar #wp-admin-bar-et-builder-shortcode-framework,
+		#wpadminbar #wp-admin-bar-et-builder-shortcode-framework-loaded,
+		#wpadminbar #wp-admin-bar-et-builder-shortcode-framework-option,
+		#wpadminbar #wp-admin-bar-et-builder-shortcode-framework-constant,
+		#wpadminbar #wp-admin-bar-et-builder-shortcode-framework-hook,
+		#wpadminbar #wp-admin-bar-et-builder-shortcode-framework-constant-value {
+			display: none;
+		}
+		</style>
+		<?php
+	}
+}
+add_action( 'wp_head', 'et_builder_admin_bar_css' );
+add_action( 'admin_head', 'et_builder_admin_bar_css' );
 
 /**
  * Setup builder based on the priority and context.

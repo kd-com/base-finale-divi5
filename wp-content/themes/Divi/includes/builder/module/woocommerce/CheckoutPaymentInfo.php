@@ -565,7 +565,7 @@ class ET_Builder_Module_Woocommerce_Checkout_Payment_Info extends ET_Builder_Mod
 		self::maybe_handle_hooks();
 
 		$is_cart_empty = function_exists( 'WC' ) && isset( WC()->cart ) && WC()->cart->is_empty();
-		$is_pb_mode    = et_fb_is_computed_callback_ajax() || is_et_pb_preview();
+		$is_pb_mode    = et_fb_is_computed_callback_ajax() || is_et_pb_preview() || et_builder_is_rest_api_request( '/module-data/shortcode-module' );
 		$class         = 'ET_Builder_Module_Helper_Woocommerce_Modules';
 
 		// Set dummy cart contents to output Billing when no product is in cart.
@@ -576,7 +576,7 @@ class ET_Builder_Module_Woocommerce_Checkout_Payment_Info extends ET_Builder_Mod
 			);
 		}
 
-		if ( et_fb_is_computed_callback_ajax() || $is_tb || is_et_pb_preview() ) {
+		if ( et_fb_is_computed_callback_ajax() || $is_tb || is_et_pb_preview() || et_builder_is_rest_api_request( '/module-data/shortcode-module' ) ) {
 			/*
 			 * Show Login form in VB.
 			 *
@@ -607,7 +607,7 @@ class ET_Builder_Module_Woocommerce_Checkout_Payment_Info extends ET_Builder_Mod
 		}
 		$markup = ob_get_clean();
 
-		if ( et_fb_is_computed_callback_ajax() || $is_tb || is_et_pb_preview() ) {
+		if ( et_fb_is_computed_callback_ajax() || $is_tb || is_et_pb_preview() || et_builder_is_rest_api_request( '/module-data/shortcode-module' ) ) {
 			remove_filter(
 				'wc_get_template',
 				[

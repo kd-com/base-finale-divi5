@@ -10,7 +10,9 @@
 /**
  * Handles Module Use Detection.
  *
+ * @since 5.0.0 Deprecated, no longer in use.
  * @since 4.10.0
+ * @deprecated
  */
 class ET_Builder_Module_Use_Detection {
 

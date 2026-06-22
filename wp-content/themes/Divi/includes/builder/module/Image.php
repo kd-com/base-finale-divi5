@@ -509,9 +509,11 @@ class ET_Builder_Module_Image extends ET_Builder_Module {
 
 		$image_html = $multi_view->render_element(
 			array(
-				'tag'      => 'img',
-				'attrs'    => $image_attrs,
-				'required' => 'src',
+				'tag'            => 'img',
+				'attrs'          => $image_attrs,
+				'required'       => 'src',
+				'target'         => '%%order_class%% img',
+				'hover_selector' => '%%order_class%%',
 			)
 		);
 

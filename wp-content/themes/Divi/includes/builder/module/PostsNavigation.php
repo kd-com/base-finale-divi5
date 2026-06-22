@@ -447,6 +447,8 @@ class ET_Builder_Module_Posts_Navigation extends ET_Builder_Module {
 			)
 		);
 
+		$this->add_classname( 'et_block_module' );
+
 		// Remove automatically added module classname
 		$this->remove_classname(
 			array(

@@ -1,4 +1,10 @@
 <?php
+/**
+ * Onboarding functionality.
+ *
+ * @package Divi
+ * @since ??
+ */
 
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
@@ -77,7 +83,7 @@ class ET_Onboarding {
 	 */
 	public static function update_ajax_calls_list() {
 		return [
-			'action' => array(
+			'action' => [
 				'et_onboarding_get_overview_status',
 				'et_onboarding_get_account_status',
 				'et_onboarding_get_result_list',
@@ -85,7 +91,7 @@ class ET_Onboarding {
 				'et_onboarding_result_delete_menu',
 				'et_onboarding_result_delete_theme_builder_layout',
 				'et_onboarding_update_customizer',
-			),
+			],
 		];
 	}
 
@@ -145,7 +151,8 @@ class ET_Onboarding {
 	 *
 	 * @return void
 	 */
-	public static function onboarding_page() { ?>
+	public static function onboarding_page() {
+		?>
 		<div id="et-onboarding"></div>
 		<?php
 	}
@@ -171,10 +178,10 @@ class ET_Onboarding {
 			'ajaxurl'                  => is_ssl() ? admin_url( 'admin-ajax.php' ) : admin_url( 'admin-ajax.php', 'http' ),
 			'et_account'               => et_core_get_et_account(),
 			'ai_server_url'            => 'https://ai.elegantthemes.com/api/v1',
-			'ajaxurl'                  => is_ssl() ? admin_url( 'admin-ajax.php' ) : admin_url( 'admin-ajax.php', 'http' ),
 			'adminUrl'                 => admin_url(),
 			'product_version'          => ET_BUILDER_PRODUCT_VERSION,
 			'onboarding_url'           => get_template_directory_uri() . '/onboarding',
+			'd5_migrator_url'          => admin_url( 'admin.php?page=et_d5_readiness' ),
 			'images_uri'               => ET_ONBOARDING_URI . '/images/',
 			'is_woocommerce_active'    => class_exists( 'WooCommerce' ),
 			'is_woocommerce_installed' => class_exists( 'WooCommerce' ) || file_exists( WP_PLUGIN_DIR . '/woocommerce/woocommerce.php' ),
@@ -294,8 +301,8 @@ class ET_Onboarding {
 	public static function get_overview_status() {
 		et_core_security_check( 'edit_posts', 'et_onboarding_overview_status', 'wp_nonce' );
 
-		$post_type = isset( $_POST['post_type'] ) ? sanitize_text_field( $_POST['post_type'] ) : '';
-		$use_meta  = isset( $_POST['use_meta'] ) ? filter_var( $_POST['use_meta'], FILTER_VALIDATE_BOOLEAN ) : false;
+		$post_type = isset( $_POST['post_type'] ) ? sanitize_text_field( wp_unslash( $_POST['post_type'] ) ) : '';
+		$use_meta  = isset( $_POST['use_meta'] ) ? filter_var( wp_unslash( $_POST['use_meta'] ), FILTER_VALIDATE_BOOLEAN ) : false;
 
 		if ( ! in_array( $post_type, [ 'post', 'page', 'et_template' ], true ) ) {
 			wp_send_json_error();
@@ -323,9 +330,9 @@ class ET_Onboarding {
 		et_core_security_check( 'manage_options', 'et_onboarding_account_status', 'wp_nonce' );
 		global $wp_version;
 
-		$et_username            = isset( $_POST['et_username'] ) ? sanitize_text_field( $_POST['et_username'] ) : '';
-		$et_api_key             = isset( $_POST['et_api_key'] ) ? sanitize_text_field( $_POST['et_api_key'] ) : '';
-		$et_force_status_update = isset( $_POST['et_force_update'] ) ? sanitize_text_field( $_POST['et_force_update'] ) : 'no';
+		$et_username            = isset( $_POST['et_username'] ) ? sanitize_text_field( wp_unslash( $_POST['et_username'] ) ) : '';
+		$et_api_key             = isset( $_POST['et_api_key'] ) ? sanitize_text_field( wp_unslash( $_POST['et_api_key'] ) ) : '';
+		$et_force_status_update = isset( $_POST['et_force_update'] ) ? sanitize_text_field( wp_unslash( $_POST['et_force_update'] ) ) : 'no';
 
 		if ( ! $et_username || ! $et_api_key ) {
 			wp_send_json_error();
@@ -351,25 +358,25 @@ class ET_Onboarding {
 		}
 
 		// Get the theme version from parent theme or current theme.
-		$themes = array(
+		$themes = [
 			'Divi' => wp_get_theme()->parent() ? wp_get_theme()->parent()->get( 'Version' ) : wp_get_theme()->get( 'Version' ),
-		);
+		];
 
-		$request_options = array(
+		$request_options = [
 			'timeout'    => 30,
-			'body'       => array(
+			'body'       => [
 				'action'            => 'check_theme_updates',
 				'automatic_updates' => 'on',
 				'username'          => urlencode( $et_username ),
 				'api_key'           => $et_api_key,
 				'installed_themes'  => $themes,
 				'class_version'     => '1.2',
-			),
-			'headers'    => array(
+			],
+			'headers'    => [
 				'rate_limit' => 'false',
-			),
+			],
 			'user-agent' => 'WordPress/' . $wp_version . '; Onboarding/' . ET_CORE_VERSION . '; ' . home_url( '/' ),
-		);
+		];
 
 		$theme_request = wp_remote_post( 'https://www.elegantthemes.com/api/api.php', $request_options );
 
@@ -409,7 +416,7 @@ class ET_Onboarding {
 	public static function get_result_list() {
 		et_core_security_check( 'edit_posts', 'et_onboarding_result_list', 'wp_nonce' );
 
-		$post_type = isset( $_POST['post_type'] ) ? sanitize_text_field( $_POST['post_type'] ) : '';
+		$post_type = isset( $_POST['post_type'] ) ? sanitize_text_field( wp_unslash( $_POST['post_type'] ) ) : '';
 
 		if ( ! in_array( $post_type, [ 'page', 'et_template' ], true ) ) {
 			wp_send_json_error();
@@ -516,7 +523,7 @@ class ET_Onboarding {
 		et_core_security_check( 'manage_options', 'et_onboarding_update_customizer', 'wp_nonce' );
 
 		// phpcs:ignore ET.Sniffs.ValidatedSanitizedInput -- $_POST['design'] is an JSON string, it's value sanitization is done at the time of accessing value.
-		$data = isset( $_POST['design'] ) ? json_decode( wp_unslash( $_POST['design'] ), true ) : [];
+		$data = isset( $_POST['design'] ) ? json_decode( wp_unslash( $_POST['design'] ), true ) : []; // @phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- $_POST['design'] is an JSON string, it's value sanitization is done at the time of accessing value.
 
 		if ( empty( $data ) ) {
 			wp_send_json_error();
@@ -539,7 +546,10 @@ class ET_Onboarding {
 
 		foreach ( $design_settings as $setting => $value ) {
 			if ( isset( $options_map[ $setting ] ) ) {
-				et_update_option( $options_map[ $setting ], $value );
+				et_update_option(
+					$options_map[ $setting ],
+					$value
+				);
 			}
 		}
 
@@ -558,8 +568,8 @@ class ET_Onboarding {
 		// Hence, using the same cap used in Theme Options.
 		et_core_security_check( 'manage_options', 'et_onboarding_update_et_account', 'wp_nonce' );
 
-		$username = isset( $_POST['et_username'] ) ? sanitize_text_field( $_POST['et_username'] ) : '';
-		$api_key  = isset( $_POST['et_api_key'] ) ? sanitize_text_field( $_POST['et_api_key'] ) : '';
+		$username = isset( $_POST['et_username'] ) ? sanitize_text_field( wp_unslash( $_POST['et_username'] ) ) : '';
+		$api_key  = isset( $_POST['et_api_key'] ) ? sanitize_text_field( wp_unslash( $_POST['et_api_key'] ) ) : '';
 
 		$result = update_site_option(
 			'et_automatic_updates_options',
@@ -610,14 +620,14 @@ class ET_Onboarding {
 		$portability = et_core_portability_load( 'et_builder' );
 		$portability->assets();
 
-		$CORE_VERSION = defined( 'ET_CORE_VERSION' ) ? ET_CORE_VERSION : '';
-		$ET_DEBUG     = defined( 'ET_DEBUG' ) && ET_DEBUG;
-		$DEBUG        = $ET_DEBUG;
+		$core_version = defined( 'ET_CORE_VERSION' ) ? ET_CORE_VERSION : '';
+		$et_debug     = defined( 'ET_DEBUG' ) && ET_DEBUG;
+		$debug        = $et_debug;
 
 		$home_url       = wp_parse_url( get_site_url() );
 		$build_dir_uri  = ET_ONBOARDING_URI . '/build';
-		$common_scripts = ET_COMMON_URL . '/scripts';
-		$cache_buster   = $DEBUG ? wp_rand() / mt_getrandmax() : $CORE_VERSION;
+		$common_scripts = ET_COMMON_URL . 'scripts';
+		$cache_buster   = $debug ? wp_rand() / mt_getrandmax() : $core_version;
 		$asset_path     = ET_ONBOARDING_DIR . '/build/et-onboarding.bundle.js';
 
 		if ( file_exists( $asset_path ) ) {
@@ -626,7 +636,7 @@ class ET_Onboarding {
 
 		wp_enqueue_script( 'es6-promise', "{$common_scripts}/es6-promise.auto.min.js", [], '4.2.2', true );
 
-		$BUNDLE_DEPS = [
+		$bundle_deps = [
 			'jquery',
 			'react',
 			'react-dom',
@@ -634,8 +644,8 @@ class ET_Onboarding {
 			'wp-color-picker',
 		];
 
-		if ( $DEBUG || $enqueue_prod_scripts || file_exists( $asset_path ) ) {
-			$BUNDLE_URI = ! file_exists( $asset_path ) ? "{$home_url['scheme']}://{$home_url['host']}:31489/et-onboarding.bundle.js" : "{$build_dir_uri}/et-onboarding.bundle.js";
+		if ( $debug || $enqueue_prod_scripts || file_exists( $asset_path ) ) {
+			$bundle_uri = ! file_exists( $asset_path ) ? "{$home_url['scheme']}://{$home_url['host']}:31489/et-onboarding.bundle.js" : "{$build_dir_uri}/et-onboarding.bundle.js";
 
 			// Skip the React loading if we already have React ( Gutenberg editor for example ) to avoid conflicts.
 			if ( ! $skip_react_loading ) {
@@ -644,7 +654,7 @@ class ET_Onboarding {
 				}
 			}
 
-			wp_enqueue_script( 'et-onboarding', $BUNDLE_URI, $BUNDLE_DEPS, (string) $cache_buster, true );
+			wp_enqueue_script( 'et-onboarding', $bundle_uri, $bundle_deps, (string) $cache_buster, true );
 			wp_add_inline_script( 'et-onboarding', '_.noConflict(); _.noConflict();', 'after' );
 			wp_localize_script( 'et-onboarding', 'et_onboarding_data', self::get_onboarding_helpers() );
 		}
@@ -754,10 +764,10 @@ class ET_Onboarding {
 		$applicability_roles = et_core_get_roles_by_capabilities( [ 'manage_options' ] );
 
 		$role_options = [
-			'et_onboarding_quick_sites' => array(
+			'et_onboarding_quick_sites' => [
 				'name'          => esc_attr__( 'Divi Quick Sites', 'Divi' ),
 				'applicability' => $applicability_roles,
-			),
+			],
 		];
 
 		$all_role_options['general_capabilities']['options'] = array_merge( $all_role_options['general_capabilities']['options'], $role_options );

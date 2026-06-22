@@ -46,8 +46,10 @@ class ET_Builder_Plugin_Compat_Smush extends ET_Builder_Plugin_Compat_Base {
 	 * @return void
 	 */
 	public function init_hooks() {
+		$plugin_version = $this->get_plugin_version();
+
 		// Bail if there's no version found
-		if ( ! $this->get_plugin_version() ) {
+		if ( ! $plugin_version ) {
 			return;
 		}
 
@@ -59,7 +61,13 @@ class ET_Builder_Plugin_Compat_Smush extends ET_Builder_Plugin_Compat_Base {
 			// phpcs:enable
 		);
 
-		add_filter( 'wp_smush_should_skip_parse', array( $this, 'maybe_skip_parse' ), 11 );
+		// Smush 3.16.1+ deprecated wp_smush_should_skip_parse in favor of wp_smush_should_skip_lazy_load.
+		// Use version check to maintain backward compatibility with older Smush versions.
+		if ( version_compare( $plugin_version, '3.16.1', '>=' ) ) {
+			add_filter( 'wp_smush_should_skip_lazy_load', array( $this, 'maybe_skip_parse' ), 11 );
+		} else {
+			add_filter( 'wp_smush_should_skip_parse', array( $this, 'maybe_skip_parse' ), 11 );
+		}
 
 		if ( $enabled['vb'] || $enabled['bfb'] || $enabled['tb'] ) {
 			// Plugin's `enqueue` function will cause a PHP notice unless

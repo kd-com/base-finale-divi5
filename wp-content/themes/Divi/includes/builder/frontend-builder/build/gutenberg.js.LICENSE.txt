@@ -12,6 +12,8 @@
  * @version   v4.2.8+1e68dce6
  */
 
+/*! regenerator-runtime -- Copyright (c) 2014-present, Facebook, Inc. -- license (MIT): https://github.com/facebook/regenerator/blob/main/LICENSE */
+
 /**
   * postmate - A powerful, simple, promise-based postMessage library
   * @version 1.1.9

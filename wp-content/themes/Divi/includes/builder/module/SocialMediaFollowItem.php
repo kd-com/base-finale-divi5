@@ -693,6 +693,8 @@ class ET_Builder_Module_Social_Media_Follow_Item extends ET_Builder_Module {
 		$this->add_classname(
 			array(
 				'et_pb_social_icon',
+				'et_block_module',
+				'et_pb_social_media_follow_network',
 				'et_pb_social_network_link',
 			)
 		);
@@ -714,6 +716,7 @@ class ET_Builder_Module_Social_Media_Follow_Item extends ET_Builder_Module {
 				'et_pb_section_parallax',
 			)
 		);
+		$this->add_classname( 'et_pb_social_media_follow_network' );
 
 		// Format i18n link title
 		$social_network_link_title = sprintf(

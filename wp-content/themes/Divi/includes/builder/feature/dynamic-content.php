@@ -971,7 +971,7 @@ function et_builder_wrap_dynamic_content( $post_id, $name, $value, $settings ) {
 	$def         = 'et_builder_get_dynamic_attribute_field_default';
 	$before      = $_->array_get( $settings, 'before', $def( $post_id, $name, 'before' ) );
 	$after       = $_->array_get( $settings, 'after', $def( $post_id, $name, 'after' ) );
-	$tb_post_id  = ET_Builder_Element::get_theme_builder_layout_id();
+	$tb_post_id  = ET_Theme_Builder_Layout::get_theme_builder_layout_id();
 	$cap_post_id = $tb_post_id ? $tb_post_id : $post_id;
 	$user_id     = get_post_field( 'post_author', $cap_post_id );
 
@@ -1790,6 +1790,10 @@ function et_builder_clean_dynamic_content( $value ) {
  * @return ET_Builder_Value|null
  */
 function et_builder_parse_dynamic_content_json( $json ) {
+	if ( ! class_exists( 'ET_Builder_Value' ) ) {
+		require_once ET_BUILDER_DIR . 'class-et-builder-value.php';
+	}
+
 	// phpcs:disable WordPress.Security.NonceVerification -- This function does not change any stats, hence CSRF ok.
 	$post_types         = array_keys( et_builder_get_public_post_types() );
 	$dynamic_content    = json_decode( $json, true );

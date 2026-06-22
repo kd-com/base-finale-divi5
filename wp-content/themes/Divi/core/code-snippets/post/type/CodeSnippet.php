@@ -64,7 +64,7 @@ class ET_Builder_Post_Type_Code_Snippet extends ET_Core_Post_Type {
 	 */
 	protected function _get_labels() {
 		return array(
-			'add_new'            => esc_html_x( 'Add New', 'Layout', 'et_builder' ),
+			'add_new'            => esc_html__( 'Add New', 'et_builder' ),
 			'add_new_item'       => esc_html__( 'Add New Code Snippet', 'et_builder' ),
 			'all_items'          => esc_html__( 'All Code Snippets', 'et_builder' ),
 			'edit_item'          => esc_html__( 'Edit Code Snippet', 'et_builder' ),

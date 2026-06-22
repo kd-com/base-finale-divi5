@@ -621,6 +621,8 @@ class ET_Builder_Module_Pricing_Tables_Item extends ET_Builder_Module {
 		);
 
 		// Module classnames
+		$this->add_classname( 'et_block_module' );
+
 		if ( 'off' !== $featured ) {
 			$this->add_classname( 'et_pb_featured_table' );
 		}

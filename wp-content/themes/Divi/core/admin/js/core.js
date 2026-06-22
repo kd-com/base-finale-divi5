@@ -130,49 +130,46 @@
 
 		modalContent: function( text, replace, remove, parent ) {
 			var parent = parent ? parent + ' ' : '',
-				$modal = $( '.et-core-modal-overlay.et-core-active' ),
-				$content = $modal.find( parent + '.et-core-modal-content' ),
+				$modal = $('.et-core-modal-overlay.et-core-active'),
+				$content = $modal.find(parent + '.et-core-modal-content'),
 				tempContent = parent + '.et-core-modal-temp-content',
 				contentHeight = $content.height();
 
-			if ( replace ) {
-				$content.html( text );
+			if (replace) {
+				$content.html(text);
 			} else {
 				var displayTempContent = function() {
-					var removeContent = function( delay ) {
-						$content.delay( delay ).queue( function() {
-							$modal.find( tempContent ).fadeOut( 200, function() {
-								$content.fadeIn( 200 );
-								$( this ).remove();
-							} );
-							$( this ).dequeue();
-						} );
+					if (remove === true) {
+						text += '<p><a class="et-core-modal-remove-temp-content" href="#">' + 
+							etCore.text.modalTempContentCheck + '</a></p>';
 					}
 
-					if ( true === remove ) {
-						text = text + '<p><a class="et-core-modal-remove-temp-content" href="#">' + etCore.text.modalTempContentCheck + '</a></p>';
+					// Immediately swap the content without animation
+					$content.hide().before('<div class="et-core-modal-temp-content"><div>' + text + '</div></div>');
+
+					var $tempContent = $modal.find(tempContent);
+					$tempContent.height(contentHeight).show(); // Ensure temp content height matches
+
+					$tempContent.find('.et-core-modal-remove-temp-content').on('click', function(e) {
+						e.preventDefault(); // Prevent default link behavior
+						$tempContent.remove(); // Remove temp content immediately
+						$content.show(); // Show original content instantly
+					});
+
+					// If 'remove' is numeric, remove temp content after that time (no animation)
+					if ($.isNumeric(remove)) {
+						setTimeout(function() {
+							$tempContent.remove();
+							$content.show();
+						}, remove);
 					}
+				};
 
-					$content.stop().fadeOut( 200, function() {
-						$( this ).before( '<div class="et-core-modal-temp-content"><div>' + text + '</div></div>' );
-						$modal.find( tempContent ).height( contentHeight ).hide().fadeIn( 200 );
-						$modal.find('.et-core-modal-remove-temp-content').on('click', function(e) {
-							removeContent(0);
-						});
-					} );
-
-					if ( $.isNumeric( remove ) ) {
-						removeContent( remove );
-					}
-				}
-
-				if ( $modal.find( tempContent ).length > 0 ) {
-					$modal.find( tempContent ).fadeOut( 200, function() {
-						$( this ).remove();
-						displayTempContent();
-					} );
+				if ($modal.find(tempContent).length > 0) {
+					$modal.find(tempContent).remove(); // Instantly remove any existing temp content
+					displayTempContent(); // Display new temp content
 				} else {
-					displayTempContent();
+					displayTempContent(); // Display temp content directly if none exists
 				}
 			}
 		},
