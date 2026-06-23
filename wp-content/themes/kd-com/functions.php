@@ -178,12 +178,21 @@ function kd_sync_theme_colors() {
   // Génération du SCSS
   $scss = "// Ce fichier est généré automatiquement par le thème\n";
   foreach ($colors as $c) {
-    $scss .= "$" . $c['slug'] . ": " . $c['color'] . ";\n";
+    $scss .= "$" . $c['slug'] . ": " . sanitize_hex_color($c['color']) . ";\n";
   }
   // Ajout de la variable accent Divi
   $accent = get_option('couleur_lien', '#e84448');
-  $scss .= "\$divi-accent: $accent;\n";
-  file_put_contents(get_stylesheet_directory() . '/sass/_theme-colors.scss', $scss);
+  $scss .= "\$divi-accent: " . sanitize_hex_color($accent) . ";\n";
+  
+  // Vérification de sécurité avant écriture du fichier
+  $file_path = get_stylesheet_directory() . '/sass/_theme-colors.scss';
+  $dir_path = dirname($file_path);
+  
+  if (is_writable($dir_path)) {
+      file_put_contents($file_path, $scss);
+  } else {
+      error_log('KD-COM Theme: Cannot write to _theme-colors.scss - directory not writable');
+  }
 }
 add_action('init', 'kd_sync_theme_colors');
 

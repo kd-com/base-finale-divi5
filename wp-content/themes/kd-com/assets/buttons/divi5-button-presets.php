@@ -184,7 +184,7 @@ function kd_build_divi5_button_presets() : array {
 
 function kd_inject_divi5_button_presets() : void {
 
-    if ( ! function_exists( 'et_get_option' ) ) {
+    if ( ! function_exists( 'et_get_option' ) || ! current_user_can( 'manage_options' ) ) {
         return;
     }
 
