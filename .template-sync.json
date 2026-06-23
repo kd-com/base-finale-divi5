@@ -1,5 +1,5 @@
 {
-  "template_repo": "git@github.com:kd-com/base-finale.git",
+  "template_repo": "git@github.com:kd-com/base-finale-divi5.git",
   "template_branch": "main",
   "sync_folders": [
     "wp-content/themes/kd-com/assets/",
