@@ -69,6 +69,8 @@ if (is_admin()) {
 
 // Inclusion des styles de boutons pour Gutenberg (front + admin)
 require_once get_stylesheet_directory() . '/assets/buttons/button-styles.php';
+// Inclusion des presets de boutons Divi 5
+require_once get_stylesheet_directory() . '/assets/buttons/divi5-button-presets.php';
 function kd_enqueue_aos() {
   if (get_option('kd_com_aos_enabled', '1') === '1') {
     wp_enqueue_script( 'aos', 'https://unpkg.com/aos@2.3.1/dist/aos.js', [] , '2.3.1', true );
@@ -185,60 +187,35 @@ function kd_sync_theme_colors() {
 }
 add_action('init', 'kd_sync_theme_colors');
 
-// Divi : ajout des couleurs dans le builder
-add_filter('et_builder_custom_colors', function($colors){
-    $colors[] = get_option('couleur_titrage', '#22282d');
-    $colors[] = get_option('couleur_texte', '#3e464b');
-    $colors[] = get_option('couleur_lien', '#e84448');
-    $colors[] = get_option('couleur_fond', '#3db27c');
-    $colors[] = get_option('couleur_fond2', '#424242');
-    $colors[] = get_option('couleur_blanche', '#ffffff');
-    $colors[] = get_option('couleur_noire', '#000000');
-    return $colors;
-});
-// Synchronisation automatique de la palette Divi avec les couleurs du thème
-function kd_sync_divi_palette() {
-  $palette = [
-    strtolower(get_option('couleur_titrage', '#22282d')),
-    strtolower(get_option('couleur_texte', '#3e464b')),
-    strtolower(get_option('couleur_lien', '#e84448')),
-    strtolower(get_option('couleur_fond', '#3db27c')),
-    strtolower(get_option('couleur_fond2', '#424242')),
-    strtolower(get_option('couleur_blanche', '#ffffff')),
-    strtolower(get_option('couleur_noire', '#000000')),
-  ];
-  $et_divi = get_option('et_divi', []);
-  $et_divi['color_pickers_default_palette'] = $palette;
-  $et_divi['divi_color_palette'] = implode('|', $palette);
-  // Accent du thème Divi (remplace #2EA3CC)
-  $et_divi['accent_color'] = strtolower(get_option('couleur_lien', '#e84448'));
-  update_option('et_divi', $et_divi, true); // autoload forcé
+// NOUVEAU CODE À AJOUTER dans functions.php
+// Remplace kd_sync_divi_palette() et le bloc surcharge accent
+function kd_inject_theme_css_vars() {
+    $couleurs = [
+        '--kd-couleur-titrage' => get_option('couleur_titrage', '#22282d'),
+        '--kd-couleur-texte'   => get_option('couleur_texte',   '#3e464b'),
+        '--kd-couleur-lien'    => get_option('couleur_lien',    '#e84448'),
+        '--kd-couleur-fond'    => get_option('couleur_fond',    '#3db27c'),
+        '--kd-couleur-fond2'   => get_option('couleur_fond2',   '#424242'),
+        '--kd-couleur-blanche' => get_option('couleur_blanche', '#ffffff'),
+        '--kd-couleur-noire'   => get_option('couleur_noire',   '#000000'),
+    ];
+    $css = ':root{';
+    foreach ($couleurs as $var => $val) {
+        $css .= $var . ':' . sanitize_hex_color($val) . ';';
+    }
+    $css .= '}';
+    echo '<style id="kd-theme-vars">' . $css . '</style>';
 }
-// Surcharge CSS de la couleur accent Divi en front
-add_action('wp_head', function() {
-  $accent = get_option('couleur_lien', '#e84448');
-  echo '<style id="divi-accent-override">:root{--accent:'.$accent.';} .et_pb_button, .et_pb_pricing_table .et_pb_pricing_heading, .et_pb_contact_submit, .et_pb_module_header, .et_pb_bg_layout_light .et_pb_button:hover, .et_pb_bg_layout_light .et_pb_button:focus {background-color:'.$accent.' !important; border-color:'.$accent.' !important;} .et_pb_text a, .et_pb_module_header a {color:'.$accent.' !important;}</style>';
-});
+add_action('wp_head',    'kd_inject_theme_css_vars', 1);
+add_action('admin_head', 'kd_inject_theme_css_vars', 1);
 
-// Synchronisation après modification d'une couleur
-$color_options = [
-  'couleur_titrage',
-  'couleur_texte',
-  'couleur_lien',
-  'couleur_fond',
-  'couleur_fond2',
-  'couleur_blanche',
-  'couleur_noire',
-];
-foreach ($color_options as $opt) {
-  add_action('update_option_' . $opt, function() {
-    kd_sync_divi_palette();
-    // Flush du cache/transient Divi pour forcer la prise en compte
-    global $wpdb;
-    $wpdb->query("DELETE FROM {$wpdb->options} WHERE option_name LIKE 'et_core_options_cache%' OR option_name LIKE '_transient_et_core_options_cache%'");
-  }, 10, 0);
-}
-add_action('admin_init', 'kd_sync_divi_palette');
+// Surcharge couleur accent Divi 5 — à ajouter dans functions.php
+add_action('wp_head', function() {
+    $accent = get_option('couleur_lien', '#e84448');
+    echo '<style id="divi5-accent-override">
+        :root { --divi-accent-color: ' . sanitize_hex_color($accent) . '; }
+    </style>';
+});
 
 
 

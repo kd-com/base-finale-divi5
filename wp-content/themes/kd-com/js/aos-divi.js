@@ -4,7 +4,7 @@
 (function($) {
     'use strict';
     function addAOSAttributesToModule() {
-        $('.et_pb_module, .et_pb_section, .et_pb_row').each(function() {
+        $('.et_pb_module, .et_pb_section, .et_pb_row, [data-divi-module], .divi-layout-block').each(function() {
             const $module = $(this);
             const classes = $module.attr('class') || '';
             // Ne traiter que les effets AOS valides, ignorer aos-init et aos-animate
