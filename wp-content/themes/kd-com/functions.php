@@ -163,69 +163,118 @@ add_action('admin_init', function() {
 });
 
 
-// Synchronisation dynamique des couleurs du thème
-function kd_sync_theme_colors() {
-    $colors = [
-        [ 'name' => 'Titrage', 'slug' => 'couleur-titrage', 'color' => get_option('couleur_titrage', '#22282d') ],
-        [ 'name' => 'Texte', 'slug' => 'couleur-texte', 'color' => get_option('couleur_texte', '#3e464b') ],
-        [ 'name' => 'Lien', 'slug' => 'couleur-lien', 'color' => get_option('couleur_lien', '#e84448') ],
-        [ 'name' => 'Fond', 'slug' => 'couleur-fond', 'color' => get_option('couleur_fond', '#3db27c') ],
-        [ 'name' => 'Fond 2', 'slug' => 'couleur-fond2', 'color' => get_option('couleur_fond2', '#424242') ],
-        [ 'name' => 'Blanc', 'slug' => 'couleur-blanche', 'color' => get_option('couleur_blanche', '#ffffff') ],
-        [ 'name' => 'Noir', 'slug' => 'couleur-noire', 'color' => get_option('couleur_noire', '#000000') ],
+/**
+ * Returns the theme color definitions used across the site.
+ */
+function kd_get_theme_color_settings() {
+    return [
+        'couleur_titrage' => [ 'name' => 'Titrage', 'default' => '#22282d' ],
+        'couleur_texte'   => [ 'name' => 'Texte',   'default' => '#3e464b' ],
+        'couleur_lien'    => [ 'name' => 'Lien',    'default' => '#e84448' ],
+        'couleur_fond'    => [ 'name' => 'Fond',    'default' => '#3db27c' ],
+        'couleur_fond2'   => [ 'name' => 'Fond 2',  'default' => '#424242' ],
+        'couleur_blanche' => [ 'name' => 'Blanc',   'default' => '#ffffff' ],
+        'couleur_noire'   => [ 'name' => 'Noir',    'default' => '#000000' ],
     ];
-    add_theme_support('editor-color-palette', $colors);
-  // Génération du SCSS
-  $scss = "// Ce fichier est généré automatiquement par le thème\n";
-  foreach ($colors as $c) {
-    $scss .= "$" . $c['slug'] . ": " . sanitize_hex_color($c['color']) . ";\n";
-  }
-  // Ajout de la variable accent Divi
-  $accent = get_option('couleur_lien', '#e84448');
-  $scss .= "\$divi-accent: " . sanitize_hex_color($accent) . ";\n";
-  
-  // Vérification de sécurité avant écriture du fichier
-  $file_path = get_stylesheet_directory() . '/sass/_theme-colors.scss';
-  $dir_path = dirname($file_path);
-  
-  if (is_writable($dir_path)) {
-      file_put_contents($file_path, $scss);
-  } else {
-      error_log('KD-COM Theme: Cannot write to _theme-colors.scss - directory not writable');
-  }
 }
-add_action('init', 'kd_sync_theme_colors');
 
-// NOUVEAU CODE À AJOUTER dans functions.php
-// Remplace kd_sync_divi_palette() et le bloc surcharge accent
-function kd_inject_theme_css_vars() {
-    $couleurs = [
-        '--kd-couleur-titrage' => get_option('couleur_titrage', '#22282d'),
-        '--kd-couleur-texte'   => get_option('couleur_texte',   '#3e464b'),
-        '--kd-couleur-lien'    => get_option('couleur_lien',    '#e84448'),
-        '--kd-couleur-fond'    => get_option('couleur_fond',    '#3db27c'),
-        '--kd-couleur-fond2'   => get_option('couleur_fond2',   '#424242'),
-        '--kd-couleur-blanche' => get_option('couleur_blanche', '#ffffff'),
-        '--kd-couleur-noire'   => get_option('couleur_noire',   '#000000'),
-    ];
-    $css = ':root{';
-    foreach ($couleurs as $var => $val) {
-        $css .= $var . ':' . sanitize_hex_color($val) . ';';
+function kd_get_theme_colors() {
+    $colors = [];
+    foreach ( kd_get_theme_color_settings() as $slug => $data ) {
+        $colors[] = [
+            'name'  => $data['name'],
+            'slug'  => $slug,
+            'color' => sanitize_hex_color( get_option( $slug, $data['default'] ) ) ?: $data['default'],
+        ];
     }
-    $css .= '}';
+    return $colors;
+}
+
+function kd_get_theme_color_palette() {
+    return array_map(
+        function( $color ) {
+            return strtolower( $color['color'] );
+        },
+        kd_get_theme_colors()
+    );
+}
+
+function kd_sync_theme_colors() {
+    $colors = kd_get_theme_colors();
+    add_theme_support( 'editor-color-palette', $colors );
+
+    $scss = "// Ce fichier est généré automatiquement par le thème\n";
+    foreach ( $colors as $color ) {
+        $scss .= '$' . $color['slug'] . ': ' . $color['color'] . ";\n";
+    }
+
+    $accent = sanitize_hex_color( get_option( 'couleur_lien', '#e84448' ) ) ?: '#e84448';
+    $scss .= '$divi-accent: ' . $accent . ";\n";
+
+    $file_path = get_stylesheet_directory() . '/sass/_theme-colors.scss';
+    $dir_path  = dirname( $file_path );
+
+    if ( is_dir( $dir_path ) && is_writable( $dir_path ) ) {
+        file_put_contents( $file_path, $scss );
+    } else {
+        error_log( 'KD-COM Theme: Cannot write to _theme-colors.scss - directory not writable' );
+    }
+}
+add_action( 'after_setup_theme', 'kd_sync_theme_colors' );
+
+function kd_sync_divi_palette() {
+    $palette = kd_get_theme_color_palette();
+    $accent  = sanitize_hex_color( get_option( 'couleur_lien', '#e84448' ) ) ?: '#e84448';
+
+    $et_divi = get_option( 'et_divi', [] );
+    if ( ! is_array( $et_divi ) ) {
+        $et_divi = [];
+    }
+
+    $et_divi['color_pickers_default_palette'] = $palette;
+    $et_divi['divi_color_palette']           = implode( '|', $palette );
+    $et_divi['accent_color']                 = $accent;
+
+    update_option( 'et_divi', $et_divi, true );
+
+    if ( function_exists( 'et_update_option' ) ) {
+        et_update_option( 'divi_color_palette', implode( '|', $palette ) );
+        et_update_option( 'accent_color', $accent );
+    } else {
+        update_option( 'divi_color_palette', implode( '|', $palette ) );
+        update_option( 'accent_color', $accent );
+    }
+
+    global $wpdb;
+    $wpdb->query( "DELETE FROM {$wpdb->options} WHERE option_name LIKE 'et_core_options_cache%' OR option_name LIKE '_transient_et_core_options_cache%'" );
+}
+
+add_action( 'admin_init', 'kd_sync_divi_palette' );
+add_action( 'updated_option', function( $option_name ) {
+    if ( array_key_exists( $option_name, kd_get_theme_color_settings() ) ) {
+        kd_sync_divi_palette();
+    }
+}, 10, 1 );
+
+function kd_inject_theme_css_vars() {
+    $colors = kd_get_theme_colors();
+    $accent = sanitize_hex_color( get_option( 'couleur_lien', '#e84448' ) ) ?: '#e84448';
+
+    $css = ':root {';
+    foreach ( $colors as $color ) {
+        $css .= '--kd-' . $color['slug'] . ':' . $color['color'] . ';';
+    }
+    $css .= '--divi-accent-color:' . $accent . ';}';
+
     echo '<style id="kd-theme-vars">' . $css . '</style>';
 }
-add_action('wp_head',    'kd_inject_theme_css_vars', 1);
-add_action('admin_head', 'kd_inject_theme_css_vars', 1);
+add_action( 'wp_head', 'kd_inject_theme_css_vars', 1 );
+add_action( 'admin_head', 'kd_inject_theme_css_vars', 1 );
 
-// Surcharge couleur accent Divi 5 — à ajouter dans functions.php
-add_action('wp_head', function() {
-    $accent = get_option('couleur_lien', '#e84448');
-    echo '<style id="divi5-accent-override">
-        :root { --divi-accent-color: ' . sanitize_hex_color($accent) . '; }
-    </style>';
-});
-
+add_action( 'wp_head', function() {
+    $accent = sanitize_hex_color( get_option( 'couleur_lien', '#e84448' ) ) ?: '#e84448';
+    echo '<style id="divi5-accent-override">:root{ --divi-accent-color: ' . $accent . '; }</style>';
+} );
 
 
 // synchro des couleurs du thème avec ACF
@@ -552,3 +601,39 @@ function shortcode_test_newsletter() {
     return generer_contenu_newsletter();
 }
 add_shortcode('test_newsletter', 'shortcode_test_newsletter');
+
+// création du cpt produits
+add_action('init', function() {
+    register_post_type('produit', [
+        'labels' => [
+            'name'          => 'Produits',
+            'singular_name' => 'Produit',
+        ],
+        'public'       => true,
+        'has_archive'  => true,
+        'show_in_rest' => true,
+        'supports'     => ['title', 'editor', 'thumbnail'],
+        'rewrite'      => ['slug' => 'produits'],
+        'menu_icon'    => 'dashicons-products', // 👈 icône ici
+    ]);
+});
+// gestion du formulaire par produit
+add_filter('forminator_custom_form_submit_field_data', function($field_data, $form_id) {
+    $referer = wp_get_referer();
+
+    if ($referer) {
+        $post_id = url_to_postid($referer);
+        if ($post_id && get_post_type($post_id) === 'produit') {
+            $post_title = get_the_title($post_id);
+            $field_data[] = [
+                'name'  => 'hidden-1',
+                'value' => $post_title . ' - ' . $referer,
+            ];
+        }
+    }
+
+    return $field_data;
+}, 10, 2);
+
+// shortcode pour afficher les pages mises en avant sur la page d'accueil
+include_once get_stylesheet_directory() . '/module_front/page_en_avant_accueil.php';
