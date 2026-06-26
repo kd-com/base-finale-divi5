@@ -1,0 +1,480 @@
+// ==========================================================================
+// Slider page d'accueil — hero-slider
+// Basé sur la maquette Figma + template slider_page_daccueil.php
+// ==========================================================================
+//
+// Variables utilisées depuis le fichier de variables généré par le thème :
+//   $couleur-titrage, $couleur-texte, $couleur-lien, $couleur-fond,
+//   $couleur-fond2, $couleur-blanche, $couleur-noire, $divi-accent
+//
+// ⚠️ La couleur orange du fond de slide et la couleur rose/violet (#ff215a)
+// des flèches SVG du template PHP ne sont pas présentes dans le fichier de
+// variables fourni. Elles sont ici en valeurs locales ($slider-bg-color,
+// $slider-accent) à remplacer par tes propres variables de thème enfant
+// si elles existent ailleurs (ex: dans un fichier _kdcom-variables.scss).
+//
+// Structure attendue côté markup (cf. slider_page_daccueil.php) :
+//   Cas IMAGE (.swiper-slide.hero, sans .video) :
+//     .slide-inner               → fond gradient + filigrane logo
+//       .container.hero          → texte (titre, sous-titre, bouton), à gauche
+//       img.slide-visual         → PNG détouré, positionné à droite
+//   Cas VIDÉO (.swiper-slide.hero.video) :
+//     iframe.slide-video-bg      → vidéo plein cadre (YouTube/Vimeo construit depuis l'ID)
+//     .slide-inner-video         → overlay sombre + texte blanc par-dessus
+
+@use '../../_theme-colors' as *;
+@use 'sass:list';
+
+// --------------------------------------------------------------------------
+// Variables locales au module (à remplacer si équivalent existant)
+// --------------------------------------------------------------------------
+$slider-bg-color: #e8772e;        // teinte orange dominante du fond (capture Figma)
+$slider-bg-color-2: #f0954f;      // variante claire pour le gradient
+$slider-accent: $divi-accent;     // accent flèches au hover (aligné sur $divi-accent)
+
+// Filigrane logo en fond — à remplacer par le chemin réel de l'asset
+// (ex: image du logo en niveaux de gris / silhouette, fournie par le client)
+$slider-watermark-url: '../images/logo-filigrane-cheval.svg';
+$slider-watermark-width: 900px;
+$slider-watermark-opacity: 0.08;
+
+$slider-height: 600px;
+$slider-height-tablet: 500px;
+$slider-height-mobile: 480px;
+
+$slider-content-max-width: 600px;
+$slider-visual-max-width: 45%;
+$slider-logo-width: 220px;
+$slider-logo-width-mobile: 140px;
+
+// --------------------------------------------------------------------------
+// Conteneur principal
+// --------------------------------------------------------------------------
+.hero-slider {
+    position: relative;
+    width: 100%;
+    overflow: hidden;
+
+    &.hero-style {
+        background-color: $couleur-fond2;
+    }
+
+    .swiper-container {
+        position: relative;
+        width: 100%;
+        height: $slider-height;
+
+        @media (max-width: 980px) {
+            height: $slider-height-tablet;
+        }
+
+        @media (max-width: 767px) {
+            height: auto;
+            min-height: $slider-height-mobile;
+        }
+    }
+
+    .swiper-wrapper.hero {
+        height: 100%;
+    }
+}
+
+// --------------------------------------------------------------------------
+// Slide
+// --------------------------------------------------------------------------
+.swiper-slide.hero {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+
+    // Slide vidéo : l'iframe en arrière-plan plein cadre, le contenu par-dessus
+    &.video {
+        .slide-video-bg {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            // Astuce "cover" pour iframe (pas d'object-fit natif sur <iframe>) :
+            // on surdimensionne en gardant le ratio 16/9, puis on recentre.
+            // Ajuste les coefficients si la vidéo source a un ratio différent.
+            width: 177.77vh;
+            height: 56.25vw;
+            min-width: 100%;
+            min-height: 100%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            z-index: 0;
+            border: 0;
+        }
+    }
+}
+
+// --------------------------------------------------------------------------
+// Slide inner — variante vidéo : overlay sombre, pas de fond coloré/filigrane
+// --------------------------------------------------------------------------
+.slide-inner-video {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    background: none; // la vidéo remplace le fond coloré
+
+    // Overlay sombre pour assurer la lisibilité du texte par-dessus la vidéo
+    &::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(
+            90deg,
+            rgba($couleur-noire, 0.55) 0%,
+            rgba($couleur-noire, 0.25) 60%,
+            rgba($couleur-noire, 0.1) 100%
+        );
+        z-index: 0;
+        pointer-events: none;
+    }
+
+    .container.hero {
+        position: relative;
+        z-index: 1;
+    }
+
+    // Sur fond vidéo + overlay sombre, le titre passe en blanc
+    // (contrairement au slide image où il reste en couleur sombre)
+    .slide-title h2 {
+        color: $couleur-blanche;
+    }
+}
+
+// --------------------------------------------------------------------------
+// Slide inner — fond coloré + filigrane logo
+// --------------------------------------------------------------------------
+.slide-inner {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    overflow: hidden;
+
+    // Fond en gradient rappelant la couleur du logo client
+    background: linear-gradient(
+        120deg,
+        $slider-bg-color 0%,
+        $slider-bg-color-2 100%
+    );
+
+    // Filigrane logo en fond (image fixe, pas de champ ACF)
+    &::before {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 8%;
+        width: $slider-watermark-width;
+        height: $slider-watermark-width;
+        max-width: 90%;
+        background-image: url('#{$slider-watermark-url}');
+        background-repeat: no-repeat;
+        background-position: center;
+        background-size: contain;
+        opacity: $slider-watermark-opacity;
+        transform: translateY(-50%);
+        z-index: 0;
+        pointer-events: none;
+
+        @media (max-width: 767px) {
+            width: 100%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+    }
+}
+
+// --------------------------------------------------------------------------
+// Image PNG détourée — positionnée à droite, à côté du texte
+// --------------------------------------------------------------------------
+.slide-visual {
+    position: absolute;
+    right: 2%;
+    z-index: 1;
+    max-width: $slider-visual-max-width;
+    max-height: 88%;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+
+    @media (max-width: 980px) {
+        max-width: 38%;
+        opacity: 0.9;
+    }
+
+    @media (max-width: 767px) {
+        position: relative;
+        right: auto;
+        bottom: auto;
+        max-width: 70%;
+        max-height: 220px;
+        margin: 16px auto 0;
+        display: block;
+    }
+}
+
+// --------------------------------------------------------------------------
+// Logo client (en haut à gauche dans la capture)
+// --------------------------------------------------------------------------
+.slide-inner .slide-logo {
+    position: absolute;
+    top: 32px;
+    left: 5%;
+    z-index: 3;
+    width: $slider-logo-width;
+
+    img {
+        width: 100%;
+        height: auto;
+        object-fit: contain;
+    }
+
+    @media (max-width: 767px) {
+        width: $slider-logo-width-mobile;
+        top: 16px;
+    }
+}
+
+// --------------------------------------------------------------------------
+// Contenu texte (titre, sous-titre, bouton)
+// --------------------------------------------------------------------------
+.container.hero {
+    position: relative;
+    z-index: 2;
+    width: 100%;
+    max-width: $slider-content-max-width;
+    padding: 0 5%;
+    position: absolute;
+    &:before {
+        display:none;
+    }
+
+    @media (max-width: 980px) {
+        max-width: 55%;
+    }
+
+    @media (max-width: 767px) {
+        max-width: 100%;
+        padding: 24px 24px 0;
+    }
+}
+
+.slide-title {
+    h2 {
+        margin: 0 0 8px;
+        font-weight: 800;
+        font-size: 48px;
+        line-height: 1.15;
+        color: $couleur-texte !important;
+
+        @media (max-width: 980px) {
+            font-size: 32px;
+        }
+
+        @media (max-width: 767px) {
+            font-size: 24px;
+        }
+    }
+}
+
+.slide-text {
+    margin-bottom: 24px;
+
+    p {
+        margin: 0;
+        font-weight: 400;
+        font-size: 32px;
+        line-height: 1.25;
+        color: $couleur-blanche;
+
+        @media (max-width: 980px) {
+            font-size: 22px;
+        }
+
+        @media (max-width: 767px) {
+            font-size: 17px;
+        }
+    }
+}
+
+// --------------------------------------------------------------------------
+// Bouton / lien "En savoir plus"
+// --------------------------------------------------------------------------
+.slide-btns {
+    display: inline-block;
+
+    .et_pb_button {
+        display: inline-block;
+        position: relative;
+        padding: 0 0 4px;
+        font-size: 18px;
+        font-weight: 600;
+        color: $couleur-blanche;
+        text-decoration: underline;
+        text-decoration-thickness: 2px;
+        background: none;
+        border: none;
+        transition: color 0.25s ease, opacity 0.25s ease;
+
+        &:hover {
+            color: $couleur-blanche;
+            opacity: 0.85;
+            background: none;
+        }
+
+        // Variante slide vidéo (et_pb_bg_layout_light dans le markup)
+        &.et_pb_bg_layout_light {
+            color: $couleur-blanche;
+
+            &:hover {
+                color: $couleur-blanche;
+                opacity: 0.8;
+            }
+        }
+    }
+}
+
+// --------------------------------------------------------------------------
+// Navigation (flèches prev/next)
+// --------------------------------------------------------------------------
+.upk-salf-nav-pag-wrap.hero {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 4;
+    pointer-events: none; // réactivé sur les enfants cliquables
+}
+
+.upk-salf-navigation.hero {
+    position: relative;
+    width: 100%;
+    height: 100%;
+}
+
+.upk-button-prev,
+.upk-button-next {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    pointer-events: auto;
+
+    .link--arrowed {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 56px;
+        height: 56px;
+        border-radius: 50%;
+        background-color: rgba($couleur-blanche, 0.15);
+        backdrop-filter: blur(2px);
+        transition: background-color 0.25s ease, transform 0.25s ease;
+
+        .arrow-icon {
+            width: 28px;
+            height: 28px;
+
+            .arrow-icon--circle,
+            .arrow-icon--arrow {
+                stroke: $couleur-blanche;
+                transition: stroke 0.25s ease;
+            }
+        }
+
+        &:hover {
+            background-color: $slider-accent;
+            transform: translateY(-50%) scale(1.05);
+
+            .arrow-icon--circle,
+            .arrow-icon--arrow {
+                stroke: $couleur-blanche;
+            }
+        }
+    }
+}
+
+.upk-button-prev {
+    left: 24px;
+
+    .link--arrowed {
+        transform: translateY(-50%) rotate(180deg);
+
+        &:hover {
+            transform: translateY(-50%) rotate(180deg) scale(1.05);
+        }
+    }
+}
+
+.upk-button-next {
+    right: 24px;
+}
+
+@media (max-width: 767px) {
+    .upk-button-prev,
+    .upk-button-next {
+        .link--arrowed {
+            width: 40px;
+            height: 40px;
+
+            .arrow-icon {
+                width: 20px;
+                height: 20px;
+            }
+        }
+    }
+
+    .upk-button-prev {
+        left: 12px;
+    }
+
+    .upk-button-next {
+        right: 12px;
+    }
+}
+
+// --------------------------------------------------------------------------
+// Pagination (puces en bas, cf. capture)
+// --------------------------------------------------------------------------
+.upk-salf-pagi-wrap.hero {
+    position: absolute;
+    bottom: 24px;
+    left: 0;
+    width: 100%;
+    z-index: 4;
+    display: flex;
+    justify-content: center;
+}
+
+.swiper-pagination.hero {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    .swiper-pagination-bullet {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background-color: rgba($couleur-blanche, 0.5);
+        opacity: 1;
+        margin: 0;
+        transition: background-color 0.25s ease, transform 0.25s ease;
+        cursor: pointer;
+
+        &.swiper-pagination-bullet-active {
+            background-color: $couleur-blanche;
+            transform: scale(1.15);
+        }
+    }
+}
