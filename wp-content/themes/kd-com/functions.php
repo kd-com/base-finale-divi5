@@ -634,6 +634,3 @@ add_filter('forminator_custom_form_submit_field_data', function($field_data, $fo
 
     return $field_data;
 }, 10, 2);
-
-// shortcode pour afficher les pages mises en avant sur la page d'accueil
-include_once get_stylesheet_directory() . '/module_front/page_en_avant_accueil.php';
