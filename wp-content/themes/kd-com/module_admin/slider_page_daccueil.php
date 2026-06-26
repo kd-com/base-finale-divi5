@@ -23,6 +23,3 @@ function create_slider_accueil() {
   register_post_type('slider', $args);
 }
 add_action('init', 'create_slider_accueil' );
-
-?>
-
