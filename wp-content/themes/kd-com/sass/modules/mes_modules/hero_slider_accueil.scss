@@ -34,9 +34,9 @@ $slider-accent: $divi-accent;     // accent flèches au hover (aligné sur $divi
 
 // Filigrane logo en fond — à remplacer par le chemin réel de l'asset
 // (ex: image du logo en niveaux de gris / silhouette, fournie par le client)
-$slider-watermark-url: '../images/logo-filigrane-cheval.svg';
+$slider-watermark-url: './img/logo-filigrane-cheval.png';
 $slider-watermark-width: 900px;
-$slider-watermark-opacity: 0.08;
+$slider-watermark-opacity: 0.5;
 
 $slider-height: 600px;
 $slider-height-tablet: 500px;
@@ -368,7 +368,6 @@ $slider-logo-width-mobile: 140px;
 .upk-button-next {
     position: absolute;
     top: 50%;
-    transform: translateY(-50%);
     pointer-events: auto;
 
     .link--arrowed {
@@ -395,7 +394,7 @@ $slider-logo-width-mobile: 140px;
 
         &:hover {
             background-color: $slider-accent;
-            transform: translateY(-50%) scale(1.05);
+            transform:  scale(1.05);
 
             .arrow-icon--circle,
             .arrow-icon--arrow {
@@ -461,6 +460,12 @@ $slider-logo-width-mobile: 140px;
     display: flex;
     align-items: center;
     gap: 8px;
+    bottom:20px;
+    justify-content: center;
+
+    svg {
+        display:none;
+    }
 
     .swiper-pagination-bullet {
         width: 10px;
