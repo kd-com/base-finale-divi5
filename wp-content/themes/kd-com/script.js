@@ -364,7 +364,7 @@ jQuery(document).ready(function($){
 
 
 
-// slider actu
+
 
 
 
@@ -727,13 +727,16 @@ jQuery(document).ready(function($){
     function swiper_init(slider){
          // configuration
          if(slider === null) return;
+         if (slider.dataset.swiperInit) return;
          // extra controls
          let extraControls = '';
          // If we need pagination 
          extraControls += '';
          // If we need navigation buttons 
         extraControls += '';
-        slider.innerHTML = '<div class="swiper-container-logo" style="overflow:hidden">' + slider.innerHTML + '</div>' ;
+        if (!slider.querySelector('.swiper-container-logo')) {
+            slider.innerHTML = '<div class="swiper-container-logo" style="overflow:hidden">' + slider.innerHTML + '</div>' ;
+        }
 
          // Wait for Swiper
         var waitForSwiper = setInterval( function () {
@@ -766,6 +769,7 @@ jQuery(document).ready(function($){
                     }
                     }
                 });
+                slider.dataset.swiperInit = '1';
             }
         }, 20);
    }
