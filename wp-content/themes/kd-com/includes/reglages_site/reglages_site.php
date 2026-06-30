@@ -71,10 +71,12 @@ if( function_exists('acf_add_local_field_group') ) {
 
 
 // Inclusion des sous-pages personnalisées
+require_once __DIR__ . '/inc/kdcom-crypto.php';
 require_once __DIR__ . '/pages/reglages_generaux.php';
 require_once __DIR__ . '/pages/reglages_modules.php';
 require_once __DIR__ . '/pages/reglages_couleurs.php';
 require_once __DIR__ . '/pages/reglages_blocks_acf.php';
+require_once __DIR__ . '/pages/reglages_avis_google.php';
 require_once __DIR__ . '/pages/reglages_tarteaucitron.php';
 require_once __DIR__ . '/tarteaucitron/tarteaucitron-admin.php';
 
@@ -120,6 +122,14 @@ add_action('admin_menu', function() {
         'manage_options',
         'reglages-site-blocks',
         'afficher_reglages_blocks_acf'
+    );
+    add_submenu_page(
+        'reglages-site-main',
+        'Réglages Avis Google',
+        'Avis Google',
+        'manage_options',
+        'reglages-avis-google',
+        'afficher_reglages_avis_google'
     );
     // Ajout de la sous-page Tarteaucitron
     add_submenu_page(
