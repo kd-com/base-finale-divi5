@@ -3,7 +3,7 @@ if( function_exists('acf_add_local_field_group') ) {
     global $acf_module_fields;
     $acf_module_fields[] = array(
         'key' => 'group_sous_pages',
-        'title' => 'Module Vidéo aléatoire',
+        'title' => 'Module page sépcifique',
         'fields' => array(
             array(
                 'key' => 'field_page_specifique',
