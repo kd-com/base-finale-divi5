@@ -361,6 +361,35 @@ function default_post_metadata__thumbnail_id( $value, $object_id, $meta_key, $si
 }
 add_filter( 'default_post_metadata', 'default_post_metadata__thumbnail_id', 10, 5 );
 
+
+/**
+ * Autorise l'upload de SVG dans le back-office tout en vérifiant que le fichier est bien un SVG.
+ */
+function kd_com_allow_svg_upload( $mimes ) {
+    $mimes['svg'] = 'image/svg+xml';
+    return $mimes;
+}
+add_filter( 'upload_mimes', 'kd_com_allow_svg_upload' );
+
+function kd_com_validate_svg_upload( $checked, $file, $filename, $mimes ) {
+    if ( ! preg_match( '/\.svg$/i', $filename ) ) {
+        return $checked;
+    }
+
+    // Autoriser l'upload SVG uniquement pour les administrateurs.
+    if ( ! current_user_can( 'manage_options' ) ) {
+        return [ 'ext' => false, 'type' => false, 'proper_filename' => false ];
+    }
+
+    $content = @file_get_contents( $file );
+    if ( false === $content || false === stripos( $content, '<svg' ) ) {
+        return [ 'ext' => false, 'type' => false, 'proper_filename' => false ];
+    }
+
+    return [ 'ext' => 'svg', 'type' => 'image/svg+xml', 'proper_filename' => $filename ];
+}
+add_filter( 'wp_check_filetype_and_ext', 'kd_com_validate_svg_upload', 10, 4 );
+
 // LOGO PERSO SUR PAGE CONNEXION ADMIN
   function my_custom_login_logo() {
     $logo = ( $user_logo = et_get_option('divi_logo')) && ! empty($user_logo) ? $user_logo : get_bloginfo('stylesheet_directory') .'/img/logo_admin.png';
@@ -634,3 +663,6 @@ add_filter('forminator_custom_form_submit_field_data', function($field_data, $fo
 
     return $field_data;
 }, 10, 2);
+
+// shortcode pour afficher les pages mises en avant sur la page d'accueil
+include_once get_stylesheet_directory() . '/module_front/page_en_avant_accueil.php';
