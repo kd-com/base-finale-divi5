@@ -1,0 +1,158 @@
+// =========================================================
+// Module Avis Google — KD-COM
+// =========================================================
+
+@use '../../theme-colors' as *;
+
+.kdcom-google-reviews {
+	--kdcom-star-color: #fbbc04; // jaune Google, volontairement hors charte
+	--kdcom-border-color: #{$couleur_fond};
+	--kdcom-text-muted: #{$couleur_fond2};
+	margin: 2rem 0;
+
+	// --- Résumé global (note moyenne) ---
+	.kdcom-reviews-summary {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		flex-wrap: wrap;
+		margin-bottom: 1.5rem;
+	}
+
+	.kdcom-reviews-rating {
+		font-size: 1.5rem;
+		font-weight: 700;
+		line-height: 1;
+	}
+
+	.kdcom-reviews-stars .kdcom-star {
+		color: var(--kdcom-star-color);
+		font-size: 1.1rem;
+		line-height: 1;
+	}
+
+	.kdcom-reviews-total {
+		font-size: 0.9rem;
+		color: var(--kdcom-text-muted);
+	}
+
+	// --- Carte d'avis (commune aux deux modes) ---
+	.kdcom-review-card {
+		background: #{$couleur_blanche};
+		border: 1px solid var(--kdcom-border-color);
+		border-radius: 12px;
+		padding: 1.25rem;
+		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+		display: flex;
+		flex-direction: column;
+		gap: 0.75rem;
+		height: 100%;
+		transition: box-shadow 0.2s ease, transform 0.2s ease;
+
+		.kdcom-review-header {
+			display: flex;
+			align-items: center;
+			gap: 0.75rem;
+		}
+
+		.kdcom-review-avatar {
+			width: 48px;
+			height: 48px;
+			border-radius: 50%;
+			object-fit: cover;
+			flex-shrink: 0;
+		}
+
+		.kdcom-review-author-block {
+			display: flex;
+			flex-direction: column;
+			gap: 0.15rem;
+		}
+
+		.kdcom-review-author {
+			font-weight: 600;
+			font-size: 0.95rem;
+		}
+
+		.kdcom-review-stars {
+			font-size: 0.9rem;
+			color: var(--kdcom-star-color);
+		}
+
+		.kdcom-review-text {
+			font-size: 0.92rem;
+			line-height: 1.5;
+			color: #{$couleur_texte};
+			margin: 0;
+			flex-grow: 1;
+		}
+
+		.kdcom-review-date {
+			font-size: 0.8rem;
+			color: var(--kdcom-text-muted);
+		}
+	}
+
+	// --- Mode cards : grid ---
+	&.kdcom-mode-cards {
+		.kdcom-review-card:hover {
+			box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+			transform: translateY(-2px);
+		}
+	}
+
+	.kdcom-reviews-grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+		gap: 1.25rem;
+
+		@media (max-width: 480px) {
+			grid-template-columns: 1fr;
+		}
+	}
+
+	// --- Mode carrousel : Swiper ---
+	.kdcom-reviews-swiper {
+		padding-bottom: 3rem; // place pour la pagination
+
+		.swiper-slide {
+			height: auto; // aligne la hauteur des cartes entre slides
+			display: flex;
+		}
+
+		.swiper-button-next,
+		.swiper-button-prev {
+			color: var(--kdcom-star-color);
+			transform: scale(0.7);
+		}
+
+		.swiper-pagination-bullet-active {
+			background: var(--kdcom-star-color);
+		}
+	}
+
+	// --- Lien "voir tous les avis" ---
+	.kdcom-reviews-footer {
+		margin-top: 1.5rem;
+		text-align: center;
+	}
+
+	.kdcom-reviews-link {
+		display: inline-block;
+		font-weight: 600;
+		text-decoration: none;
+		color: #{$couleur_lien};
+		border-bottom: 2px solid currentColor;
+		padding-bottom: 2px;
+	}
+
+	// --- Message d'erreur (admin uniquement) ---
+	.kdcom-reviews-error {
+		background: #fdecea;
+		border: 1px solid #f5c2c0;
+		color: #842029;
+		padding: 0.75rem 1rem;
+		border-radius: 8px;
+		font-size: 0.9rem;
+	}
+}
