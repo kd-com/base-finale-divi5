@@ -11,19 +11,23 @@
             overflow: hidden;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
             transition: all 0.3s ease, box-shadow 0.3s ease;
-            background:$couleur-fond;
+            background:$couleur-blanche;
             &:hover {
                 transform: translateY(-5px);
                 box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-                background:$couleur-fond2;
             }
             .page-card-image {
                 width: 100%;
-                height: 200px;
-                object-fit: cover; 
+                height: 250px;
+                object-fit: cover;
+                overflow:hidden; 
             }
             .page-card-content {
                 padding: 15px;
+                background:$couleur-blanche;
+                display:flex;
+                justify-content:space-between;
+                align-items:center;
                 
                 h3 {
                     margin: 0 0 10px;
