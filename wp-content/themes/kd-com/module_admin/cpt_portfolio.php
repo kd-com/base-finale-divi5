@@ -35,3 +35,6 @@ include get_stylesheet_directory() . '/module_admin/portfolio_order_settings.php
 
 // Filtre pre_get_posts — applique l'ordre en front-end
 include get_stylesheet_directory() . '/module_front/cpt_portfolio.php';
+
+// Shortcode [projets_galerie] — grille + lightbox (piloté par les réglages)
+include get_stylesheet_directory() . '/module_front/projets_galerie.php';
