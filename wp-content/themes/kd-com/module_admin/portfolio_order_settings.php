@@ -36,6 +36,23 @@ add_action( 'admin_init', function () {
             return ( $v >= -1 ) ? $v : 0;
         },
     ) );
+    register_setting( 'reglages_site_modules_group', 'portfolio_lightbox_active', array(
+        'type'              => 'boolean',
+        'default'           => 0,
+        'sanitize_callback' => function ( $v ) {
+            return ( $v === '1' || $v === 1 ) ? 1 : 0;
+        },
+    ) );
+
+    register_setting( 'reglages_site_modules_group', 'portfolio_lightbox_categorie', array(
+        'type'              => 'string',
+        'default'           => '',
+        'sanitize_callback' => function ( $v ) {
+            if ( empty( $v ) ) return '';
+            $term = get_term_by( 'slug', sanitize_title( $v ), 'project_category' );
+            return $term ? $term->slug : '';
+        },
+    ) );
 } );
 
 
@@ -50,6 +67,22 @@ add_action( 'admin_footer', function () {
     if ( ! isset( $_GET['page'] ) || $_GET['page'] !== 'reglages-site-modules' ) {
         return;
     }
+    $lightbox_active = (int) get_option( 'portfolio_lightbox_active', 0 );
+    $lightbox_cat     = get_option( 'portfolio_lightbox_categorie', '' );
+
+    $categories = get_terms( array(
+        'taxonomy'   => 'project_category',
+        'hide_empty' => false,
+    ) );
+
+    $cat_select_html = '<select name="portfolio_lightbox_categorie" id="portfolio_lightbox_categorie" style="max-width:340px;width:100%;">';
+    $cat_select_html .= '<option value="" ' . selected( $lightbox_cat, '', false ) . '>Toutes les catégories</option>';
+    if ( ! is_wp_error( $categories ) ) {
+        foreach ( $categories as $term ) {
+            $cat_select_html .= '<option value="' . esc_attr( $term->slug ) . '" ' . selected( $lightbox_cat, $term->slug, false ) . '>' . esc_html( $term->name ) . '</option>';
+        }
+    }
+    $cat_select_html .= '</select>';
 
     $orderby        = get_option( 'portfolio_orderby', 'date' );
     $posts_per_page = (int) get_option( 'portfolio_posts_per_page', 0 );
@@ -138,6 +171,25 @@ add_action( 'admin_footer', function () {
                     </p>
                 </div>
             </div>
+            <div style="min-width:220px;">
+                    <label style="display:flex;align-items:center;gap:8px;margin-bottom:5px;font-size:13px;color:#444;font-weight:500;">
+                        <input type="checkbox"
+                               id="portfolio_lightbox_active"
+                               name="portfolio_lightbox_active"
+                               value="1"
+                               <?php checked( $lightbox_active, 1 ); ?> />
+                        Activer la galerie lightbox
+                    </label>
+                    <p style="margin:5px 0 8px 0;font-size:12px;color:#64748b;">
+                        Affiche les projets en grille avec ouverture de galerie en lightbox (shortcode [projets_galerie]).
+                    </p>
+                    <div id="kd-lightbox-cat-wrap" style="<?php echo $lightbox_active ? '' : 'display:none;'; ?>">
+                        <label for="portfolio_lightbox_categorie" style="display:block;margin-bottom:5px;font-size:13px;color:#444;font-weight:500;">
+                            Catégorie affichée
+                        </label>
+                        <?php echo addslashes( $cat_select_html ); ?>
+                    </div>
+                </div>
         `;
 
         // Insérer après le bloc portfolio
@@ -151,6 +203,14 @@ add_action( 'admin_footer', function () {
             }
             toggleBlock();
             portfolioCb.addEventListener('change', toggleBlock);
+        }
+        // Toggle affichage du select catégorie selon la case lightbox
+        var lightboxCb  = block.querySelector('#portfolio_lightbox_active');
+        var lightboxCat = block.querySelector('#kd-lightbox-cat-wrap');
+        if ( lightboxCb && lightboxCat ) {
+            lightboxCb.addEventListener('change', function () {
+                lightboxCat.style.display = lightboxCb.checked ? 'block' : 'none';
+            });
         }
     })();
     </script>
