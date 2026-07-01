@@ -631,38 +631,14 @@ function shortcode_test_newsletter() {
 }
 add_shortcode('test_newsletter', 'shortcode_test_newsletter');
 
-// création du cpt produits
-add_action('init', function() {
-    register_post_type('produit', [
-        'labels' => [
-            'name'          => 'Produits',
-            'singular_name' => 'Produit',
-        ],
-        'public'       => true,
-        'has_archive'  => true,
-        'show_in_rest' => true,
-        'supports'     => ['title', 'editor', 'thumbnail'],
-        'rewrite'      => ['slug' => 'produits'],
-        'menu_icon'    => 'dashicons-products', // 👈 icône ici
-    ]);
-});
-// gestion du formulaire par produit
-add_filter('forminator_custom_form_submit_field_data', function($field_data, $form_id) {
-    $referer = wp_get_referer();
-
-    if ($referer) {
-        $post_id = url_to_postid($referer);
-        if ($post_id && get_post_type($post_id) === 'produit') {
-            $post_title = get_the_title($post_id);
-            $field_data[] = [
-                'name'  => 'hidden-1',
-                'value' => $post_title . ' - ' . $referer,
-            ];
-        }
-    }
-
-    return $field_data;
-}, 10, 2);
-
-// shortcode pour afficher les pages mises en avant sur la page d'accueil
-include_once get_stylesheet_directory() . '/module_front/page_en_avant_accueil.php';
+// chargement du lightbox sur le portfolio si activé
+function enqueue_gallery_lightbox() {
+    wp_register_script(
+        'gallery-lightbox',
+        get_stylesheet_directory_uri() . '/js/gallery-lightbox.js',
+        array(),
+        '1.1',
+        true
+    );
+}
+add_action('wp_enqueue_scripts', 'enqueue_gallery_lightbox');
