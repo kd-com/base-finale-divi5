@@ -42,6 +42,7 @@ document.addEventListener('DOMContentLoaded', function () {
     #kd-lightbox-next { right: 12px; }
     #kd-lightbox-prev:hover, #kd-lightbox-next:hover { opacity: 1; }
     .wp-block-gallery .wp-block-image img { cursor: zoom-in; }
+    .projet-item { cursor: zoom-in; }
   `;
   document.head.appendChild(style);
 
@@ -56,7 +57,7 @@ document.addEventListener('DOMContentLoaded', function () {
   let currentIndex = 0;
   let initialized  = false;
 
-  // ── Collecte des images ─────────────────────────────────────────────────
+  // ── Collecte des images (galeries Gutenberg) ────────────────────────────
   function collectImages() {
     images = [];
     document.querySelectorAll('.wp-block-gallery .wp-block-image img').forEach(function (img) {
@@ -73,6 +74,9 @@ document.addEventListener('DOMContentLoaded', function () {
       img.addEventListener('click', function (e) {
         e.preventDefault();
         e.stopPropagation();
+        images = Array.from(document.querySelectorAll('.wp-block-gallery .wp-block-image img')).map(function (im) {
+          return { src: im.getAttribute('data-full') || im.src, alt: im.alt };
+        });
         currentIndex = i;
         openLightbox(currentIndex);
       });
@@ -128,7 +132,29 @@ document.addEventListener('DOMContentLoaded', function () {
     if (e.key === 'ArrowRight') showNext();
   });
 
-  // ── Initialisation : masonry présent ou non ─────────────────────────────
+  // ── Galeries des cartes projet (shortcode [projets_galerie]) ────────────
+  // Délégation d'événement : fonctionne même si les .projet-item sont
+  // injectés dans le DOM après coup (Divi lazy-load, AJAX, etc.)
+  document.addEventListener('click', function (e) {
+    const item = e.target.closest('.projet-item');
+    if (!item) return;
+
+    e.preventDefault();
+
+    let data;
+    try {
+      data = JSON.parse(item.dataset.gallery || '[]');
+    } catch (err) {
+      return;
+    }
+    if (!data.length) return;
+
+    images       = data;
+    currentIndex = 0;
+    openLightbox(currentIndex);
+  });
+
+  // ── Initialisation : masonry présent ou non (galeries Gutenberg) ───────
   // Cas 1 : masonry actif → on attend son signal
   document.addEventListener('masonry:ready', function () {
     collectImages();
