@@ -630,15 +630,3 @@ function shortcode_test_newsletter() {
     return generer_contenu_newsletter();
 }
 add_shortcode('test_newsletter', 'shortcode_test_newsletter');
-
-// chargement du lightbox sur le portfolio si activé
-function enqueue_gallery_lightbox() {
-    wp_register_script(
-        'gallery-lightbox',
-        get_stylesheet_directory_uri() . '/js/gallery-lightbox.js',
-        array(),
-        '1.1',
-        true
-    );
-}
-add_action('wp_enqueue_scripts', 'enqueue_gallery_lightbox');
