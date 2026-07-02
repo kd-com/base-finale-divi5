@@ -88,6 +88,17 @@ function kd_shortcode_projets_galerie( $atts ) {
     }
 
     // Script chargé uniquement quand le shortcode s'exécute réellement
+    // Enregistre le script uniquement s'il ne l'est pas déjà
+    // (indépendant du module galerie_lightbox.php, qui peut être actif ou non)
+    if ( ! wp_script_is( 'gallery-lightbox', 'registered' ) ) {
+        wp_register_script(
+            'gallery-lightbox',
+            get_stylesheet_directory_uri() . '/js/gallery-lightbox.js',
+            array(),
+            '1.1',
+            true
+        );
+    }
     wp_enqueue_script( 'gallery-lightbox' );
 
     ob_start();
