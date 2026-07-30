@@ -219,6 +219,36 @@ echo "🧹 Vidage du cache WordPress..."
 docker exec -i "$WORDPRESS_CONTAINER" wp cache flush --allow-root 2>/dev/null || echo "⚠️  Pas de cache à vider"
 
 ###############################################
+# 🔌 Activation du plugin ACF Pro
+###############################################
+
+echo ""
+echo "🔌 Activation du plugin ACF Pro..."
+
+# Vérifier que le conteneur WordPress est démarré
+if ! docker ps --format '{{.Names}}' | grep -q "^${WORDPRESS_CONTAINER}$"; then
+    echo "⚠️  Le conteneur WordPress n'est pas démarré. Tentative de démarrage..."
+    docker-compose up -d wordpress
+    sleep 5
+fi
+
+# Vérifier si le plugin ACF Pro existe
+if docker exec -i "$WORDPRESS_CONTAINER" wp plugin is-installed advanced-custom-fields-pro --allow-root 2>/dev/null; then
+    echo "✅ Plugin ACF Pro trouvé"
+    
+    # Activer le plugin s'il ne l'est pas déjà
+    if docker exec -i "$WORDPRESS_CONTAINER" wp plugin is-active advanced-custom-fields-pro --allow-root 2>/dev/null; then
+        echo "ℹ️  Plugin ACF Pro est déjà activé"
+    else
+        echo "🔌 Activation du plugin ACF Pro..."
+        docker exec -i "$WORDPRESS_CONTAINER" wp plugin activate advanced-custom-fields-pro --allow-root
+        echo "✅ Plugin ACF Pro activé avec succès"
+    fi
+else
+    echo "⚠️  Plugin ACF Pro non trouvé. Vérifiez que le sous-module a été initialisé."
+fi
+
+###############################################
 # ✅ Résumé final
 ###############################################
 
