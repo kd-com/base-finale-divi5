@@ -14,7 +14,6 @@ if( function_exists('acf_add_local_field_group') ):
 acf_add_local_field_group(array(
     'key' => 'group_portfolio_block',
     'title' => 'Configuration Portfolio',
-    'instruction' => 'Affichage de réalisations par catégorie, avec options de tri et d\'affichage',
     'fields' => array(
 
         // === TITRE DE SECTION ===
