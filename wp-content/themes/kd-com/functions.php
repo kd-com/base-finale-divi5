@@ -299,7 +299,9 @@ function wd_acf_dynamic_colors_load( $field ) {
 
           // loop over each color and create option
           foreach( $colors[0] as $color ) {
-               $field['choices'][ $color['slug'] ] = $color['name'];
+                // IMPORTANT : WordPress remplace les underscores par des tirets
+               $slug_css = str_replace( '_', '-', $color['slug'] );
+               $field['choices'][ $slug_css ] = $color['name'];
           }
      }
 
