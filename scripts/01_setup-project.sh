@@ -161,6 +161,14 @@ EOF
 
 echo ""
 echo "-------------------------------------------"
+echo "  📦 Initialisation du sous-module ACF Pro"
+echo "-------------------------------------------"
+
+# Appel du script dédié pour la configuration ACF Pro
+./scripts/02_setup-acf-pro.sh
+
+echo ""
+echo "-------------------------------------------"
 echo "  🎉 Projet initialisé avec succès !"
 echo "-------------------------------------------"
 echo "Fichier .env généré :"
