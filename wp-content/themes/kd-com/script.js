@@ -631,76 +631,80 @@ jQuery(document).ready(function($){
 
 // HERO SLIDER conditionné et Swiper chargé
 jQuery(document).ready(function($){
-    if ($('.swiper-slide.hero').length) {
+    if ($('.hero-slider .swiper-slide.hero').length) {
         var waitForSwiperHero = setInterval(function() {
             if (typeof Swiper !== 'undefined') {
                 clearInterval(waitForSwiperHero);
-                if ($('.swiper-slide.hero').length == 1 || $('.swiper-slide.hero.video').length == 1) {
-                    $('.swiper-wrapper.hero').addClass( "disabled" );
-                    $('.swiper-pagination.hero').addClass( "disabled" );
-                    $('.upk-salf-nav-pag-wrap.hero').addClass("disabled");
-                    $('.swiper-button-next.hero').addClass('disabled');
-                    $('.swiper-button-prev.hero').addClass('disabled');
-                    $('.container.hero').addClass('disabled');
-                }
-                var menu = [];
-                jQuery('.swiper-slide.hero').each( function(index){
-                    menu.push( jQuery(this).find('.slide-inner').attr("data-text") );
-                });
-                var interleaveOffset = 0.5;
-                var swiperOptions = {
-                    loop: true,
-                    speed: 1000,
-                    parallax: true,
-                    autoplay: {
-                        delay: 6500,
-                        disableOnInteraction: false,
-                    },
-                    watchSlidesProgress: true,
-                    pagination: {
-                        el: '.swiper-pagination',
-                        clickable: true,
-                        renderBullet: function(index, className) {
-                            return '<span class="' + className + ' swiper-pagination-bullet--svg-animation"><svg width="28" height="28" viewBox="0 0 28 28"><circle class="svg__circle" cx="14" cy="14" r="10" fill="none" stroke-width="2"></circle><circle class="svg__circle-inner" cx="14" cy="14" r="2" stroke-width="3"></circle></svg></span>';
+                $('.hero-slider .swiper-container').each(function() {
+                    var container = this;
+                    var $slider = $(container).closest('.hero-slider');
+                    var $slides = $slider.find('.swiper-slide.hero');
+                    var hasVideo = $slides.filter('.video').length > 0;
+                    var enableLoop = $slides.length > 1 && !hasVideo;
+
+                    if (container.swiper) {
+                        return;
+                    }
+
+                    if (!enableLoop) {
+                        $slider.find('.swiper-wrapper.hero, .swiper-pagination.hero, .upk-salf-nav-pag-wrap.hero').addClass('disabled');
+                    }
+
+                    var swiperOptions = {
+                        loop: enableLoop,
+                        speed: 1000,
+                        parallax: true,
+                        autoplay: {
+                            delay: 6500,
+                            disableOnInteraction: false,
                         },
-                    },
-                    navigation: {
-                        nextEl: '.upk-button-next',
-                        prevEl: '.upk-button-prev',
-                    },
-                    on: {
-                        progress: function() {
-                            var swiper = this;
-                            for (var i = 0; i < swiper.slides.length; i++) {
-                                var slideProgress = swiper.slides[i].progress;
-                                var innerOffset = swiper.width * interleaveOffset;
-                                var innerTranslate = slideProgress;
-                                swiper.slides[i].querySelector(".slide-inner").style.transform =
-                                "translate3d(" + innerTranslate + "px, 0, 0)";
-                            }      
+                        watchSlidesProgress: true,
+                        pagination: {
+                            el: $slider.find('.swiper-pagination.hero')[0],
+                            clickable: true,
+                            renderBullet: function(index, className) {
+                                return '<span class="' + className + ' swiper-pagination-bullet--svg-animation"><svg width="28" height="28" viewBox="0 0 28 28"><circle class="svg__circle" cx="14" cy="14" r="10" fill="none" stroke-width="2"></circle><circle class="svg__circle-inner" cx="14" cy="14" r="2" stroke-width="3"></circle></svg></span>';
+                            },
                         },
-                        touchStart: function() {
-                          var swiper = this;
-                          for (var i = 0; i < swiper.slides.length; i++) {
-                            swiper.slides[i].style.transition = "";
-                          }
+                        navigation: {
+                            nextEl: $slider.find('.upk-button-next')[0],
+                            prevEl: $slider.find('.upk-button-prev')[0],
                         },
-                        setTransition: function(speed) {
-                            var swiper = this;
-                            for (var i = 0; i < swiper.slides.length; i++) {
-                                swiper.slides[i].style.transition = speed + "ms";
-                                swiper.slides[i].querySelector(".slide-inner").style.transition =
-                                speed + "ms";
+                        on: {
+                            progress: function() {
+                                var swiper = this;
+                                for (var i = 0; i < swiper.slides.length; i++) {
+                                    var slideInner = swiper.slides[i].querySelector('.slide-inner');
+                                    if (slideInner) {
+                                        slideInner.style.transform = 'translate3d(' + swiper.slides[i].progress + 'px, 0, 0)';
+                                    }
+                                }
+                            },
+                            touchStart: function() {
+                                var swiper = this;
+                                for (var i = 0; i < swiper.slides.length; i++) {
+                                    swiper.slides[i].style.transition = '';
+                                }
+                            },
+                            setTransition: function(speed) {
+                                var swiper = this;
+                                for (var i = 0; i < swiper.slides.length; i++) {
+                                    var slideInner = swiper.slides[i].querySelector('.slide-inner');
+                                    swiper.slides[i].style.transition = speed + 'ms';
+                                    if (slideInner) {
+                                        slideInner.style.transition = speed + 'ms';
+                                    }
+                                }
                             }
                         }
-                    }
-                };
-                var swiper = new Swiper(".swiper-container", swiperOptions);
-                // DATA BACKGROUND IMAGE
-                var sliderBgSetting = $(".slide-bg-image");
-                sliderBgSetting.each(function(indx){
-                    if ($(this).attr("data-background")){
-                        $(this).css("background-image", "url(" + $(this).data("background") + ")");
+                    };
+
+                    new Swiper(container, swiperOptions);
+                });
+
+                $('.hero-slider .slide-bg-image').each(function() {
+                    if ($(this).attr('data-background')) {
+                        $(this).css('background-image', 'url(' + $(this).data('background') + ')');
                     }
                 });
             }
