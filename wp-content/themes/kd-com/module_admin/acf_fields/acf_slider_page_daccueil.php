@@ -12,14 +12,13 @@
  *  - lien_slider          (page_link)                       field_637ca228605d5
  *  - texte_bouton_slider  (texte)                            field_637ca239605d6
  *
- * Champs ajoutés (nouveaux, absents du JSON) :
- *  - video_plateforme     (select : YouTube / Vimeo)
- *  - video_id             (texte : uniquement l'ID de la vidéo)
+ * Champ ajouté (nouveau, absent du JSON) :
+ *  - video                (oEmbed : URL YouTube / Vimeo)
  *  - afficher_les_textes  (true / false)
  *
  * Exclusivité mutuelle image / vidéo :
- *  - image_slider est masqué dès que video_id est rempli
- *  - video_plateforme / video_id sont masqués dès que image_slider est rempli
+ *  - image_slider est masqué dès que video est renseigné
+ *  - video est masqué dès que image_slider est renseignée
  *
  * Le CPT "slider" est supposé déjà enregistré ailleurs dans le thème.
  *
@@ -43,13 +42,13 @@ function kdcom_register_acf_fields_slider() {
         'title'                 => 'Slider accueil',
         'fields'                => array(
 
-            // --- Champ ajouté : plateforme vidéo --------------------------
+            // --- Champ ajouté : vidéo oEmbed ------------------------------
             array(
-                'key'           => 'field_slider_video_plateforme',
-                'label'         => 'Plateforme vidéo',
-                'name'          => 'video_plateforme',
-                'type'          => 'select',
-                'instructions'  => 'Choisir la plateforme d\'hébergement de la vidéo.',
+                'key'           => 'field_slider_video',
+                'label'         => 'Vidéo',
+                'name'          => 'video',
+                'type'          => 'oembed',
+                'instructions'  => 'Coller l\'URL complète d\'une vidéo YouTube ou Vimeo. La vidéo remplace l\'image du slide.',
                 'required'      => 0,
                 'conditional_logic' => array(
                     array(
@@ -60,48 +59,12 @@ function kdcom_register_acf_fields_slider() {
                     ),
                 ),
                 'wrapper'       => array(
-                    'width' => '50',
+                    'width' => '',
                     'class' => '',
                     'id'    => '',
                 ),
-                'choices'       => array(
-                    'youtube' => 'YouTube',
-                    'vimeo'   => 'Vimeo',
-                ),
-                'default_value' => 'youtube',
-                'allow_null'    => 0,
-                'multiple'      => 0,
-                'ui'            => 0,
-                'ajax'          => 0,
-                'return_format' => 'value',
-            ),
-
-            // --- Champ ajouté : ID vidéo -----------------------------------
-            array(
-                'key'           => 'field_slider_video_id',
-                'label'         => 'ID de la vidéo',
-                'name'          => 'video_id',
-                'type'          => 'text',
-                'instructions'  => 'Coller uniquement l\'identifiant de la vidéo (ex: YouTube "dQw4w9WgXcQ", Vimeo "76979871"), pas l\'URL complète. Si ce champ est rempli, la vidéo remplace l\'image de fond.',
-                'required'      => 0,
-                'conditional_logic' => array(
-                    array(
-                        array(
-                            'field'    => 'field_637ca1e0605d2',
-                            'operator' => '==empty',
-                        ),
-                    ),
-                ),
-                'wrapper'       => array(
-                    'width' => '50',
-                    'class' => '',
-                    'id'    => '',
-                ),
-                'default_value' => '',
-                'placeholder'   => 'ex : dQw4w9WgXcQ',
-                'maxlength'     => '',
-                'prepend'       => '',
-                'append'        => '',
+                'width'         => '',
+                'height'        => '',
             ),
 
             // --- Champ repris du JSON : image_slider ----------------------
@@ -116,7 +79,7 @@ function kdcom_register_acf_fields_slider() {
                 'conditional_logic' => array(
                     array(
                         array(
-                            'field'    => 'field_slider_video_id',
+                            'field'    => 'field_slider_video',
                             'operator' => '==empty',
                         ),
                     ),
