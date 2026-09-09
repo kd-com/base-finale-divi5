@@ -9,7 +9,7 @@
 //
 // ⚠️ La couleur orange du fond de slide et la couleur rose/violet (#ff215a)
 // des flèches SVG du template PHP ne sont pas présentes dans le fichier de
-// variables fourni. Elles sont ici en valeurs locales ($slider-bg-color,
+// variables fourni. Elles sont ici en valeurs locales ($couleur-fond,
 // $slider-accent) à remplacer par tes propres variables de thème enfant
 // si elles existent ailleurs (ex: dans un fichier _kdcom-variables.scss).
 //
@@ -17,10 +17,10 @@
 //   Cas IMAGE (.swiper-slide.hero, sans .video) :
 //     .slide-inner               → fond gradient + filigrane logo
 //       .container.hero          → texte (titre, sous-titre, bouton), à gauche
-//       img.slide-visual         → PNG détouré, positionné à droite
+//       img                       → image du slide
 //   Cas VIDÉO (.swiper-slide.hero.video) :
-//     iframe.slide-video-bg      → vidéo plein cadre (YouTube/Vimeo construit depuis l'ID)
-//     .slide-inner-video         → overlay sombre + texte blanc par-dessus
+//     iframe                     → vidéo oEmbed plein cadre
+//     .slide-inner               → overlay + texte blanc par-dessus
 
 @use '../../_theme-colors' as *;
 @use 'sass:list';
@@ -28,8 +28,7 @@
 // --------------------------------------------------------------------------
 // Variables locales au module (à remplacer si équivalent existant)
 // --------------------------------------------------------------------------
-$slider-bg-color: #e8772e;        // teinte orange dominante du fond (capture Figma)
-$slider-bg-color-2: #f0954f;      // variante claire pour le gradient
+
 $slider-accent: $divi-accent;     // accent flèches au hover (aligné sur $divi-accent)
 
 // Filigrane logo en fond — à remplacer par le chemin réel de l'asset
@@ -38,9 +37,7 @@ $slider-watermark-url: './img/logo-filigrane-cheval.png';
 $slider-watermark-width: 900px;
 $slider-watermark-opacity: 0.5;
 
-$slider-height: 600px;
-$slider-height-tablet: 500px;
-$slider-height-mobile: 480px;
+$slider-height: calc(100vh - var(--kd-main-menu-height));
 
 $slider-content-max-width: 600px;
 $slider-visual-max-width: 45%;
@@ -53,6 +50,7 @@ $slider-logo-width-mobile: 140px;
 .hero-slider {
     position: relative;
     width: 100%;
+    margin-top: var(--kd-main-menu-height);
     overflow: hidden;
 
     &.hero-style {
@@ -65,17 +63,29 @@ $slider-logo-width-mobile: 140px;
         height: $slider-height;
 
         @media (max-width: 980px) {
-            height: $slider-height-tablet;
+            height: $slider-height;
         }
 
         @media (max-width: 767px) {
             height: auto;
-            min-height: $slider-height-mobile;
+            min-height: $slider-height;
         }
     }
 
     .swiper-wrapper.hero {
-        height: 100%;
+        height: $slider-height;
+
+        @media (max-width: 980px) {
+            height: $slider-height;
+        }
+
+        @media (max-width: 767px) {
+            height: $slider-height;
+        }
+    }
+
+    @media (max-width: 767px) {
+        margin-top: var(--kd-main-menu-height);
     }
 }
 
@@ -90,7 +100,7 @@ $slider-logo-width-mobile: 140px;
 
     // Slide vidéo : l'iframe en arrière-plan plein cadre, le contenu par-dessus
     &.video {
-        .slide-video-bg {
+        > iframe {
             position: absolute;
             top: 50%;
             left: 50%;
@@ -105,14 +115,25 @@ $slider-logo-width-mobile: 140px;
             pointer-events: none;
             z-index: 0;
             border: 0;
+            display: block;
+        }
+
+        // Le .slide-inner généré par le template devient la couche de contenu.
+        > .slide-inner {
+            z-index: 1;
+            background: none;
+
+            .container.hero {
+                z-index: 2;
+            }
         }
     }
 }
 
 // --------------------------------------------------------------------------
-// Slide inner — variante vidéo : overlay sombre, pas de fond coloré/filigrane
+// Slide vidéo : overlay sombre, pas de fond coloré/filigrane
 // --------------------------------------------------------------------------
-.slide-inner-video {
+.swiper-slide.hero.video > .slide-inner {
     position: relative;
     width: 100%;
     height: 100%;
@@ -140,14 +161,17 @@ $slider-logo-width-mobile: 140px;
     }
 
     .container.hero {
-        position: relative;
+        position: absolute;
+        top: 50%;
+        left: 0;
+        transform: translateY(-50%);
         z-index: 1;
     }
 
     // Sur fond vidéo + overlay sombre, le titre passe en blanc
     // (contrairement au slide image où il reste en couleur sombre)
     .slide-title h2 {
-        color: $couleur-blanche;
+        color: $couleur-blanche !important;
     }
 }
 
@@ -165,34 +189,11 @@ $slider-logo-width-mobile: 140px;
     // Fond en gradient rappelant la couleur du logo client
     background: linear-gradient(
         120deg,
-        $slider-bg-color 0%,
-        $slider-bg-color-2 100%
+        $couleur-fond 0%,
+        $couleur-fond2 100%
     );
 
-    // Filigrane logo en fond (image fixe, pas de champ ACF)
-    &::before {
-        content: '';
-        position: absolute;
-        top: 50%;
-        left: 8%;
-        width: $slider-watermark-width;
-        height: $slider-watermark-width;
-        max-width: 90%;
-        background-image: url('#{$slider-watermark-url}');
-        background-repeat: no-repeat;
-        background-position: center;
-        background-size: contain;
-        opacity: $slider-watermark-opacity;
-        transform: translateY(-50%);
-        z-index: 0;
-        pointer-events: none;
-
-        @media (max-width: 767px) {
-            width: 100%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-        }
-    }
+    
 }
 
 // --------------------------------------------------------------------------
