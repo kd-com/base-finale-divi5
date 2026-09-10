@@ -48,10 +48,21 @@ EOF
 # connecte en spécifiant -h localhost échoue avec "Access denied" même si
 # le mot de passe est correct, car MySQL traite 'user'@'%' et
 # 'user'@'localhost' comme deux comptes distincts (vécu sur equitasun).
+#
+# NOTE IMPORTANTE : CREATE USER IF NOT EXISTS ne met PAS à jour le mot de
+# passe si le compte existe déjà (il ignore silencieusement IDENTIFIED BY).
+# Si le script est relancé avec un DB_PASSWORD différent (ex: .env régénéré),
+# l'ancien mot de passe reste en place sans aucune erreur, et les scripts de
+# sync (mysqldump, wp search-replace, etc.) échouent ensuite avec
+# "Access denied" alors que tout semblait "🎉 configuré". On force donc un
+# ALTER USER après chaque CREATE USER pour resynchroniser le mot de passe
+# à chaque exécution, que le compte soit neuf ou déjà existant.
 echo "👤 Vérification / création de l'utilisateur : $DB_USER (hosts % et localhost)"
 $MYSQL_CMD <<EOF
 CREATE USER IF NOT EXISTS '$DB_USER'@'%' IDENTIFIED BY '$DB_PASSWORD';
+ALTER USER '$DB_USER'@'%' IDENTIFIED BY '$DB_PASSWORD';
 CREATE USER IF NOT EXISTS '$DB_USER'@'localhost' IDENTIFIED BY '$DB_PASSWORD';
+ALTER USER '$DB_USER'@'localhost' IDENTIFIED BY '$DB_PASSWORD';
 EOF
 
 echo "🔐 Attribution des privilèges..."
@@ -65,7 +76,7 @@ echo ""
 echo "🎉 Base et utilisateur MySQL correctement configurés !"
 echo "📌 Base      : $DB_NAME"
 echo "📌 Utilisateur : $DB_USER (hosts % et localhost)"
-echo "📌 Mot de passe : (défini via .env)"
+echo "📌 Mot de passe : (défini via .env, resynchronisé à chaque run)"
 echo ""
 echo "Tu peux maintenant relancer :"
 echo "👉 ./scripts/03_init-wp.sh"
