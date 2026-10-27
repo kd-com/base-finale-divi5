@@ -39,3 +39,6 @@ vendor/
 # Ignorer les archives de transfert locales
 wp-archive-*
 *_??????_??????
+.vibe/skills/
+.vibe
+AGENTS.md
