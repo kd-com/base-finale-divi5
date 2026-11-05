@@ -35,6 +35,9 @@ services:
       - "traefik.http.routers.${PROJECT_NAME}.tls=true"
       - "traefik.http.routers.${PROJECT_NAME}.tls.certresolver=myresolver"
       - "traefik.http.services.${PROJECT_NAME}.loadbalancer.server.port=80"
+      - "traefik.http.routers.${PROJECT_NAME}-http.rule=Host(`${WP_DOMAIN}`)"
+      - "traefik.http.routers.${PROJECT_NAME}-http.entrypoints=web"
+      - "traefik.http.routers.${PROJECT_NAME}-http.service=${PROJECT_NAME}"
       
       # ⭐ Headers HTTPS pour WordPress
       - "traefik.http.middlewares.${PROJECT_NAME}-headers.headers.customrequestheaders.X-Forwarded-Proto=https"

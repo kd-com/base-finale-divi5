@@ -30,12 +30,12 @@ if (!empty($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PRO
 // 🌐 Configuration URL WordPress
 // ============================================
 $wp_domain = getenv('WP_DOMAIN') ?: 'localhost';
-$wp_protocol = 'https';
+$wp_protocol = (!empty($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https') ? 'https' : 'http';
 
 define('WP_HOME', $wp_protocol . '://' . $wp_domain);
 define('WP_SITEURL', $wp_protocol . '://' . $wp_domain);
-define('FORCE_SSL_ADMIN', true);
-define('FORCE_SSL_LOGIN', true);
+define('FORCE_SSL_ADMIN', $wp_protocol === 'https');
+define('FORCE_SSL_LOGIN', $wp_protocol === 'https');
 define('WP_CONTENT_URL', $wp_protocol . '://' . $wp_domain . '/wp-content');
 define('WP_PLUGIN_URL', $wp_protocol . '://' . $wp_domain . '/wp-content/plugins');
 
